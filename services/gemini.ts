@@ -264,9 +264,17 @@ export const executeWithRotation = async <T>(
                 }
             }
         }
+        throw new Error("All available API keys are currently busy or exhausted. Please try again later.");
+    } else {
+        // FALLBACK TO SERVER ENV KEYS (No Client Keys)
+        try {
+            // Pass empty string to signal server-side fallback
+            return await operation("");
+        } catch (error: any) {
+            console.error("Server-side fallback failed:", error);
+            throw new Error("AI Service Unavailable. Please check Admin Configuration or Server Logs.");
+        }
     }
-    
-    throw new Error("AI services are currently busy or keys are invalid. Please check API Configuration in Admin Dashboard.");
 };
 
 // --- PARALLEL BULK EXECUTION ENGINE ---
