@@ -282,6 +282,7 @@ export interface SystemSettings {
   customCSS?: string;
   apiKeys?: any[]; // Legacy Gemini Keys
   groqApiKeys?: string[]; // NEW: Groq Keys
+  geminiApiKeys?: string[]; // NEW: Gemini Keys
   deletedGroqKeys?: { key: string, deletedAt: number }[]; // NEW: Recycle Bin
   adminCode?: string;
   adminEmail?: string;
