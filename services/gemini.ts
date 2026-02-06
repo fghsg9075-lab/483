@@ -1,4 +1,5 @@
 
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ClassLevel, Subject, Chapter, LessonContent, Language, Board, Stream, ContentType, MCQItem, SystemSettings } from "../types";
 import { STATIC_SYLLABUS } from "../constants";
 import { getChapterData, getCustomSyllabus, getSecureKeys, incrementApiUsage, getApiUsage, rtdb } from "../firebase";
@@ -11,61 +12,61 @@ const getAvailableKeys = async (): Promise<string[]> => {
     const keys: string[] = [];
     
     // 1. Try Global Secure Keys from RTDB (Primary Source for Persistence)
-    // Use secure_keys/gemini to separate from Groq
+    // This allows the app to work even if Admin email changes
     try {
         if (rtdb) {
-            const snapshot = await get(ref(rtdb, 'secure_keys/gemini'));
+            const snapshot = await get(ref(rtdb, 'secure_keys/list'));
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 if (Array.isArray(data)) {
                     data.forEach((k: any) => {
                             if (typeof k === 'string' && k.trim()) keys.push(k.trim());
                     });
-                    // console.log(`Loaded ${keys.length} Global Gemini Keys`);
-                    return keys;
+                    console.log(`Loaded ${keys.length} Global Secure Keys`);
+                    return keys; // Return immediately if found (Highest Priority)
                 }
-            }
-
-            // Fallback: Check 'secure_keys/list' if 'gemini' is empty (Migration support)
-            const legacySnapshot = await get(ref(rtdb, 'secure_keys/list'));
-            if (legacySnapshot.exists()) {
-                 const data = legacySnapshot.val();
-                 if (Array.isArray(data)) {
-                    data.forEach((k: any) => {
-                            if (typeof k === 'string' && k.trim()) keys.push(k.trim());
-                    });
-                 }
             }
         }
     } catch(e) {
         console.warn("Failed to fetch global keys:", e);
     }
 
-    // 2. Try System Settings (LocalStorage)
+    // 2. Try Secure Keys (Admin Only - Legacy)
+    try {
+        const userStr = localStorage.getItem('nst_current_user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') {
+                const secure = await getSecureKeys();
+                if (secure && secure.length > 0) {
+                    console.log("Using Secure Admin Keys from Firestore");
+                    return secure;
+                }
+            }
+        }
+    } catch(e) {}
+    
+    // 2. Try System Settings (LocalStorage - for Students/Public)
     try {
         const storedSettings = localStorage.getItem('nst_system_settings');
         if (storedSettings) {
             const parsed = JSON.parse(storedSettings) as SystemSettings;
-            if (parsed.geminiApiKeys && Array.isArray(parsed.geminiApiKeys)) {
-                parsed.geminiApiKeys.forEach(k => {
-                    if(k && typeof k === 'string' && k.trim()) {
-                        keys.push(k.trim());
-                    }
-                });
-            } else if (parsed.apiKeys && Array.isArray(parsed.apiKeys)) {
-                // Legacy
+            if (parsed.apiKeys && Array.isArray(parsed.apiKeys)) {
                 parsed.apiKeys.forEach(k => { 
                     if(k && typeof k === 'string' && k.trim()) {
                         keys.push(k.trim()); 
                     }
                 });
+                if (parsed.apiKeys.length > 0) console.log("Using Keys from System Settings");
             }
         }
     } catch (e) {}
     
     const valid = Array.from(new Set(keys)).filter(k => k.length > 5); 
     if (valid.length === 0) {
-        console.warn("No Gemini Keys found (Restricted Mode)");
+        console.warn("No API Keys found (Restricted Mode)");
+    } else {
+        console.log(`Loaded ${valid.length} API Keys.`);
     }
     return valid;
 };
@@ -86,63 +87,6 @@ const mapToGeminiSchema = (schema: any): any => {
     return newSchema;
 };
 
-// PROXY CALL HELPER
-const callGeminiApi = async (
-    contents: any[],
-    model: string,
-    key: string,
-    tools?: any[],
-    toolConfig?: any,
-    systemInstruction?: string
-) => {
-    // If system instruction is present, it's passed differently in REST API or needs to be prepended?
-    // Gemini API v1beta supports systemInstruction field in top level body.
-
-    const payload: any = {
-        model,
-        contents,
-        key,
-        generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8192
-        }
-    };
-
-    if (tools) payload.tools = tools;
-    if (toolConfig) payload.toolConfig = toolConfig;
-    // Note: our api/gemini.ts doesn't explicitly extract systemInstruction but spreads ...body?
-    // Wait, api/gemini.ts extracts specific fields: model, contents, generationConfig, safetySettings, key, tools, toolConfig.
-    // I should update api/gemini.ts to include systemInstruction if I want to support it properly?
-    // Or I can just prepend it to contents if it's not supported in proxy.
-    // Gemini "System Instructions" are a separate field.
-    // For now, I'll prepend it to contents as role: 'user' or 'model' logic is tricky.
-    // Actually, "system" role is supported in beta.
-
-    if (systemInstruction) {
-        // payload.systemInstruction = { parts: [{ text: systemInstruction }] };
-        // Since my proxy strictly picks fields, and I forgot systemInstruction, I should probably just leave it out
-        // OR rely on the fact that `api/gemini.ts` passes `...payload`?
-        // No, `api/gemini.ts` constructs payload manually.
-
-        // Workaround: Prepend to contents as text.
-        // contents.unshift({ role: 'user', parts: [{ text: `SYSTEM INSTRUCTION: ${systemInstruction}` }] });
-        // contents.unshift({ role: 'model', parts: [{ text: "Understood." }] });
-    }
-
-    const response = await fetch("/api/gemini", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
-    }
-
-    return await response.json();
-};
-
 export const callGeminiApiWithTools = async (messages: any[], tools: any[], modelName: string = "gemini-1.5-flash") => {
     // 1. Convert OpenAI Tool Schema to Gemini Schema
     const functionDeclarations = tools.map((t: any) => {
@@ -154,58 +98,56 @@ export const callGeminiApiWithTools = async (messages: any[], tools: any[], mode
     });
     
     // 2. Execute
-    return await executeWithRotation(async (key) => {
+    return await executeWithRotation(async (ai) => {
         const systemMsg = messages.find((m: any) => m.role === 'system')?.content;
         
-        // Build History
-        const contents = messages
+        const model = ai.getGenerativeModel({ 
+            model: modelName,
+            tools: [{ functionDeclarations }],
+            systemInstruction: systemMsg
+        });
+        
+        // Build History (excluding system)
+        const history = messages
             .filter((m: any) => m.role !== 'system' && m.role !== 'function') 
+            .slice(0, -1)
             .map((m: any) => ({
                 role: m.role === 'assistant' ? 'model' : 'user',
                 parts: [{ text: m.content }]
             }));
             
-        // Gemini doesn't support 'function' role in history directly in this simple mapping
-        // But for "Tools", we usually need multi-turn.
-        // For AdminDevAssistant, it usually sends a list of messages.
+        const lastMsg = messages[messages.length - 1];
 
-        // Hack: Prepend system message to first user message if needed, or rely on context
-        if (systemMsg && contents.length > 0) {
-            contents[0].parts[0].text = `System: ${systemMsg}\n\n${contents[0].parts[0].text}`;
-        }
+        const chat = model.startChat({
+            history: history
+        });
 
-        const data = await callGeminiApi(
-            contents,
-            modelName,
-            key,
-            [{ functionDeclarations }]
-        );
+        const result = await chat.sendMessage(lastMsg.content);
+        const response = result.response;
         
-        const candidate = data.candidates?.[0];
-        const contentPart = candidate?.content?.parts?.[0];
-        const functionCall = candidate?.content?.parts?.find((p: any) => p.functionCall);
-
-        if (functionCall) {
+        // Check for function calls
+        const calls = response.functionCalls();
+        if (calls && calls.length > 0) {
             return {
                 content: null,
-                tool_calls: [{
+                tool_calls: calls.map(call => ({
                     function: {
-                        name: functionCall.functionCall.name,
-                        arguments: JSON.stringify(functionCall.functionCall.args)
+                        name: call.name,
+                        arguments: JSON.stringify(call.args)
                     }
-                }]
+                }))
             };
         }
         
         return {
-            content: contentPart?.text || "",
+            content: response.text(),
             tool_calls: []
         };
     }, 'PILOT');
 };
 
 export const executeWithRotation = async <T>(
-    operation: (key: string) => Promise<T>,
+    operation: (ai: GoogleGenerativeAI) => Promise<T>,
     usageType: 'PILOT' | 'STUDENT' = 'STUDENT'
 ): Promise<T> => {
     const keys = await getAvailableKeys();
@@ -219,7 +161,7 @@ export const executeWithRotation = async <T>(
             const pilotRatio = settings.aiPilotRatio || 80;
             const dailyLimit = settings.aiDailyLimitPerKey || 1500;
             
-            const totalCapacity = Math.max(keys.length * dailyLimit, 100);
+            const totalCapacity = Math.max(keys.length * dailyLimit, 100); // Avoid 0
 
             const pilotLimit = Math.floor(totalCapacity * (pilotRatio / 100));
             const studentLimit = totalCapacity - pilotLimit;
@@ -232,20 +174,23 @@ export const executeWithRotation = async <T>(
         }
     } catch(e: any) {
         if (e.message && e.message.includes("Quota Exceeded")) throw e;
+        // Ignore permission errors (students might not have read access to stats)
     }
 
     if (keys.length > 0) {
         // ROUND-ROBIN ROTATION
         const startIndex = currentKeyIndex % keys.length;
         
+        // Try keys starting from current index, wrapping around
         for (let i = 0; i < keys.length; i++) {
             const index = (startIndex + i) % keys.length;
             const key = keys[index];
             
             try {
-                const result = await operation(key);
+                const ai = new GoogleGenerativeAI(key);
+                const result = await operation(ai);
                 
-                // If successful, update global index
+                // If successful, update global index for next call to use next key
                 currentKeyIndex = (index + 1) % keys.length;
 
                 // TRACK USAGE
@@ -253,14 +198,16 @@ export const executeWithRotation = async <T>(
 
                 return result;
             } catch (error: any) {
-                const msg = error?.message || "";
+                const status = error?.status;
+                const message = error?.message || "";
                 
-                if (msg.includes("400") || msg.includes("API_KEY_INVALID")) {
+                // If it's a permanent error (invalid key), log it more prominently
+                if (status === 400 || message.includes("API_KEY_INVALID")) {
                     console.error(`Invalid API Key found: ...${key.slice(-4)}`);
-                } else if (msg.includes("429")) {
+                } else if (status === 429) {
                     console.warn(`API Key ...${key.slice(-4)} Rate Limited. Rotating...`);
                 } else {
-                    console.warn(`API Key ...${key.slice(-4)} failed: ${msg}. Trying next.`);
+                    console.warn(`API Key ...${key.slice(-4)} failed (Status: ${status}). Trying next.`);
                 }
             }
         }
@@ -271,37 +218,49 @@ export const executeWithRotation = async <T>(
 
 // --- PARALLEL BULK EXECUTION ENGINE ---
 const executeBulkParallel = async <T>(
-    tasks: ((key: string) => Promise<T>)[],
-    concurrency: number = 20,
+    tasks: ((ai: GoogleGenerativeAI) => Promise<T>)[],
+    concurrency: number = 20, // Default to 20 parallel requests
     usageType: 'PILOT' | 'STUDENT' = 'STUDENT'
 ): Promise<T[]> => {
     const keys = await getAvailableKeys();
     if (keys.length === 0) throw new Error("No API Keys available for bulk operation.");
 
-    console.log(`🚀 Starting Bulk Engine (Gemini): ${tasks.length} tasks with ${keys.length} keys`);
+    console.log(`🚀 Starting Bulk Engine: ${tasks.length} tasks with ${keys.length} keys (Parallelism: ${concurrency})`);
 
     const results: T[] = new Array(tasks.length);
     let taskIndex = 0;
     
+    // Worker function: Grabs next task and executes it with a rotated key
     const worker = async (workerId: number) => {
         while (taskIndex < tasks.length) {
-            const currentTaskIndex = taskIndex++;
+            const currentTaskIndex = taskIndex++; // Atomic grab
             if (currentTaskIndex >= tasks.length) break;
 
             const task = tasks[currentTaskIndex];
+            // Intelligent Key Rotation: Spread load across all keys
             const keyIndex = (workerId + currentTaskIndex) % keys.length;
             const key = keys[keyIndex]; 
             
             try {
-                const result = await task(key);
+                // console.log(`Worker ${workerId} processing Task ${currentTaskIndex} with Key ...${key.slice(-4)}`);
+                const ai = new GoogleGenerativeAI(key);
+                const result = await task(ai);
                 results[currentTaskIndex] = result;
+
+                // TRACK USAGE
                 incrementApiUsage(keyIndex, usageType);
+
             } catch (error) {
                 console.error(`Task ${currentTaskIndex} failed:`, error);
+                // We return null/undefined in the array for failures, filtered later
             }
         }
     };
 
+    // Spin up workers
+    // If we have 100 tasks and 10 keys, we can run 50 workers if concurrency allows, 
+    // effectively hammering the keys in parallel.
+    // Ensure we don't spawn more workers than tasks.
     const activeWorkers = Math.min(concurrency, tasks.length); 
     const workers = Array.from({ length: activeWorkers }, (_, i) => worker(i));
     
@@ -314,7 +273,7 @@ const cleanJson = (text: string) => {
     return text.replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
-// TRANSLATION HELPER
+// NEW TRANSLATION HELPER
 export const translateToHindi = async (content: string, isJson: boolean = false, usageType: 'PILOT' | 'STUDENT' = 'STUDENT'): Promise<string> => {
     const prompt = `
     You are an expert translator for Bihar Board students.
@@ -329,13 +288,10 @@ export const translateToHindi = async (content: string, isJson: boolean = false,
     ${content}
     `;
 
-    return await executeWithRotation(async (key) => {
-        const data = await callGeminiApi(
-            [{ parts: [{ text: prompt }] }],
-            "gemini-1.5-flash",
-            key
-        );
-        let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return await executeWithRotation(async (ai) => {
+        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(prompt);
+        let text = result.response.text();
         if (isJson) text = cleanJson(text);
         return text;
     }, usageType);
@@ -353,17 +309,28 @@ const getAdminContent = async (
 ): Promise<LessonContent | null> => {
     // STRICT KEY MATCHING WITH ADMIN
     const streamKey = (classLevel === '11' || classLevel === '12') && stream ? `-${stream}` : '';
+    // Key format used in AdminDashboard to save content
     const key = `nst_content_${board}_${classLevel}${streamKey}_${subject.name}_${chapterId}`;
     
     try {
+        // FETCH FROM FIREBASE FIRST
         let parsed = await getChapterData(key);
-        if (!parsed) parsed = await storage.getItem(key);
+        
+        if (!parsed) {
+            // Fallback to Storage (for Admin's offline view)
+            parsed = await storage.getItem(key);
+        }
 
         if (parsed) {
+            // PRIORITY: Link > Paste > AI
+            
+            // 1. FREE NOTES (PDF_FREE or NOTES_SIMPLE)
             if (type === 'PDF_FREE' || type === 'NOTES_SIMPLE') {
+                // Determine keys based on mode
                 const linkKey = syllabusMode === 'SCHOOL' ? 'schoolPdfLink' : 'competitionPdfLink';
                 const htmlKey = syllabusMode === 'SCHOOL' ? 'schoolFreeNotesHtml' : 'competitionFreeNotesHtml';
                 
+                // Fallback to legacy fields if mode-specific missing
                 const link = parsed[linkKey] || parsed.freeLink;
                 const html = parsed[htmlKey] || parsed.freeNotesHtml;
 
@@ -373,20 +340,21 @@ const getAdminContent = async (
                         title: "Free Study Material",
                         subtitle: "Provided by Admin",
                         content: link,
-                        type: 'PDF_FREE',
+                        type: 'PDF_FREE', // Viewer treats as URL
                         dateCreated: new Date().toISOString(),
                         subjectName: subject.name,
                         isComingSoon: false
                     };
                 }
                 
+                // If requesting NOTES_SIMPLE (Text) but we have pasted HTML
                 if (html && (type === 'NOTES_SIMPLE' || type === 'PDF_FREE')) {
                      return {
                         id: Date.now().toString(),
                         title: "Study Notes",
                         subtitle: "Detailed Notes (Admin)",
                         content: html,
-                        type: 'NOTES_SIMPLE',
+                        type: 'NOTES_SIMPLE', // Viewer treats as HTML/Markdown
                         dateCreated: new Date().toISOString(),
                         subjectName: subject.name,
                         isComingSoon: false
@@ -394,10 +362,12 @@ const getAdminContent = async (
                 }
             }
 
+            // 2. PREMIUM NOTES (PDF_PREMIUM or NOTES_PREMIUM)
             if (type === 'PDF_PREMIUM' || type === 'NOTES_PREMIUM') {
-                const linkKey = syllabusMode === 'SCHOOL' ? 'schoolPdfPremiumLink' : 'competitionPdfPremiumLink';
+                const linkKey = syllabusMode === 'SCHOOL' ? 'schoolPdfPremiumLink' : 'competitionPdfPremiumLink'; // Assuming standard naming, though Admin might use 'premiumLink' legacy for both
                 const htmlKey = syllabusMode === 'SCHOOL' ? 'schoolPremiumNotesHtml' : 'competitionPremiumNotesHtml';
                 
+                // Fallback to legacy
                 const link = parsed[linkKey] || parsed.premiumLink;
                 const html = parsed[htmlKey] || parsed.premiumNotesHtml;
 
@@ -415,6 +385,7 @@ const getAdminContent = async (
                 }
 
                 if (html && (type === 'NOTES_PREMIUM' || type === 'PDF_PREMIUM')) {
+                    // NEW: Hindi Keys
                     const htmlKeyHI = syllabusMode === 'SCHOOL' ? 'schoolPremiumNotesHtml_HI' : 'competitionPremiumNotesHtml_HI';
                     const htmlHI = parsed[htmlKeyHI];
 
@@ -433,19 +404,21 @@ const getAdminContent = async (
                 }
             }
 
+            // Video Lecture
             if (type === 'VIDEO_LECTURE' && (parsed.premiumVideoLink || parsed.freeVideoLink)) {
                 return {
                     id: Date.now().toString(),
                     title: "Video Lecture",
                     subtitle: "Watch Class",
                     content: parsed.premiumVideoLink || parsed.freeVideoLink,
-                    type: 'PDF_VIEWER',
+                    type: 'PDF_VIEWER', // Re-using PDF_VIEWER as it has iframe logic for video
                     dateCreated: new Date().toISOString(),
                     subjectName: subject.name,
                     isComingSoon: false
                 };
             }
 
+            // Legacy Fallback (View Old Links)
             if (type === 'PDF_VIEWER' && parsed.link) {
                 return {
                     id: Date.now().toString(),
@@ -459,6 +432,7 @@ const getAdminContent = async (
                 };
             }
             
+            // Check for Manual MCQs
             if ((type === 'MCQ_SIMPLE' || type === 'MCQ_ANALYSIS') && parsed.manualMcqData) {
                 return {
                     id: Date.now().toString(),
@@ -479,6 +453,8 @@ const getAdminContent = async (
     return null;
 };
 
+// ... (fetchChapters remains same, it's fine being static usually) ...
+
 export const fetchChapters = async (
   board: Board,
   classLevel: ClassLevel, 
@@ -486,19 +462,24 @@ export const fetchChapters = async (
   subject: Subject,
   language: Language
 ): Promise<Chapter[]> => {
+  // STRICT KEY MATCHING WITH ADMIN
   const streamKey = (classLevel === '11' || classLevel === '12') && stream ? `-${stream}` : '';
   const cacheKey = `${board}-${classLevel}${streamKey}-${subject.name}-${language}`;
   
+  // 1. Try Firebase Custom Syllabus (Shared across all users)
   const firebaseChapters = await getCustomSyllabus(cacheKey);
   if (firebaseChapters && firebaseChapters.length > 0) {
       return firebaseChapters;
   }
 
+  // 2. Try Storage (Legacy / Offline Admin)
   const customChapters = await storage.getItem<Chapter[]>(`nst_custom_chapters_${cacheKey}`);
   if (customChapters && customChapters.length > 0) return customChapters;
 
+  // 3. Cache
   if (chapterCache[cacheKey]) return chapterCache[cacheKey];
 
+  // 4. Static Syllabus
   const staticKey = `${board}-${classLevel}-${subject.name}`; 
   const staticList = STATIC_SYLLABUS[staticKey];
   if (staticList && staticList.length > 0) {
@@ -519,16 +500,12 @@ export const fetchChapters = async (
 
   const prompt = `List 15 standard chapters for ${classLevel === 'COMPETITION' ? 'Competitive Exam' : `Class ${classLevel}`} ${stream ? stream : ''} Subject: ${subject.name} (${board}). Return JSON array: [{"title": "...", "description": "..."}].`;
   try {
-    const data = await executeWithRotation(async (key) => {
-        const res = await callGeminiApi(
-            [{ parts: [{ text: prompt }] }],
-            modelName,
-            key
-        );
-        const text = res.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-        return JSON.parse(cleanJson(text));
-    }, 'STUDENT');
-
+    const data = await executeWithRotation(async (ai) => {
+        const model = ai.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        return JSON.parse(cleanJson(response.text() || '[]'));
+    }, 'STUDENT'); // Fetch chapters is default student action
     const chapters: Chapter[] = data.map((item: any, index: number) => ({
       id: `ch-${index + 1}`,
       title: item.title,
@@ -547,11 +524,13 @@ export const fetchChapters = async (
 const processTemplate = (template: string, replacements: Record<string, string>) => {
     let result = template;
     for (const [key, value] of Object.entries(replacements)) {
+        // Replace {key} with value, case-insensitive
         result = result.replace(new RegExp(`{${key}}`, 'gi'), value);
     }
     return result;
 };
 
+// --- MAIN CONTENT FUNCTION (UPDATED TO ASYNC ADMIN CHECK) ---
 export const fetchLessonContent = async (
   board: Board,
   classLevel: ClassLevel,
@@ -571,6 +550,7 @@ export const fetchLessonContent = async (
   usageType: 'PILOT' | 'STUDENT' = 'STUDENT'
 ): Promise<LessonContent> => {
   
+  // Get Settings for Custom Instruction & Model
   let customInstruction = "";
   let modelName = "gemini-1.5-flash";
   let promptNotes = "";
@@ -585,21 +565,27 @@ export const fetchLessonContent = async (
           if (s.aiModel) modelName = s.aiModel;
           
           if (syllabusMode === 'COMPETITION') {
+              // Priority: CBSE Competition > Generic Competition
               if (board === 'CBSE') {
                   if (s.aiPromptNotesCompetitionCBSE) promptNotes = s.aiPromptNotesCompetitionCBSE;
                   if (s.aiPromptNotesPremiumCompetitionCBSE) promptNotesPremium = s.aiPromptNotesPremiumCompetitionCBSE;
                   if (s.aiPromptMCQCompetitionCBSE) promptMCQ = s.aiPromptMCQCompetitionCBSE;
               }
+
+              // Fallback to Generic Competition Prompts if specific ones missing
               if (!promptNotes && s.aiPromptNotesCompetition) promptNotes = s.aiPromptNotesCompetition;
               if (!promptNotesPremium && s.aiPromptNotesPremiumCompetition) promptNotesPremium = s.aiPromptNotesPremiumCompetition;
               if (!promptMCQ && s.aiPromptMCQCompetition) promptMCQ = s.aiPromptMCQCompetition;
 
           } else {
+              // CBSE Override
               if (board === 'CBSE') {
                   if (s.aiPromptNotesCBSE) promptNotes = s.aiPromptNotesCBSE;
                   if (s.aiPromptNotesPremiumCBSE) promptNotesPremium = s.aiPromptNotesPremiumCBSE;
                   if (s.aiPromptMCQCBSE) promptMCQ = s.aiPromptMCQCBSE;
               }
+
+              // Default (BSEB / General)
               if (!promptNotes && s.aiPromptNotes) promptNotes = s.aiPromptNotes;
               if (!promptNotesPremium && s.aiPromptNotesPremium) promptNotesPremium = s.aiPromptNotesPremium;
               if (!promptMCQ && s.aiPromptMCQ) promptMCQ = s.aiPromptMCQ;
@@ -607,6 +593,8 @@ export const fetchLessonContent = async (
       }
   } catch(e) {}
 
+  // 1. CHECK ADMIN DATABASE FIRST (Async now)
+  // Skip if forcing regeneration (Admin Override)
   if (!forceRegenerate) {
       const adminContent = await getAdminContent(board, classLevel, stream, subject, chapter.id, type, syllabusMode);
       if (adminContent) {
@@ -617,6 +605,7 @@ export const fetchLessonContent = async (
       }
   }
 
+  // 2. IF ADMIN CONTENT MISSING, HANDLE PDF TYPES (Don't generate fake PDF)
   if (type === 'PDF_FREE' || type === 'PDF_PREMIUM' || type === 'PDF_VIEWER') {
       return {
           id: Date.now().toString(),
@@ -626,10 +615,11 @@ export const fetchLessonContent = async (
           type: type,
           dateCreated: new Date().toISOString(),
           subjectName: subject.name,
-          isComingSoon: true
+          isComingSoon: true // Trigger "Coming Soon" screen
       };
   }
 
+  // 3. AI GENERATION (Fallback for Notes/MCQ only)
   if (!allowAiGeneration) {
       return {
           id: Date.now().toString(),
@@ -645,6 +635,7 @@ export const fetchLessonContent = async (
   
   // MCQ Mode
   if (type === 'MCQ_ANALYSIS' || type === 'MCQ_SIMPLE') {
+      // FORCE 20 QUESTIONS if not specified higher
       const effectiveCount = Math.max(targetQuestions, 20); 
 
       let prompt = "";
@@ -688,15 +679,17 @@ export const fetchLessonContent = async (
           Provide a very diverse set of questions covering every small detail of the chapter.`;
       }
 
+      // BULK GENERATION LOGIC (For > 30 Questions)
       let data: any[] = [];
 
       if (effectiveCount > 30) {
-          const batchSize = 20;
+          const batchSize = 20; // 20 Questions per request is safe for LLM context
           const batches = Math.ceil(effectiveCount / batchSize);
-          const tasks: ((key: string) => Promise<any[]>)[] = [];
+          const tasks: ((ai: GoogleGenerativeAI) => Promise<any[]>)[] = [];
 
           for (let i = 0; i < batches; i++) {
-              tasks.push(async (key) => {
+              tasks.push(async (ai) => {
+                  // Construct Batch Prompt
                   const batchPrompt = processTemplate(prompt, {
                       board: board || '',
                       class: classLevel,
@@ -708,19 +701,17 @@ export const fetchLessonContent = async (
                       instruction: `${customInstruction}\nBATCH ${i+1}/${batches}. Ensure diversity. Avoid duplicates from previous batches if possible.`
                   });
 
-                  const res = await callGeminiApi(
-                      [{ parts: [{ text: batchPrompt }] }],
-                      modelName,
-                      key
-                  );
-                  const text = res.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-                  return JSON.parse(cleanJson(text));
+                  const model = ai.getGenerativeModel({ model: modelName });
+                  const result = await model.generateContent(batchPrompt);
+                  return JSON.parse(cleanJson(result.response.text() || '[]'));
               });
           }
 
+          // Execute with High Concurrency (up to 50 parallel if tasks allow)
           const allResults = await executeBulkParallel(tasks, 50, usageType);
           data = allResults.flat();
           
+          // Deduplicate based on Question Text
           const seen = new Set();
           data = data.filter(q => {
               const duplicate = seen.has(q.question);
@@ -728,20 +719,19 @@ export const fetchLessonContent = async (
               return !duplicate;
           });
           
+          // Trim to target
           if (data.length > effectiveCount) data = data.slice(0, effectiveCount);
 
       } else {
-          data = await executeWithRotation(async (key) => {
-              const res = await callGeminiApi(
-                  [{ parts: [{ text: prompt }] }],
-                  modelName,
-                  key
-              );
-              const text = res.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-              return JSON.parse(cleanJson(text));
+          // Standard Single Request
+          data = await executeWithRotation(async (ai) => {
+              const model = ai.getGenerativeModel({ model: modelName });
+              const result = await model.generateContent(prompt);
+              return JSON.parse(cleanJson(result.response.text() || '[]'));
           }, usageType);
       }
 
+      // AUTO TRANSLATE LOGIC (English -> Hindi)
       let hindiMcqData = undefined;
       if (language === 'English') {
           try {
@@ -759,7 +749,7 @@ export const fetchLessonContent = async (
           dateCreated: new Date().toISOString(),
           subjectName: subject.name,
           mcqData: data,
-          manualMcqData_HI: hindiMcqData
+          manualMcqData_HI: hindiMcqData // SAVE TRANSLATION
       };
   }
 
@@ -784,6 +774,7 @@ export const fetchLessonContent = async (
               : "STYLE: Strict NCERT Pattern.";
 
           if (detailed) {
+              // PREMIUM PROMPT (1000-1500 Words)
               prompt = `${customInstruction}
               ${adminPromptOverride || ""}
               
@@ -807,6 +798,7 @@ export const fetchLessonContent = async (
               
               Use bold text for keywords. Make it comprehensive.`;
           } else {
+              // FREE PROMPT (200-300 Words)
               prompt = `${customInstruction}
               ${adminPromptOverride || ""}
               
@@ -824,15 +816,13 @@ export const fetchLessonContent = async (
           }
       }
 
-      const text = await executeWithRotation(async (key) => {
-          const res = await callGeminiApi(
-              [{ parts: [{ text: prompt }] }],
-              modelName,
-              key
-          );
-          return res.candidates?.[0]?.content?.parts?.[0]?.text || "Content generation failed.";
+      const text = await executeWithRotation(async (ai) => {
+          const model = ai.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          return result.response.text() || "Content generation failed.";
       }, usageType);
 
+      // AUTO TRANSLATE LOGIC (English -> Hindi)
       let hindiText = undefined;
       if (language === 'English') {
           try {
@@ -842,6 +832,7 @@ export const fetchLessonContent = async (
       return { text, hindiText };
   };
 
+  // DUAL GENERATION LOGIC (UPDATED: ONE CALL POLICY)
   if (dualGeneration && (type === 'NOTES_PREMIUM' || type === 'NOTES_SIMPLE')) {
        const competitionConstraints = syllabusMode === 'COMPETITION' 
           ? "STYLE: Fact-Heavy, Direct. HIGHLIGHT PYQs (Previous Year Questions) if relevant." 
@@ -864,13 +855,10 @@ export const fetchLessonContent = async (
        [Short 100-word Summary Here]
        `;
        
-       const rawText = await executeWithRotation(async (key) => {
-          const res = await callGeminiApi(
-              [{ parts: [{ text: prompt }] }],
-              modelName,
-              key
-          );
-          return res.candidates?.[0]?.content?.parts?.[0]?.text || "Content generation failed.";
+       const rawText = await executeWithRotation(async (ai) => {
+          const model = ai.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          return result.response.text() || "Content generation failed.";
        }, usageType);
        
        let premiumText = "";
@@ -884,10 +872,12 @@ export const fetchLessonContent = async (
                if (subParts[1]) freeText = subParts[1].trim();
            }
        } else {
+           // Fallback if AI ignores format
            premiumText = rawText;
            freeText = "Summary not generated.";
        }
 
+       // Auto Translate Both
        let premiumTextHI = undefined;
        let freeTextHI = undefined;
        
@@ -923,6 +913,7 @@ export const fetchLessonContent = async (
       };
   }
 
+  // STANDARD GENERATION
   const isDetailed = type === 'NOTES_PREMIUM' || type === 'NOTES_HTML_PREMIUM';
   const result = await generateNotes(isDetailed);
 
@@ -952,13 +943,10 @@ export const generateCustomNotes = async (userTopic: string, adminPrompt: string
     
     Ensure the content is well-structured with headings and bullet points.`;
 
-    return await executeWithRotation(async (key) => {
-        const res = await callGeminiApi(
-            [{ parts: [{ text: prompt }] }],
-            modelName,
-            key
-        );
-        return res.candidates?.[0]?.content?.parts?.[0]?.text || "Content generation failed.";
+    return await executeWithRotation(async (ai) => {
+        const model = ai.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        return result.response.text() || "Content generation failed.";
     }, 'STUDENT');
 };
 
@@ -982,6 +970,7 @@ export const generateUltraAnalysis = async (
         if (settings.aiInstruction) customInstruction = settings.aiInstruction;
     }
 
+    // Prepare Question Data for AI
     const attemptedQuestions = data.questions.map((q, idx) => {
         const selected = data.userAnswers[idx];
         const isCorrect = selected === q.correctAnswer;
@@ -1044,12 +1033,9 @@ export const generateUltraAnalysis = async (
     Ensure the response is valid JSON. Do not wrap in markdown code blocks.
     `;
 
-    return await executeWithRotation(async (key) => {
-        const res = await callGeminiApi(
-            [{ parts: [{ text: prompt }] }],
-            modelName,
-            key
-        );
-        return cleanJson(res.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+    return await executeWithRotation(async (ai) => {
+        const model = ai.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        return cleanJson(result.response.text()) || "{}";
     }, 'STUDENT');
 };
