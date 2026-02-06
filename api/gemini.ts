@@ -2,7 +2,7 @@ export const config = {
   runtime: 'edge',
 };
 
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1/models";
 
 export default async function handler(req: Request) {
   try {
@@ -32,6 +32,7 @@ export default async function handler(req: Request) {
         if (keysRaw) {
             const keys = keysRaw.split(",").map(k => k.trim()).filter(Boolean);
             if (keys.length > 0) {
+                console.log(`Loaded ${keys.length} Gemini API Keys from ENV.`);
                 apiKey = keys[Math.floor(Math.random() * keys.length)];
             }
         }

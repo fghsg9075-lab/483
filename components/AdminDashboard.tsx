@@ -5465,8 +5465,12 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                             <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center justify-between">
                               Gemini API Keys (Tier B)
-                              <span className="text-xs font-normal text-gray-500">Google Gemini Pro/Flash</span>
+                              <div className="flex flex-col items-end">
+                                <span className="text-xs font-normal text-gray-500">Google Gemini Pro/Flash</span>
+                                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">Get API Key ↗</a>
+                              </div>
                             </h4>
+                            <p className="text-[10px] text-slate-400 mb-2">Keys added here are rotated automatically. You can also set <code>GEMINI_API_KEYS</code> in Vercel Env (comma-separated) as a backup.</p>
                             <div className="flex gap-2 mb-4">
                               <input
                                 type="password"
