@@ -199,7 +199,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   // --- SECURE KEYS STATE ---
   // const [secureKeys, setSecureKeys] = useState<string[]>([]); // Removed in favor of groqApiKeys
   const [newSecureKey, setNewSecureKey] = useState('');
-  const [newGeminiKey, setNewGeminiKey] = useState('');
   
   // --- LOAD SECURE KEYS ---
   useEffect(() => {
@@ -5462,71 +5461,9 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                             </div>
                           </div>
 
-                          <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center justify-between">
-                              Gemini API Keys (Tier B)
-                              <span className="text-xs font-normal text-gray-500">Google Gemini Pro/Flash</span>
-                            </h4>
-                            <div className="flex gap-2 mb-4">
-                              <input
-                                type="password"
-                                value={newGeminiKey}
-                                onChange={e => setNewGeminiKey(e.target.value)}
-                                placeholder="Paste Gemini API Key (AIza...)"
-                                className="flex-1 p-2 border rounded-lg text-sm font-mono"
-                              />
-                              <button
-                                onClick={async () => {
-                                  if (!newGeminiKey.trim()) return;
-                                  const currentKeys = localSettings.geminiApiKeys || [];
-                                  if (currentKeys.length >= 10) {
-                                    alert("Limit of 10 keys reached for Gemini.");
-                                    return;
-                                  }
-                                  const newKeys = [...currentKeys, newGeminiKey.trim()];
-                                  const newSettings = { ...localSettings, geminiApiKeys: newKeys };
-                                  setLocalSettings(newSettings);
-                                  await saveSystemSettings(newSettings);
-                                  // Sync to secure_keys/gemini for persistence
-                                  set(ref(rtdb, 'secure_keys/gemini'), newKeys);
-                                  setNewGeminiKey('');
-                                }}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
-                              >
-                                Add Key
-                              </button>
-                            </div>
-
-                            <div className="space-y-2">
-                              {(localSettings.geminiApiKeys || []).map((key, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 border rounded-lg text-sm font-mono">
-                                  <div className="flex items-center gap-2">
-                                    <Key className="w-3 h-3 text-gray-400" />
-                                    <span>{key.substring(0, 10)}...{key.substring(key.length - 4)}</span>
-                                  </div>
-                                  <button
-                                    onClick={async () => {
-                                      const newKeys = (localSettings.geminiApiKeys || []).filter((_, i) => i !== idx);
-                                      const newSettings = { ...localSettings, geminiApiKeys: newKeys };
-                                      setLocalSettings(newSettings);
-                                      await saveSystemSettings(newSettings);
-                                      set(ref(rtdb, 'secure_keys/gemini'), newKeys);
-                                    }}
-                                    className="text-red-500 hover:text-red-700"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ))}
-                              {(!localSettings.geminiApiKeys || localSettings.geminiApiKeys.length === 0) && (
-                                <p className="text-center text-xs text-gray-500 py-4">No Gemini keys added yet.</p>
-                              )}
-                            </div>
-                          </div>
-
                           {/* Other Providers Placeholder */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             {['OpenAI', 'Claude', 'OpenRouter', 'DeepSeek', 'Mistral'].map(provider => (
+                             {['OpenAI', 'Gemini', 'Claude', 'OpenRouter', 'DeepSeek', 'Mistral'].map(provider => (
                                <div key={provider} className="p-4 border rounded-xl opacity-50 cursor-not-allowed bg-gray-50">
                                  <div className="flex items-center justify-between mb-2">
                                    <span className="font-bold text-sm">{provider}</span>
