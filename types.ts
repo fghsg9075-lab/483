@@ -621,6 +621,7 @@ export interface MCQItem {
   explanation: string;
   mnemonic?: string; // Memory Trick
   concept?: string; // Full concept explanation
+  topic?: string; // NEW
 }
 
 // NEW: Performance Analytics
@@ -777,6 +778,10 @@ export interface LessonContent {
   schoolPremiumNotesHtml?: string;
   competitionFreeNotesHtml?: string;
   competitionPremiumNotesHtml?: string;
+
+  // NEW TOPIC BASED CONTENT
+  topicNotes?: { id: string, title: string, content: string, isPremium: boolean, topic: string }[];
+  topicVideos?: { id: string, title: string, url: string, isPremium: boolean, topic: string }[];
 }
 
 export type ViewState = 'BOARDS' | 'CLASSES' | 'STREAMS' | 'SUBJECTS' | 'CHAPTERS' | 'LESSON' | 'ADMIN_DASHBOARD' | 'AUDIO_STUDIO' | 'STUDENT_DASHBOARD' | 'UNIVERSAL_CHAT' | 'RULES' | 'IIC' | 'LEADERBOARD';

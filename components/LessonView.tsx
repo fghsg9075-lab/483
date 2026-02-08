@@ -22,6 +22,7 @@ interface Props {
   onUpdateUser?: (user: User) => void;
   settings?: SystemSettings; // New Prop for Pricing
   isStreaming?: boolean; // Support for streaming content
+  onLaunchContent?: (content: any) => void;
 }
 
 export const LessonView: React.FC<Props> = ({ 
@@ -35,7 +36,8 @@ export const LessonView: React.FC<Props> = ({
   user,
   onUpdateUser,
   settings,
-  isStreaming = false
+  isStreaming = false,
+  onLaunchContent
 }) => {
   const [mcqState, setMcqState] = useState<Record<number, number | null>>({});
   const [showResults, setShowResults] = useState(false); // Used to trigger Analysis Mode

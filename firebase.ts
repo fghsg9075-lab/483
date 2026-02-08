@@ -57,6 +57,33 @@ export const subscribeToAuth = (callback: (user: any) => void) => {
   });
 };
 
+// --- NUCLEAR RESET ---
+export const resetAllContent = async () => {
+  try {
+    console.log("STARTING NUCLEAR RESET...");
+    // 1. RTDB Wipes
+    const rtdbPaths = ['content_data', 'custom_syllabus', 'public_activity', 'ai_interactions', 'universal_analysis_logs'];
+    await Promise.all(rtdbPaths.map(path => remove(ref(rtdb, path))));
+
+    // 2. Firestore Wipes (Iterative delete)
+    const collections = ['content_data', 'custom_syllabus', 'public_activity', 'ai_interactions', 'universal_analysis_logs'];
+    for (const colName of collections) {
+      const q = query(collection(db, colName));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+    }
+
+    // Clear Local Storage items related to content
+    storage.clear();
+
+    console.log("NUCLEAR RESET COMPLETE");
+  } catch (e) {
+    console.error("RESET ERROR", e);
+    throw e;
+  }
+};
+
 // --- DUAL WRITE / SMART READ LOGIC ---
 
 // 1. User Data Sync

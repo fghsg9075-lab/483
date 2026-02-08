@@ -1,142 +1,126 @@
-
-import React, { useState } from 'react';
-import { Chapter, ContentType, User } from '../types';
-import { Crown, BookOpen, Lock, X, HelpCircle, FileText, Printer, Star, FileJson, CheckCircle, Youtube } from 'lucide-react';
-import { InfoPopup } from './InfoPopup';
-import { DEFAULT_CONTENT_INFO_CONFIG } from '../constants';
-import { SystemSettings } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Chapter, ContentType, User, Subject, Board, ClassLevel, Stream, SystemSettings } from '../types';
+import { Crown, BookOpen, Lock, X, HelpCircle, FileText, Video, PlayCircle, ArrowLeft, Loader2, Sparkles, CheckCircle, Zap } from 'lucide-react';
+import { getChapterData } from '../firebase';
 
 interface Props {
   chapter: Chapter;
-  user: User; // Added User to check subscription
+  user: User;
   credits: number;
   isAdmin: boolean;
-  onSelect: (type: ContentType, count?: number) => void;
+  onSelect: (type: ContentType, count?: number, forcePay?: boolean, specificContent?: any) => void;
   onClose: () => void;
-  settings?: SystemSettings; // NEW: Added settings prop
+  settings?: SystemSettings;
+  board: Board;
+  classLevel: ClassLevel;
+  stream: Stream | null;
+  subject: Subject;
 }
 
-export const PremiumModal: React.FC<Props> = ({ chapter, user, credits, isAdmin, onSelect, onClose, settings }) => {
-  const [mcqCount, setMcqCount] = useState(20);
-  const [infoPopup, setInfoPopup] = useState<{isOpen: boolean, config: any, type: any}>({isOpen: false, config: {}, type: 'FREE'});
+export const PremiumModal: React.FC<Props> = ({ chapter, user, credits, isAdmin, onSelect, onClose, settings, board, classLevel, stream, subject }) => {
+  const [view, setView] = useState<'HOME' | 'NOTES_FREE' | 'NOTES_PREMIUM' | 'VIDEO_FREE' | 'VIDEO_PREMIUM'>('HOME');
+  const [loading, setLoading] = useState(true);
+  const [contentData, setContentData] = useState<any>(null);
 
-  const canAccess = (cost: number, type: string) => {
-      if (isAdmin) return true;
+  useEffect(() => {
+      const streamKey = (classLevel === '11' || classLevel === '12') && stream ? `-${stream}` : '';
+      const key = `nst_content_${board}_${classLevel}${streamKey}_${subject.name}_${chapter.id}`;
       
-      // Global Access Control
-      const accessTier = settings?.appMode?.accessTier || 'ALL_ACCESS';
-      if (accessTier === 'FREE_ONLY' && cost > 0) return false;
+      getChapterData(key).then(data => {
+          setContentData(data || {});
+          setLoading(false);
+      });
+  }, [chapter.id]);
 
-      // Subscription Logic
-      if (user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) {
-          const level = user.subscriptionLevel || 'BASIC';
-          
-          // Ultra Logic (Global Override check)
-          if (level === 'ULTRA') {
-              if (accessTier === 'FREE_BASIC') {
-                  // Downgrade behavior: Ultra behaves like Basic
-                  if (['NOTES_HTML_FREE', 'NOTES_HTML_PREMIUM', 'MCQ_ANALYSIS', 'NOTES_PREMIUM', 'NOTES_SIMPLE', 'NOTES_IMAGE_AI'].includes(type)) return true;
-                  return false; // Video Locked
-              }
-              return true; // Full Access
-          }
-          
-          // Basic accesses MCQ and Notes
-          if (level === 'BASIC' && ['NOTES_HTML_FREE', 'NOTES_HTML_PREMIUM', 'MCQ_ANALYSIS', 'NOTES_PREMIUM', 'NOTES_SIMPLE', 'NOTES_IMAGE_AI'].includes(type)) {
-              return true;
-          }
-      }
-      // Credit Fallback (Only if allowed)
-      if (accessTier === 'FREE_ONLY') return false; // Double check
+  const canAccess = (cost: number) => {
+      if (isAdmin) return true;
+      if (user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) return true;
       return credits >= cost;
   };
 
+  const filterContent = (list: any[], isPremium: boolean) => (list || []).filter((i: any) => !!i.isPremium === isPremium);
+
+  const renderHome = () => (
+      <div className="grid grid-cols-2 gap-3 p-4">
+          <button onClick={() => setView('NOTES_FREE')} className="bg-green-50 p-4 rounded-xl border border-green-100 flex flex-col items-center gap-2 hover:bg-green-100">
+              <FileText size={24} className="text-green-600" />
+              <span className="text-xs font-bold text-green-800">Free Notes</span>
+          </button>
+          <button onClick={() => setView('NOTES_PREMIUM')} className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 flex flex-col items-center gap-2 hover:bg-yellow-100">
+              <Crown size={24} className="text-yellow-600" />
+              <span className="text-xs font-bold text-yellow-800">Premium Notes</span>
+          </button>
+
+          <button onClick={() => setView('VIDEO_FREE')} className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-center gap-2 hover:bg-blue-100">
+              <Video size={24} className="text-blue-600" />
+              <span className="text-xs font-bold text-blue-800">Free Videos</span>
+          </button>
+          <button onClick={() => setView('VIDEO_PREMIUM')} className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex flex-col items-center gap-2 hover:bg-purple-100">
+              <PlayCircle size={24} className="text-purple-600" />
+              <span className="text-xs font-bold text-purple-800">Premium Videos</span>
+          </button>
+
+          <button onClick={() => onSelect('PDF_ULTRA')} className="bg-slate-900 text-white p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-800">
+              <Sparkles size={24} className="text-yellow-400" />
+              <span className="text-xs font-bold">Ultra Content</span>
+          </button>
+          <button onClick={() => onSelect('MCQ_ANALYSIS')} className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col items-center gap-2 hover:bg-indigo-100">
+              <CheckCircle size={24} className="text-indigo-600" />
+              <span className="text-xs font-bold text-indigo-800">MCQ Test</span>
+          </button>
+      </div>
+  );
+
+  const renderList = (items: any[], type: 'NOTES' | 'VIDEO', isPremium: boolean) => (
+      <div className="p-4 space-y-3">
+          {items.length === 0 && <p className="text-center text-slate-400 text-sm">No content available.</p>}
+          {items.map((item, idx) => (
+              <button
+                  key={idx}
+                  onClick={() => onSelect(type === 'NOTES' ? (isPremium ? 'NOTES_PREMIUM' : 'NOTES_HTML_FREE') : 'VIDEO_LECTURE', undefined, undefined, item)}
+                  className="w-full bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between hover:bg-slate-50"
+              >
+                  <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPremium ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600'}`}>
+                          {type === 'NOTES' ? <FileText size={16} /> : <PlayCircle size={16} />}
+                      </div>
+                      <span className="text-sm font-bold text-slate-700 truncate max-w-[180px]">{item.title || item.topic}</span>
+                  </div>
+                  {isPremium && !canAccess(5) ? <Lock size={16} className="text-slate-300" /> : <div className="bg-slate-100 p-1 rounded-full"><ArrowLeft size={16} className="rotate-180 text-slate-400" /></div>}
+              </button>
+          ))}
+      </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-white w-full max-w-sm rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden relative">
+        <div className="bg-white w-full max-w-sm rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden relative max-h-[80vh] flex flex-col">
             
             {/* Header */}
-            <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800/50 p-1 rounded-full"><X size={20} /></button>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Selected Chapter</div>
-                <h3 className="text-xl font-bold leading-tight">{chapter.title}</h3>
+            <div className="bg-white p-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    {view !== 'HOME' && <button onClick={() => setView('HOME')}><ArrowLeft size={20} className="text-slate-600" /></button>}
+                    <h3 className="font-black text-slate-800 truncate max-w-[200px]">{chapter.title}</h3>
+                </div>
+                <button onClick={onClose} className="bg-slate-100 p-1.5 rounded-full"><X size={20} className="text-slate-500" /></button>
             </div>
             
-            <div className="p-6">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Study Material</p>
-                
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                    {/* FREE NOTES */}
-                    <div className="relative group">
-                        <button 
-                            onClick={() => onSelect('NOTES_HTML_FREE')}
-                            className="w-full bg-white border-2 border-slate-100 hover:border-green-200 hover:bg-green-50 rounded-xl p-3 flex flex-col items-center gap-2 relative group transition-all"
-                        >
-                            <div className="absolute -top-2 -right-2 bg-green-500 text-white p-1 rounded-full shadow-sm">
-                                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                                <FileText size={20} />
-                            </div>
-                            <div className="text-center">
-                                <p className="font-bold text-xs text-slate-700">Free Notes</p>
-                                <p className="text-[9px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">UNLOCKED</p>
-                            </div>
-                        </button>
+            <div className="flex-1 overflow-y-auto">
+                {loading ? (
+                    <div className="flex items-center justify-center h-40">
+                        <Loader2 className="animate-spin text-slate-400" />
                     </div>
-
-                    {/* PREMIUM NOTES */}
-                    <div className="relative group">
-                        <button 
-                            onClick={() => onSelect('NOTES_HTML_PREMIUM')}
-                            className="w-full bg-white border-2 border-slate-100 hover:border-yellow-200 hover:bg-yellow-50 rounded-xl p-3 flex flex-col items-center gap-2 relative group transition-all"
-                        >
-                            <div className="absolute -top-2 -right-2 bg-yellow-400 text-white p-1 rounded-full shadow-sm border-2 border-white">
-                                <Crown size={12} fill="currentColor" />
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center">
-                                <Star size={20} fill="currentColor" />
-                            </div>
-                            <div className="text-center">
-                                <p className="font-bold text-xs text-slate-700">Premium Notes</p>
-                                <div className="flex items-center justify-center gap-1 mt-1">
-                                    <p className="text-[9px] text-yellow-700 font-bold bg-yellow-100 px-2 py-0.5 rounded-full inline-block">OPEN</p>
-                                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse shadow-[0_0_5px_rgba(250,204,21,0.8)]"></div>
-                                </div>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-
-                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                    <h4 className="font-bold text-blue-900 text-sm mb-3 flex items-center gap-2">
-                        <HelpCircle size={16} /> AI & Test Mode
-                    </h4>
-                    
-                    <button 
-                        onClick={() => onSelect('MCQ_ANALYSIS', 20)}
-                        className="w-full flex items-center justify-between p-3 bg-white rounded-xl font-bold text-sm transition-all border border-blue-200 hover:bg-blue-50 text-blue-800"
-                    >
-                        <span>Start MCQ Test</span>
-                        <span className="bg-blue-100 px-2 py-0.5 rounded text-[10px]">OPEN</span>
-                    </button>
-                </div>
+                ) : (
+                    <>
+                        {view === 'HOME' && renderHome()}
+                        {view === 'NOTES_FREE' && renderList(filterContent(contentData?.topicNotes, false), 'NOTES', false)}
+                        {view === 'NOTES_PREMIUM' && renderList(filterContent(contentData?.topicNotes, true), 'NOTES', true)}
+                        {view === 'VIDEO_FREE' && renderList(filterContent(contentData?.topicVideos, false), 'VIDEO', false)}
+                        {view === 'VIDEO_PREMIUM' && renderList(filterContent(contentData?.topicVideos, true), 'VIDEO', true)}
+                    </>
+                )}
             </div>
-            
-            {!canAccess(2, 'MCQ_ANALYSIS') && !isAdmin && (
-                <div className="bg-orange-50 p-3 text-center text-[10px] font-bold text-orange-600 border-t border-orange-100">
-                    Low Credits! Study 3 hours or use Spin Wheel to earn.
-                </div>
-            )}
         </div>
-
-        {/* INFO POPUP */}
-       <InfoPopup 
-           isOpen={infoPopup.isOpen}
-           onClose={() => setInfoPopup({...infoPopup, isOpen: false})}
-           config={infoPopup.config}
-           type={infoPopup.type}
-       />
     </div>
   );
 };
