@@ -5,7 +5,7 @@ import { LayoutDashboard, Users, Search, Trash2, Save, X, Eye, EyeOff, Shield, M
 import { getSubjectsList, DEFAULT_SUBJECTS, DEFAULT_APP_FEATURES, DEFAULT_CONTENT_INFO_CONFIG, ADMIN_PERMISSIONS, APP_VERSION } from '../constants';
 import { fetchChapters, fetchLessonContent } from '../services/groq';
 import { runAutoPilot, runCommandMode } from '../services/autoPilot';
-import { saveChapterData, bulkSaveLinks, checkFirebaseConnection, saveSystemSettings, subscribeToUsers, rtdb, saveUserToLive, db, getChapterData, saveCustomSyllabus, deleteCustomSyllabus, subscribeToUniversalAnalysis, saveAiInteraction, saveSecureKeys, getSecureKeys, subscribeToApiUsage, subscribeToDrafts } from '../firebase'; // IMPORT FIREBASE
+import { saveChapterData, bulkSaveLinks, checkFirebaseConnection, saveSystemSettings, subscribeToUsers, rtdb, saveUserToLive, db, getChapterData, saveCustomSyllabus, deleteCustomSyllabus, subscribeToUniversalAnalysis, saveAiInteraction, saveSecureKeys, getSecureKeys, subscribeToApiUsage, subscribeToDrafts, resetAllContent } from '../firebase'; // IMPORT FIREBASE
 import { ref, set, onValue, update, push, get } from "firebase/database";
 import { doc, deleteDoc } from "firebase/firestore";
 import { storage } from '../utils/storage';
@@ -574,6 +574,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [videoPlaylist, setVideoPlaylist] = useState<{title: string, url: string, price?: number, access?: 'FREE' | 'BASIC' | 'ULTRA'}[]>([]);
   const [audioPlaylist, setAudioPlaylist] = useState<{title: string, url: string, price?: number, access?: 'FREE' | 'BASIC' | 'ULTRA'}[]>([]);
   const [premiumNoteSlots, setPremiumNoteSlots] = useState<PremiumNoteSlot[]>([]);
+
+  // NEW TOPIC CONTENT STATE
+  const [topicNotes, setTopicNotes] = useState<{ id: string, title: string, content: string, isPremium: boolean, topic: string }[]>([]);
+  const [topicVideos, setTopicVideos] = useState<{ id: string, title: string, url: string, isPremium: boolean, topic: string }[]>([]);
   const [editingMcqs, setEditingMcqs] = useState<MCQItem[]>([]);
   const [editingTestMcqs, setEditingTestMcqs] = useState<MCQItem[]>([]);
   const [importText, setImportText] = useState('');
@@ -747,7 +751,11 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           manualMcqData: editingMcqs,
           weeklyTestMcqData: editingTestMcqs,
           type: aiGenType,
-          content: finalContent
+          content: finalContent,
+
+          // SAVE NEW TOPIC CONTENT
+          topicNotes: topicNotes,
+          topicVideos: topicVideos
       };
       
       // Save locally AND to Firebase
@@ -1883,6 +1891,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           setAudioPlaylist(data.competitionAudioPlaylist || []); // No fallback
           setPremiumNoteSlots(data.competitionPdfPremiumSlots || []); // No fallback
       }
+
+      // Load Topic Content
+      setTopicNotes(data.topicNotes || []);
+      setTopicVideos(data.topicVideos || []);
   };
 
 
@@ -2061,11 +2073,21 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           nextIndex++;
                       }
 
+                      // Parse Topic from Explanation or separate line
+                      let explanation = expLines.join('\n');
+                      let topic = '';
+                      const topicMatch = explanation.match(/Topic:\s*(.*)/i);
+                      if (topicMatch) {
+                          topic = topicMatch[1].trim();
+                          explanation = explanation.replace(/Topic:\s*.*$/im, '').trim(); // Remove Topic line from explanation
+                      }
+
                       newQuestions.push({
                           question: q,
                           options: opts,
                           correctAnswer: (ansIdx >= 0 && ansIdx <= 3) ? ansIdx : 0,
-                          explanation: expLines.join('\n')
+                          explanation: explanation,
+                          topic: topic
                       });
                       
                       i = nextIndex;
@@ -4070,10 +4092,75 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                       {/* PDF & AI NOTES EDITOR */}
                       {activeTab === 'CONTENT_PDF' && (
                           <div className="space-y-6">
+                              {/* NEW: TOPIC NOTES MANAGER */}
+                              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
+                                  <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">
+                                      <ListChecks size={20} /> Topic Notes Manager (New)
+                                  </h4>
+
+                                  <div className="space-y-3 mb-4">
+                                      {topicNotes.map((note, idx) => (
+                                          <div key={idx} className="flex gap-2 items-center bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
+                                              <span className="text-xs font-bold text-slate-400 w-6">{idx + 1}</span>
+                                              <input
+                                                  type="text"
+                                                  placeholder="Topic Name (e.g. Ohm's Law)"
+                                                  value={note.topic}
+                                                  onChange={e => {
+                                                      const updated = [...topicNotes];
+                                                      updated[idx].topic = e.target.value;
+                                                      // Auto-sync title
+                                                      updated[idx].title = e.target.value;
+                                                      setTopicNotes(updated);
+                                                  }}
+                                                  className="flex-1 p-2 border rounded text-xs font-bold"
+                                              />
+                                              <button
+                                                  onClick={() => {
+                                                      const content = prompt("Enter HTML Content or URL:", note.content);
+                                                      if (content !== null) {
+                                                          const updated = [...topicNotes];
+                                                          updated[idx].content = content;
+                                                          setTopicNotes(updated);
+                                                      }
+                                                  }}
+                                                  className="px-3 py-2 bg-slate-100 rounded text-xs font-bold hover:bg-slate-200"
+                                              >
+                                                  {note.content ? 'Edit Content' : 'Add Content'}
+                                              </button>
+
+                                              <select
+                                                  value={note.isPremium ? 'PREMIUM' : 'FREE'}
+                                                  onChange={e => {
+                                                      const updated = [...topicNotes];
+                                                      updated[idx].isPremium = e.target.value === 'PREMIUM';
+                                                      setTopicNotes(updated);
+                                                  }}
+                                                  className={`p-2 rounded text-xs font-bold border ${note.isPremium ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-green-100 text-green-700 border-green-200'}`}
+                                              >
+                                                  <option value="FREE">Free</option>
+                                                  <option value="PREMIUM">Premium</option>
+                                              </select>
+
+                                              <button onClick={() => setTopicNotes(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-2">
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </div>
+                                      ))}
+                                  </div>
+
+                                  <button
+                                      onClick={() => setTopicNotes([...topicNotes, { id: Date.now().toString(), title: '', topic: '', content: '', isPremium: false }])}
+                                      className="w-full py-2 bg-white border border-indigo-300 text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 border-dashed"
+                                  >
+                                      + Add Topic Note
+                                  </button>
+                              </div>
+
                               {/* FREE PDF SECTION (DYNAMIC) */}
-                              <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                              <div className="bg-green-50 p-4 rounded-xl border border-green-100 opacity-50 pointer-events-none grayscale">
                                   <label className="block text-xs font-black text-green-800 uppercase mb-1 flex items-center gap-2">
-                                      <FileText size={14} /> Free PDF Link ({syllabusMode})
+                                      <FileText size={14} /> Legacy Free PDF Link ({syllabusMode})
                                   </label>
                                   <div className="flex items-center bg-white border border-green-200 rounded-xl overflow-hidden mb-2">
                                       <div className="bg-green-50 p-3"><Link size={16} className="text-green-600" /></div>
@@ -4447,10 +4534,72 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
 
                       {/* VIDEO EDITOR (Dynamic List up to 100) */}
                       {activeTab === 'CONTENT_VIDEO' && (
-                          <div className="space-y-6 bg-gradient-to-br from-rose-50 to-pink-50 p-6 rounded-xl border border-rose-200">
+                          <div className="space-y-6">
+                              {/* NEW: TOPIC VIDEO MANAGER */}
+                              <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                                  <h4 className="font-bold text-purple-900 mb-4 flex items-center gap-2">
+                                      <Video size={20} /> Topic Video Manager (New)
+                                  </h4>
+
+                                  <div className="space-y-3 mb-4">
+                                      {topicVideos.map((vid, idx) => (
+                                          <div key={idx} className="flex gap-2 items-center bg-white p-3 rounded-lg border border-purple-100 shadow-sm">
+                                              <span className="text-xs font-bold text-slate-400 w-6">{idx + 1}</span>
+                                              <input
+                                                  type="text"
+                                                  placeholder="Topic Name"
+                                                  value={vid.topic}
+                                                  onChange={e => {
+                                                      const updated = [...topicVideos];
+                                                      updated[idx].topic = e.target.value;
+                                                      updated[idx].title = e.target.value;
+                                                      setTopicVideos(updated);
+                                                  }}
+                                                  className="flex-1 p-2 border rounded text-xs font-bold"
+                                              />
+                                              <input
+                                                  type="text"
+                                                  placeholder="YouTube URL"
+                                                  value={vid.url}
+                                                  onChange={e => {
+                                                      const updated = [...topicVideos];
+                                                      updated[idx].url = e.target.value;
+                                                      setTopicVideos(updated);
+                                                  }}
+                                                  className="flex-1 p-2 border rounded text-xs text-blue-600"
+                                              />
+                                              <select
+                                                  value={vid.isPremium ? 'PREMIUM' : 'FREE'}
+                                                  onChange={e => {
+                                                      const updated = [...topicVideos];
+                                                      updated[idx].isPremium = e.target.value === 'PREMIUM';
+                                                      setTopicVideos(updated);
+                                                  }}
+                                                  className={`p-2 rounded text-xs font-bold border ${vid.isPremium ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-green-100 text-green-700 border-green-200'}`}
+                                              >
+                                                  <option value="FREE">Free</option>
+                                                  <option value="PREMIUM">Premium</option>
+                                              </select>
+
+                                              <button onClick={() => setTopicVideos(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-2">
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </div>
+                                      ))}
+                                  </div>
+
+                                  <button
+                                      onClick={() => setTopicVideos([...topicVideos, { id: Date.now().toString(), title: '', topic: '', url: '', isPremium: false }])}
+                                      className="w-full py-2 bg-white border border-purple-300 text-purple-600 font-bold rounded-lg hover:bg-purple-50 border-dashed"
+                                  >
+                                      + Add Topic Video
+                                  </button>
+                              </div>
+
+                          <div className="space-y-6 bg-gradient-to-br from-rose-50 to-pink-50 p-6 rounded-xl border border-rose-200 opacity-50 pointer-events-none grayscale">
                               <div className="flex items-center gap-2 mb-3">
                                   <Video size={20} className="text-rose-600" />
-                                  <h4 className="font-bold text-rose-900">Video Playlist Manager (Max 100)</h4>
+                                  <h4 className="font-bold text-rose-900">Legacy Video Playlist Manager (Max 100)</h4>
                               </div>
                               
                               <p className="text-xs text-rose-700 mb-4 bg-white p-2 rounded border border-rose-100">
@@ -8298,6 +8447,25 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
       {activeTab === 'DATABASE' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-bottom-4">
               <div className="flex items-center gap-4 mb-6"><button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button><h3 className="text-xl font-black text-slate-800">Database Viewer</h3></div>
+
+              {/* NUCLEAR RESET BUTTON */}
+              <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <h4 className="text-red-800 font-bold mb-2 flex items-center gap-2"><AlertTriangle size={20} /> DANGER ZONE</h4>
+                  <p className="text-xs text-red-600 mb-4">This action will delete ALL content (Notes, Videos, Syllabus) from the database. This cannot be undone.</p>
+                  <button
+                      onClick={() => {
+                          if (confirm("⚠️ NUCLEAR RESET: Are you sure you want to delete ALL content data?")) {
+                              if (confirm("🔴 FINAL WARNING: This will wipe Firebase Content. Are you absolutely sure?")) {
+                                  resetAllContent().then(() => alert("✅ Database Reset Complete.")).catch(e => alert("Error: " + e));
+                              }
+                          }
+                      }}
+                      className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 animate-pulse"
+                  >
+                      ☢️ RESET ALL CONTENT DATA
+                  </button>
+              </div>
+
               <div className="bg-slate-900 rounded-xl p-4">
                   <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
                       {['nst_users', 'nst_system_settings', 'nst_activity_log', 'nst_iic_posts', 'nst_leaderboard'].map(k => (

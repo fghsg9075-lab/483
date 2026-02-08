@@ -912,9 +912,66 @@ const App: React.FC = () => {
       setShowPremiumModal(true);
   };
 
-  const handleContentGeneration = async (type: ContentType, count?: number, forcePay: boolean = false) => {
+  const handleContentGeneration = async (type: ContentType, count?: number, forcePay: boolean = false, specificContent?: any) => {
     setShowPremiumModal(false);
     if (!tempSelectedChapter || !state.user) return;
+
+    // --- SPECIFIC CONTENT LAUNCH (FROM NEW DASHBOARD) ---
+    if (specificContent) {
+        // 1. Determine Cost
+        let cost = 0;
+        if (specificContent.isPremium) {
+             cost = 5; // Default Cost
+             if (type === 'VIDEO_LECTURE') cost = state.settings.defaultVideoCost || 5;
+             if (type === 'NOTES_PREMIUM' || type === 'NOTES_HTML_PREMIUM') cost = state.settings.defaultPdfCost || 5;
+        }
+
+        // 2. Check & Deduct
+        if (cost > 0 && state.user.role !== 'ADMIN' && !state.originalAdmin) {
+             if (state.user.credits < cost) {
+                 setAlertConfig({isOpen: true, message: `Insufficient Credits! You need ${cost} Credits.`});
+                 return;
+             }
+             if (!state.user.isAutoDeductEnabled && !forcePay) {
+                 setCreditModal({
+                     isOpen: true, cost, title: "Unlock Content",
+                     onConfirm: (auto) => {
+                         if (auto) {
+                             const u = { ...state.user!, isAutoDeductEnabled: true };
+                             saveUserToLive(u);
+                             setState(p => ({...p, user: u}));
+                         }
+                         setCreditModal(null);
+                         handleContentGeneration(type, count, true, specificContent);
+                     }
+                 });
+                 return;
+             }
+             const updatedUser = { ...state.user, credits: state.user.credits - cost };
+             if (!state.originalAdmin) {
+                 localStorage.setItem('nst_current_user', JSON.stringify(updatedUser));
+                 saveUserToLive(updatedUser);
+             }
+             setState(prev => ({...prev, user: updatedUser}));
+        }
+
+        // 3. Launch
+        const lessonContent: LessonContent = {
+            id: specificContent.id || Date.now().toString(),
+            title: specificContent.title || tempSelectedChapter.title,
+            subtitle: specificContent.topic || 'Premium Content',
+            content: specificContent.content || specificContent.url, // Handle both Note (content) and Video (url)
+            type: type,
+            dateCreated: new Date().toISOString(),
+            subjectName: state.selectedSubject?.name || '',
+            // Pass through other fields if video
+            videoPlaylist: specificContent.videoPlaylist
+        };
+
+        setState(prev => ({ ...prev, selectedChapter: tempSelectedChapter, lessonContent, view: 'LESSON' }));
+        setIsFullScreen(true);
+        return;
+    }
     
     // --- HTML NOTES & AI IMAGE HANDLING ---
     if (type === 'NOTES_HTML_FREE' || type === 'NOTES_HTML_PREMIUM' || type === 'NOTES_IMAGE_AI') {
@@ -1725,6 +1782,7 @@ const App: React.FC = () => {
                         user={state.user}
                         settings={state.settings}
                         isStreaming={isStreaming}
+                        onLaunchContent={(c: any) => handleContentGeneration(c.isPremium ? 'NOTES_PREMIUM' : 'NOTES_HTML_FREE', undefined, false, c)}
                     />
                 )}
             </>
@@ -1753,7 +1811,19 @@ const App: React.FC = () => {
 
       {state.loading && <LoadingOverlay dataReady={generationDataReady} customMessage={loadingMessage} onComplete={handleLoadingAnimationComplete} />}
       {showPremiumModal && tempSelectedChapter && state.user && (
-          <PremiumModal user={state.user} chapter={tempSelectedChapter} credits={state.user.credits || 0} isAdmin={state.user.role === 'ADMIN'} onSelect={handleContentGeneration} onClose={() => setShowPremiumModal(false)} />
+          <PremiumModal
+              user={state.user}
+              chapter={tempSelectedChapter}
+              credits={state.user.credits || 0}
+              isAdmin={state.user.role === 'ADMIN'}
+              onSelect={handleContentGeneration}
+              onClose={() => setShowPremiumModal(false)}
+              board={state.selectedBoard!}
+              classLevel={state.selectedClass!}
+              stream={state.selectedStream}
+              subject={state.selectedSubject!}
+              settings={state.settings}
+          />
       )}
       
       {/* FLOATING DOCK */}
@@ -1795,6 +1865,10 @@ const App: React.FC = () => {
               user={state.user} 
               settings={state.settings} 
               onClose={() => setLastTestResult(null)} 
+              onLaunchContent={(c: any) => {
+                  setLastTestResult(null);
+                  handleContentGeneration(c.isPremium ? 'NOTES_PREMIUM' : 'NOTES_HTML_FREE', undefined, false, c);
+              }}
               onPublish={() => {
                   const percentage = Math.round((lastTestResult.score / lastTestResult.totalQuestions) * 100);
                   const activity = {

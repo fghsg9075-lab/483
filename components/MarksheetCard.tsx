@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MCQResult, User, SystemSettings } from '../types';
-import { X, Share2, ChevronLeft, ChevronRight, Download, FileSearch, Grid, CheckCircle, XCircle, Clock, Award, BrainCircuit, Play, StopCircle, BookOpen, Target, Zap, BarChart3, ListChecks, FileText, LayoutTemplate, TrendingUp } from 'lucide-react';
+import { X, Share2, ChevronLeft, ChevronRight, Download, FileSearch, Grid, CheckCircle, XCircle, Clock, Award, BrainCircuit, Play, StopCircle, BookOpen, Target, Zap, BarChart3, ListChecks, FileText, LayoutTemplate, TrendingUp, Lightbulb } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { generateUltraAnalysis } from '../services/groq';
-import { saveUniversalAnalysis, saveUserToLive, saveAiInteraction } from '../firebase';
+import { saveUniversalAnalysis, saveUserToLive, saveAiInteraction, getChapterData } from '../firebase';
 import ReactMarkdown from 'react-markdown';
 import { speakText, stopSpeech, getCategorizedVoices } from '../utils/textToSpeech';
 import { CustomConfirm } from './CustomDialogs'; // Import CustomConfirm
@@ -18,9 +18,10 @@ interface Props {
   questions?: any[]; 
   onUpdateUser?: (user: User) => void;
   initialView?: 'ANALYSIS';
+  onLaunchContent?: (content: any) => void;
 }
 
-export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose, onViewAnalysis, onPublish, questions, onUpdateUser, initialView }) => {
+export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose, onViewAnalysis, onPublish, questions, onUpdateUser, initialView, onLaunchContent }) => {
   const [page, setPage] = useState(1);
   // Replaced showOMR with activeTab logic
   const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'STATS' | 'AI' | 'MARKSHEET_1' | 'MARKSHEET_2'>('OMR');
@@ -38,6 +39,50 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
   
   // Dialog State
   const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
+
+  // RECOMMENDATION STATE
+  const [showRecModal, setShowRecModal] = useState(false);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [recLoading, setRecLoading] = useState(false);
+  const [topicStats, setTopicStats] = useState<Record<string, {total: number, correct: number, percent: number}>>({});
+
+  useEffect(() => {
+      if (questions) {
+          const stats: Record<string, {total: number, correct: number, percent: number}> = {};
+          questions.forEach((q, idx) => {
+              const topic = q.topic || 'General';
+              if (!stats[topic]) stats[topic] = { total: 0, correct: 0, percent: 0 };
+              stats[topic].total++;
+
+              const omr = result.omrData?.find(d => d.qIndex === idx);
+              if (omr && omr.selected === q.correctAnswer) {
+                  stats[topic].correct++;
+              }
+          });
+
+          Object.keys(stats).forEach(t => {
+              stats[t].percent = Math.round((stats[t].correct / stats[t].total) * 100);
+          });
+          setTopicStats(stats);
+      }
+  }, [questions]);
+
+  const handleRecommend = async () => {
+      setRecLoading(true);
+      setShowRecModal(true);
+
+      const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 60);
+
+      const streamKey = (result.classLevel === '11' || result.classLevel === '12') && user.stream ? `-${user.stream}` : '';
+      const key = `nst_content_${user.board || 'CBSE'}_${result.classLevel || '10'}${streamKey}_${result.subjectName}_${result.chapterId}`;
+
+      const data = await getChapterData(key);
+      if (data && data.topicNotes) {
+          const recs = data.topicNotes.filter((n: any) => weakTopics.some(wt => n.topic && n.topic.toLowerCase() === wt.toLowerCase()));
+          setRecommendations(recs);
+      }
+      setRecLoading(false);
+  };
 
   const ITEMS_PER_PAGE = 50;
 
@@ -823,6 +868,12 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 >
                     <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Normal
                 </button>
+                <button
+                    onClick={() => setActiveTab('TOPICS')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'TOPICS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <Target size={14} className="inline mr-1 mb-0.5" /> Topics
+                </button>
                 <button 
                     onClick={() => setActiveTab('AI')}
                     className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
@@ -861,6 +912,44 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     </div>
                 )}
                 
+                {/* 3.5 TOPIC ANALYSIS */}
+                {activeTab === 'TOPICS' && (
+                    <div className="space-y-6 animate-in slide-in-from-bottom-4">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                                    <BarChart3 size={18} /> Topic Breakdown
+                                </h3>
+                                <button
+                                    onClick={handleRecommend}
+                                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg hover:bg-indigo-700 flex items-center gap-2 animate-pulse"
+                                >
+                                    <Lightbulb size={16} /> Get Recommendations
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {Object.entries(topicStats).map(([topic, stat]) => (
+                                    <div key={topic} className="space-y-1">
+                                        <div className="flex justify-between text-xs font-bold text-slate-600">
+                                            <span>{topic}</span>
+                                            <span className={`${stat.percent < 60 ? 'text-red-500' : 'text-green-600'}`}>
+                                                {stat.correct}/{stat.total} ({stat.percent}%)
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full ${stat.percent < 40 ? 'bg-red-500' : stat.percent < 75 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                                style={{ width: `${stat.percent}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* 4. AI ANALYSIS SECTION */}
                 {activeTab === 'AI' && (
                     <div className="animate-in slide-in-from-bottom-4">
@@ -981,6 +1070,49 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Developed by Nadim Anwar</p>
              </div>
         </div>
+
+        {/* RECOMMENDATION MODAL */}
+        {showRecModal && (
+            <div className="fixed inset-0 z-[250] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                <div className="bg-white rounded-3xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl">
+                    <div className="p-4 border-b flex justify-between items-center">
+                        <h3 className="font-black text-slate-800 flex items-center gap-2">
+                            <Lightbulb size={20} className="text-yellow-500" /> Recommended for You
+                        </h3>
+                        <button onClick={() => setShowRecModal(false)} className="p-2 bg-slate-100 rounded-full"><X size={16} /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {recLoading ? (
+                            <div className="text-center py-8 text-slate-400 font-bold animate-pulse">Finding best notes...</div>
+                        ) : recommendations.length === 0 ? (
+                            <div className="text-center py-8 text-slate-400">No specific notes found for your weak topics. Try reviewing the chapter again!</div>
+                        ) : (
+                            recommendations.map((rec, i) => (
+                                <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
+                                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1 bg-white px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
+                                        {rec.isPremium && <span className="text-[9px] text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded ml-1 font-bold">PREMIUM</span>}
+                                    </div>
+                                    <button
+                                        className="text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-200"
+                                        onClick={() => {
+                                            if (onLaunchContent) {
+                                                onLaunchContent(rec);
+                                            } else {
+                                                alert("Please go back to Chapter Dashboard to access this note: " + rec.title);
+                                            }
+                                        }}
+                                    >
+                                        View
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* HIDDEN PRINT CONTAINER FOR DOWNLOAD ALL */}
         {isDownloadingAll && (
