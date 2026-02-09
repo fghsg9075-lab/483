@@ -257,6 +257,14 @@ export interface StartupConfig {
     textColor: string;
 }
 
+export interface BannerSettings {
+    text: string;
+    enabled: boolean;
+    autoHideSeconds: number;
+    bgColor?: string;
+    textColor?: string;
+}
+
 export interface SystemSettings {
   appName: string; // Long Name
   mcqTestLimitFree?: number;
@@ -267,6 +275,10 @@ export interface SystemSettings {
   mcqTestCost?: number;
   mcqAnalysisCost?: number;
   appShortName?: string; // e.g. "IIC"
+  bannerConfig?: {
+      top: BannerSettings;
+      bottom: BannerSettings;
+  };
   playerBrandingText?: string; // NEW: Custom Video Player Overlay Text
   playerBlockShare?: boolean; // NEW: Block Share
   watermarkConfig?: WatermarkConfig; // NEW: Global Watermark Config

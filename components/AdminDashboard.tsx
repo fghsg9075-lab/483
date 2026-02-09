@@ -3523,6 +3523,176 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   </div>
               </div>
 
+              {/* NEW BANNER CONFIG SECTION */}
+              <div className="mt-8 pt-8 border-t border-slate-100">
+                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <Megaphone size={20} className="text-red-500"/> App Banners
+                  </h4>
+                  <p className="text-xs text-slate-500 mb-4">Manage the top and bottom scrolling messages.</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* TOP BANNER */}
+                      <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                          <div className="flex justify-between items-center mb-4">
+                              <label className="font-bold text-red-800 text-sm uppercase">Top Banner</label>
+                              <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold text-red-600">{localSettings.bannerConfig?.top?.enabled ? 'VISIBLE' : 'HIDDEN'}</span>
+                                  <input
+                                      type="checkbox"
+                                      checked={localSettings.bannerConfig?.top?.enabled ?? true}
+                                      onChange={(e) => setLocalSettings({
+                                          ...localSettings,
+                                          bannerConfig: {
+                                              ...(localSettings.bannerConfig || {
+                                                  top: { text: '', enabled: true, autoHideSeconds: 0, bgColor: '#dc2626', textColor: '#ffffff' },
+                                                  bottom: { text: '', enabled: true, autoHideSeconds: 0, bgColor: '#2563eb', textColor: '#ffffff' }
+                                              }),
+                                              top: { ...(localSettings.bannerConfig?.top || { text: '', enabled: true, autoHideSeconds: 0, bgColor: '#dc2626', textColor: '#ffffff' }), enabled: e.target.checked }
+                                          }
+                                      })}
+                                      className="w-5 h-5 accent-red-600"
+                                  />
+                              </div>
+                          </div>
+
+                          <div className="space-y-3">
+                              <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Message Text</label>
+                                  <input
+                                      type="text"
+                                      value={localSettings.bannerConfig?.top?.text || ''}
+                                      onChange={(e) => setLocalSettings({
+                                          ...localSettings,
+                                          bannerConfig: {
+                                              ...(localSettings.bannerConfig || { top: { text: '', enabled: true, autoHideSeconds: 0 }, bottom: { text: '', enabled: true, autoHideSeconds: 0 } } as any),
+                                              top: { ...(localSettings.bannerConfig?.top || {} as any), text: e.target.value }
+                                          }
+                                      })}
+                                      className="w-full p-2 rounded-lg border border-red-200 text-sm font-bold text-slate-700"
+                                  />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Auto-Hide (Secs)</label>
+                                      <input
+                                          type="number"
+                                          value={localSettings.bannerConfig?.top?.autoHideSeconds || 0}
+                                          onChange={(e) => setLocalSettings({
+                                              ...localSettings,
+                                              bannerConfig: {
+                                                  ...(localSettings.bannerConfig || {} as any),
+                                                  top: { ...(localSettings.bannerConfig?.top || {} as any), autoHideSeconds: Number(e.target.value) }
+                                              }
+                                          })}
+                                          className="w-full p-2 rounded-lg border border-red-200 text-sm"
+                                          placeholder="0 = Always"
+                                      />
+                                  </div>
+                                  <div>
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Background</label>
+                                      <div className="flex gap-1">
+                                          <input
+                                              type="color"
+                                              value={localSettings.bannerConfig?.top?.bgColor || '#dc2626'}
+                                              onChange={(e) => setLocalSettings({
+                                                  ...localSettings,
+                                                  bannerConfig: {
+                                                      ...(localSettings.bannerConfig || {} as any),
+                                                      top: { ...(localSettings.bannerConfig?.top || {} as any), bgColor: e.target.value }
+                                                  }
+                                              })}
+                                              className="h-9 w-full rounded cursor-pointer"
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
+                              <p className="text-[10px] text-red-400">* Set Auto-Hide to 0 to keep visible always.</p>
+                          </div>
+                      </div>
+
+                      {/* BOTTOM BANNER */}
+                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                          <div className="flex justify-between items-center mb-4">
+                              <label className="font-bold text-blue-800 text-sm uppercase">Bottom Banner</label>
+                              <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold text-blue-600">{localSettings.bannerConfig?.bottom?.enabled ? 'VISIBLE' : 'HIDDEN'}</span>
+                                  <input
+                                      type="checkbox"
+                                      checked={localSettings.bannerConfig?.bottom?.enabled ?? true}
+                                      onChange={(e) => setLocalSettings({
+                                          ...localSettings,
+                                          bannerConfig: {
+                                              ...(localSettings.bannerConfig || {
+                                                  top: { text: '', enabled: true, autoHideSeconds: 0 },
+                                                  bottom: { text: '', enabled: true, autoHideSeconds: 0 }
+                                              } as any),
+                                              bottom: { ...(localSettings.bannerConfig?.bottom || {} as any), enabled: e.target.checked }
+                                          }
+                                      })}
+                                      className="w-5 h-5 accent-blue-600"
+                                  />
+                              </div>
+                          </div>
+
+                          <div className="space-y-3">
+                              <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Message Text</label>
+                                  <input
+                                      type="text"
+                                      value={localSettings.bannerConfig?.bottom?.text || ''}
+                                      onChange={(e) => setLocalSettings({
+                                          ...localSettings,
+                                          bannerConfig: {
+                                              ...(localSettings.bannerConfig || {} as any),
+                                              bottom: { ...(localSettings.bannerConfig?.bottom || {} as any), text: e.target.value }
+                                          }
+                                      })}
+                                      className="w-full p-2 rounded-lg border border-blue-200 text-sm font-bold text-slate-700"
+                                  />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Auto-Hide (Secs)</label>
+                                      <input
+                                          type="number"
+                                          value={localSettings.bannerConfig?.bottom?.autoHideSeconds || 0}
+                                          onChange={(e) => setLocalSettings({
+                                              ...localSettings,
+                                              bannerConfig: {
+                                                  ...(localSettings.bannerConfig || {} as any),
+                                                  bottom: { ...(localSettings.bannerConfig?.bottom || {} as any), autoHideSeconds: Number(e.target.value) }
+                                              }
+                                          })}
+                                          className="w-full p-2 rounded-lg border border-blue-200 text-sm"
+                                          placeholder="0 = Always"
+                                      />
+                                  </div>
+                                  <div>
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Background</label>
+                                      <div className="flex gap-1">
+                                          <input
+                                              type="color"
+                                              value={localSettings.bannerConfig?.bottom?.bgColor || '#2563eb'}
+                                              onChange={(e) => setLocalSettings({
+                                                  ...localSettings,
+                                                  bannerConfig: {
+                                                      ...(localSettings.bannerConfig || {} as any),
+                                                      bottom: { ...(localSettings.bannerConfig?.bottom || {} as any), bgColor: e.target.value }
+                                                  }
+                                              })}
+                                              className="h-9 w-full rounded cursor-pointer"
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
+                              <p className="text-[10px] text-blue-400">* Set Auto-Hide to 0 to keep visible always.</p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
               <button onClick={handleSaveSettings} className="w-full mt-6 bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-green-700 flex items-center justify-center gap-2">
                   <Save size={18} /> Save General Settings
               </button>

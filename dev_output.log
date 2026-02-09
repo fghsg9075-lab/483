@@ -18,3 +18,12 @@ Port 5000 is in use, trying another one...
 3:11:13 PM [vite] (client) hmr update /components/AdminDashboard.tsx
 [BABEL] Note: The code generator has deoptimised the styling of /app/components/AdminDashboard.tsx as it exceeds the max of 500KB.
 3:15:54 PM [vite] (client) page reload verification/failed_page.html
+4:24:58 PM [vite] (client) hmr update /App.tsx
+4:25:10 PM [vite] (client) hmr update /App.tsx
+4:25:25 PM [vite] (client) hmr update /App.tsx
+4:25:47 PM [vite] (client) hmr update /App.tsx
+4:25:54 PM [vite] (client) hmr update /App.tsx
+4:27:33 PM [vite] (client) hmr update /components/AdminDashboard.tsx
+4:27:33 PM [vite] (client) hmr update /components/AdminDashboard.tsx
+[BABEL] Note: The code generator has deoptimised the styling of /app/components/AdminDashboard.tsx as it exceeds the max of 500KB.
+[BABEL] Note: The code generator has deoptimised the styling of /app/components/AdminDashboard.tsx as it exceeds the max of 500KB.
