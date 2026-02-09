@@ -72,13 +72,9 @@ type AdminTab =
   | 'CONFIG_PRIZES' // NEW: Prize Configuration
   | 'FEATURED_CONTENT'
   | 'CONFIG_CHAT'
-  | 'CONFIG_FEATURES'
   | 'CONFIG_WATERMARK'
-  | 'CONFIG_INFO' // NEW: Info Popups
   | 'UNIVERSAL_PLAYLIST'
   | 'UNIVERSAL_NOTES'
-  | 'UNIVERSAL_ANALYSIS'
-  | 'UNIVERSAL_AI_QA'
   | 'CONFIG_POPUP_THREE_TIER'
   | 'CONFIG_CHALLENGE'
   | 'CHALLENGE_CREATOR_20'
@@ -512,26 +508,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   // --- UNIVERSAL ANALYSIS STATE ---
   const [analysisLogs, setAnalysisLogs] = useState<UniversalAnalysisLog[]>([]);
   const [aiLogs, setAiLogs] = useState<any[]>([]);
-
-  useEffect(() => {
-      if (activeTab === 'UNIVERSAL_ANALYSIS') {
-          const unsub = subscribeToUniversalAnalysis((data) => {
-              setAnalysisLogs(data);
-          });
-          return () => unsub();
-      }
-      if (activeTab === 'UNIVERSAL_AI_QA') {
-          // Dynamic import to avoid circular dep issues if any, or just use firebase export
-          import('../firebase').then(m => {
-              if (m.subscribeToAllAiInteractions) {
-                  const unsub = m.subscribeToAllAiInteractions((data: any[]) => {
-                      setAiLogs(data);
-                  });
-                  return () => unsub();
-              }
-          });
-      }
-  }, [activeTab]);
 
   // --- BULK UPLOAD STATE ---
   const [bulkData, setBulkData] = useState<Record<string, {free: string, premium: string, price: number}>>({});
@@ -2731,16 +2707,12 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Globe} label="External Apps" onClick={() => setActiveTab('CONFIG_EXTERNAL_APPS')} color="indigo" />
                           <DashboardCard icon={Gift} label="Engagement Rewards" onClick={() => setActiveTab('CONFIG_REWARDS')} color="rose" />
                           <DashboardCard icon={Trophy} label="Prize Settings" onClick={() => setActiveTab('CONFIG_PRIZES')} color="yellow" />
-                          <DashboardCard icon={ListChecks} label="Feature Config" onClick={() => setActiveTab('CONFIG_FEATURES')} color="blue" />
                           <DashboardCard icon={Lock} label="Gating & Access" onClick={() => setActiveTab('CONFIG_GATING')} color="red" />
-                          <DashboardCard icon={HelpCircle} label="Info Popups" onClick={() => setActiveTab('CONFIG_INFO')} color="orange" />
                           <DashboardCard icon={Sparkles} label="3 Tier Popup" onClick={() => setActiveTab('CONFIG_POPUP_THREE_TIER')} color="blue" className="ring-2 ring-blue-400 animate-pulse" />
                           <DashboardCard icon={Trophy} label="Challenge Config" onClick={() => setActiveTab('CONFIG_CHALLENGE')} color="red" />
                           <DashboardCard icon={Rocket} label="Challenge 2.0" onClick={() => setActiveTab('CHALLENGE_CREATOR_20')} color="violet" />
                           <DashboardCard icon={Video} label="Universal Playlist" onClick={() => setActiveTab('UNIVERSAL_PLAYLIST')} color="rose" />
                   <DashboardCard icon={FileText} label="Universal Notes" onClick={() => setActiveTab('UNIVERSAL_NOTES')} color="blue" />
-                          <DashboardCard icon={Activity} label="Universal Analysis" onClick={() => setActiveTab('UNIVERSAL_ANALYSIS')} color="cyan" />
-                          <DashboardCard icon={BrainCircuit} label="AI Q&A Logs" onClick={() => setActiveTab('UNIVERSAL_AI_QA')} color="violet" />
                           <DashboardCard icon={ShoppingBag} label="💰 Pricing" onClick={() => setActiveTab('PRICING_MGMT')} color="yellow" />
                       </>
                   )}
@@ -2811,6 +2783,12 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                       <div key={note.id || idx} className="flex flex-col gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
                                           <div className="flex gap-2 items-center">
                                               <span className="w-6 text-center text-xs font-bold text-slate-400">{idx + 1}</span>
+
+                                              {/* TYPE BADGE */}
+                                              <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${note.type === 'HTML' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'}`}>
+                                                  {note.type || 'PDF'}
+                                              </span>
+
                                               <input
                                                   type="text"
                                                   value={note.title}
@@ -2821,28 +2799,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                                   placeholder="Topic Name (e.g. Ohm's Law)"
                                                   className="flex-1 p-2 border border-slate-200 rounded text-xs font-bold"
                                               />
-                                              <input
-                                                  type="number"
-                                                  value={note.price || 0}
-                                                  onChange={(e) => {
-                                                      const updated = universalNotes.map(n => n === note ? { ...n, price: Number(e.target.value) } : n);
-                                                      setUniversalNotes(updated);
-                                                  }}
-                                                  placeholder="Cost"
-                                                  className="w-16 p-2 border border-slate-200 rounded text-xs text-center"
-                                              />
-                                              <select
-                                                  value={note.access || 'FREE'}
-                                                  onChange={(e) => {
-                                                      const updated = universalNotes.map(n => n === note ? { ...n, access: e.target.value } : n);
-                                                      setUniversalNotes(updated);
-                                                  }}
-                                                  className="w-20 p-2 border border-slate-200 rounded text-xs bg-white"
-                                              >
-                                                  <option value="FREE">Free</option>
-                                                  <option value="BASIC">Basic</option>
-                                                  <option value="ULTRA">Ultra</option>
-                                              </select>
+                                              {/* Access is implied by Type now, but we keep it for backward compat/flexibility */}
+                                              <span className={`px-2 py-1 text-[9px] font-bold border rounded ${note.access === 'FREE' ? 'border-green-200 text-green-600 bg-green-50' : 'border-purple-200 text-purple-600 bg-purple-50'}`}>
+                                                  {note.access}
+                                              </span>
                                               <button
                                                   onClick={() => {
                                                       const updated = universalNotes.filter(n => n !== note);
@@ -2853,28 +2813,43 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                                   <Trash2 size={16} />
                                               </button>
                                           </div>
-                                          <input
-                                              type="text"
-                                              value={note.url}
-                                              onChange={(e) => {
-                                                  const updated = universalNotes.map(n => n === note ? { ...n, url: e.target.value } : n);
-                                                  setUniversalNotes(updated);
-                                              }}
-                                              placeholder="PDF URL"
-                                              className="w-full p-2 border border-slate-200 rounded text-xs font-mono text-blue-600 bg-white ml-8"
-                                          />
+
+                                          {note.type === 'HTML' ? (
+                                               <textarea
+                                                  value={note.content || ''}
+                                                  onChange={(e) => {
+                                                      const updated = universalNotes.map(n => n === note ? { ...n, content: e.target.value } : n);
+                                                      setUniversalNotes(updated);
+                                                  }}
+                                                  placeholder="Enter HTML Notes Content..."
+                                                  className="w-full p-2 border border-slate-200 rounded text-xs font-mono text-slate-600 bg-white ml-8 h-20"
+                                              />
+                                          ) : (
+                                              <input
+                                                  type="text"
+                                                  value={note.url}
+                                                  onChange={(e) => {
+                                                      const updated = universalNotes.map(n => n === note ? { ...n, url: e.target.value } : n);
+                                                      setUniversalNotes(updated);
+                                                  }}
+                                                  placeholder="PDF URL"
+                                                  className="w-full p-2 border border-slate-200 rounded text-xs font-mono text-blue-600 bg-white ml-8"
+                                              />
+                                          )}
                                       </div>
                                   ))}
                               </div>
 
-                              <button
-                                  onClick={() => {
-                                      const ch = selChapters.find(c => c.id === editingChapterId);
+                              <div className="mt-4 grid grid-cols-2 gap-3">
+                                  <button
+                                      onClick={() => {
+                                          const ch = selChapters.find(c => c.id === editingChapterId);
                                       if (ch) {
                                           const newNote = {
                                               id: `rec-${Date.now()}`,
                                               title: '',
-                                              url: '',
+                                              type: 'HTML',
+                                              content: '',
                                               access: 'FREE',
                                               price: 0,
                                               chapterId: ch.id,
@@ -2886,10 +2861,36 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                           setUniversalNotes([...universalNotes, newNote]);
                                       }
                                   }}
-                                  className="mt-4 w-full py-3 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold border border-blue-100 hover:bg-blue-100 flex items-center justify-center gap-2 border-dashed"
+                                  className="py-3 bg-orange-50 text-orange-600 rounded-xl text-xs font-bold border border-orange-100 hover:bg-orange-100 flex items-center justify-center gap-2 border-dashed"
                               >
-                                  <Plus size={16} /> Add Note (Max 100)
+                                  <FileText size={16} /> Add Free Note (HTML)
                               </button>
+
+                              <button
+                                  onClick={() => {
+                                      const ch = selChapters.find(c => c.id === editingChapterId);
+                                      if (ch) {
+                                          const newNote = {
+                                              id: `rec-${Date.now()}`,
+                                              title: '',
+                                              type: 'PDF',
+                                              url: '',
+                                              access: 'ULTRA', // Premium Default
+                                              price: 0,
+                                              chapterId: ch.id,
+                                              subjectName: selSubject?.name,
+                                              topic: '',
+                                              board: selBoard,
+                                              classLevel: selClass
+                                          };
+                                          setUniversalNotes([...universalNotes, newNote]);
+                                      }
+                                  }}
+                                  className="py-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100 hover:bg-red-100 flex items-center justify-center gap-2 border-dashed"
+                              >
+                                  <FileText size={16} /> Add Premium Note (PDF)
+                              </button>
+                              </div>
                           </div>
                       )}
                   </div>
@@ -6685,58 +6686,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                    </button>
                                </div>
                            )}
-                      </div>
-                  )}
-                  {activeTab === 'CONFIG_FEATURES' && (
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                           <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><ListChecks size={18} /> Configure App Features</h4>
-                           <p className="text-xs text-slate-500 mb-4">Toggle features ON/OFF to control what students see in the Marquee Slider.</p>
-                           
-                           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                               {(localSettings.appFeatures || DEFAULT_APP_FEATURES).map((feat, idx) => (
-                                   <div key={feat.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200">
-                                       <div className="flex items-center gap-3">
-                                           <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">{idx + 1}</span>
-                                           {/* Allow editing title too? Maybe later. For now just toggle. */}
-                                           <input 
-                                              type="text" 
-                                              value={feat.title} 
-                                              onChange={(e) => {
-                                                  const updated = [...(localSettings.appFeatures || DEFAULT_APP_FEATURES)];
-                                                  updated[idx].title = e.target.value;
-                                                  setLocalSettings({...localSettings, appFeatures: updated});
-                                              }}
-                                              className="font-medium text-sm text-slate-800 border-none bg-transparent focus:bg-slate-50 focus:outline-none p-1 rounded"
-                                           />
-                                       </div>
-                                       <div className="flex items-center gap-2">
-                                           <label className="text-[10px] font-bold uppercase text-slate-400">{feat.enabled ? 'ON' : 'OFF'}</label>
-                                           <input 
-                                              type="checkbox" 
-                                              checked={feat.enabled} 
-                                              onChange={(e) => {
-                                                  const updated = [...(localSettings.appFeatures || DEFAULT_APP_FEATURES)];
-                                                  updated[idx].enabled = e.target.checked;
-                                                  setLocalSettings({...localSettings, appFeatures: updated});
-                                              }}
-                                              className="w-5 h-5 accent-blue-600"
-                                           />
-                                       </div>
-                                   </div>
-                               ))}
-                           </div>
-                           
-                           <button 
-                              onClick={() => {
-                                  // Reset to Default
-                                  if(confirm("Reset all feature names and visibility to default?")) {
-                                      setLocalSettings({...localSettings, appFeatures: DEFAULT_APP_FEATURES});
-                                  }
-                              }}
-                              className="mt-4 text-xs font-bold text-red-500 hover:text-red-700 underline"
-                           >
-                              Reset to Defaults
-                           </button>
                       </div>
                   )}
 

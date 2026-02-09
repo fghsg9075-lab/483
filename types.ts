@@ -782,6 +782,10 @@ export interface LessonContent {
   // NEW TOPIC BASED CONTENT
   topicNotes?: { id: string, title: string, content: string, isPremium: boolean, topic: string }[];
   topicVideos?: { id: string, title: string, url: string, isPremium: boolean, topic: string }[];
+
+  // ANALYSIS FLOW
+  analysisType?: 'FREE' | 'PREMIUM';
+  aiAnalysisText?: string;
 }
 
 export type ViewState = 'BOARDS' | 'CLASSES' | 'STREAMS' | 'SUBJECTS' | 'CHAPTERS' | 'LESSON' | 'ADMIN_DASHBOARD' | 'AUDIO_STUDIO' | 'STUDENT_DASHBOARD' | 'UNIVERSAL_CHAT' | 'RULES' | 'IIC' | 'LEADERBOARD';
