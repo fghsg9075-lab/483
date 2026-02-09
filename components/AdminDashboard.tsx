@@ -75,6 +75,8 @@ type AdminTab =
   | 'CONFIG_WATERMARK'
   | 'UNIVERSAL_PLAYLIST'
   | 'UNIVERSAL_NOTES'
+  | 'UNIVERSAL_ANALYSIS'
+  | 'CONFIG_INFO'
   | 'CONFIG_POPUP_THREE_TIER'
   | 'CONFIG_CHALLENGE'
   | 'CHALLENGE_CREATOR_20'
@@ -2713,6 +2715,9 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Rocket} label="Challenge 2.0" onClick={() => setActiveTab('CHALLENGE_CREATOR_20')} color="violet" />
                           <DashboardCard icon={Video} label="Universal Playlist" onClick={() => setActiveTab('UNIVERSAL_PLAYLIST')} color="rose" />
                   <DashboardCard icon={FileText} label="Universal Notes" onClick={() => setActiveTab('UNIVERSAL_NOTES')} color="blue" />
+                  <DashboardCard icon={Activity} label="Analysis Logs" onClick={() => setActiveTab('UNIVERSAL_ANALYSIS')} color="green" />
+                  <DashboardCard icon={Bot} label="AI QA Logs" onClick={() => setActiveTab('UNIVERSAL_AI_QA')} color="purple" />
+                  <DashboardCard icon={Monitor} label="App Content Info" onClick={() => setActiveTab('CONFIG_INFO')} color="cyan" />
                           <DashboardCard icon={ShoppingBag} label="💰 Pricing" onClick={() => setActiveTab('PRICING_MGMT')} color="yellow" />
                       </>
                   )}
