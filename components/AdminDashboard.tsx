@@ -9683,6 +9683,159 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           </div>
       )}
 
+      {activeTab === 'UNIVERSAL_NOTES' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Universal Recommended Notes</h3>
+              </div>
+
+              {/* Add New Note Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  {/* FREE NOTES (HTML) */}
+                  <div className="bg-orange-50 p-6 rounded-xl border border-orange-200">
+                      <h4 className="font-bold text-orange-900 mb-4 flex items-center gap-2">
+                          <FileText size={20} /> Add Free Note (HTML)
+                      </h4>
+                      <div className="space-y-3">
+                          <input
+                              type="text"
+                              id="free-note-title"
+                              placeholder="Note Title"
+                              className="w-full p-2 border border-slate-200 rounded text-sm font-bold"
+                          />
+                          <input
+                              type="text"
+                              id="free-note-topic"
+                              placeholder="Topic (e.g. Algebra)"
+                              className="w-full p-2 border border-slate-200 rounded text-sm"
+                          />
+                          <textarea
+                              id="free-note-content"
+                              placeholder="HTML Content (e.g. <h1>Summary</h1><p>...</p>)"
+                              className="w-full h-32 p-2 border border-slate-200 rounded text-sm font-mono"
+                          />
+                          <button
+                              onClick={() => {
+                                  const title = (document.getElementById('free-note-title') as HTMLInputElement).value;
+                                  const topic = (document.getElementById('free-note-topic') as HTMLInputElement).value;
+                                  const content = (document.getElementById('free-note-content') as HTMLTextAreaElement).value;
+                                  if(!title || !content) return alert("Title and Content required!");
+
+                                  const newNote = {
+                                      id: Date.now(),
+                                      title,
+                                      topic,
+                                      type: 'HTML',
+                                      content,
+                                      access: 'FREE'
+                                  };
+                                  setUniversalNotes([...universalNotes, newNote]);
+                                  // Clear inputs
+                                  (document.getElementById('free-note-title') as HTMLInputElement).value = '';
+                                  (document.getElementById('free-note-content') as HTMLTextAreaElement).value = '';
+                              }}
+                              className="w-full py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700"
+                          >
+                              Add Free Note
+                          </button>
+                      </div>
+                  </div>
+
+                  {/* PREMIUM NOTES (PDF) */}
+                  <div className="bg-red-50 p-6 rounded-xl border border-red-200">
+                      <h4 className="font-bold text-red-900 mb-4 flex items-center gap-2">
+                          <Link size={20} /> Add Premium Note (PDF)
+                      </h4>
+                      <div className="space-y-3">
+                          <input
+                              type="text"
+                              id="prem-note-title"
+                              placeholder="Note Title"
+                              className="w-full p-2 border border-slate-200 rounded text-sm font-bold"
+                          />
+                          <input
+                              type="text"
+                              id="prem-note-topic"
+                              placeholder="Topic (e.g. Geometry)"
+                              className="w-full p-2 border border-slate-200 rounded text-sm"
+                          />
+                          <input
+                              type="text"
+                              id="prem-note-url"
+                              placeholder="PDF URL (e.g. https://...)"
+                              className="w-full p-2 border border-slate-200 rounded text-sm text-blue-600"
+                          />
+                          <button
+                              onClick={() => {
+                                  const title = (document.getElementById('prem-note-title') as HTMLInputElement).value;
+                                  const topic = (document.getElementById('prem-note-topic') as HTMLInputElement).value;
+                                  const url = (document.getElementById('prem-note-url') as HTMLInputElement).value;
+                                  if(!title || !url) return alert("Title and URL required!");
+
+                                  const newNote = {
+                                      id: Date.now(),
+                                      title,
+                                      topic,
+                                      type: 'PDF',
+                                      url,
+                                      access: 'PREMIUM'
+                                  };
+                                  setUniversalNotes([...universalNotes, newNote]);
+                                  (document.getElementById('prem-note-title') as HTMLInputElement).value = '';
+                                  (document.getElementById('prem-note-url') as HTMLInputElement).value = '';
+                              }}
+                              className="w-full py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700"
+                          >
+                              Add Premium Note
+                          </button>
+                      </div>
+                  </div>
+              </div>
+
+              {/* List of Notes */}
+              <div className="space-y-4">
+                  <h4 className="font-bold text-slate-800 text-lg border-b pb-2">Manage Current Notes ({universalNotes.length})</h4>
+                  {universalNotes.length === 0 && <p className="text-slate-400 italic">No notes added yet.</p>}
+
+                  {universalNotes.map((note, idx) => (
+                      <div key={idx} className={`p-4 rounded-xl border flex justify-between items-center ${note.type === 'HTML' ? 'bg-orange-50 border-orange-100' : 'bg-red-50 border-red-100'}`}>
+                          <div>
+                              <p className="font-bold text-slate-800">{note.title}</p>
+                              <div className="flex gap-2 mt-1">
+                                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-white border">{note.topic || 'General'}</span>
+                                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded text-white ${note.type === 'HTML' ? 'bg-orange-500' : 'bg-red-500'}`}>
+                                      {note.type} • {note.access}
+                                  </span>
+                              </div>
+                              {note.type === 'PDF' && <a href={note.url} target="_blank" className="text-xs text-blue-600 hover:underline mt-1 block truncate max-w-md">{note.url}</a>}
+                              {note.type === 'HTML' && <p className="text-xs text-slate-500 mt-1 truncate max-w-md">{note.content.substring(0, 50)}...</p>}
+                          </div>
+                          <button
+                              onClick={() => {
+                                  const updated = universalNotes.filter((_, i) => i !== idx);
+                                  setUniversalNotes(updated);
+                              }}
+                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg"
+                          >
+                              <Trash2 size={18} />
+                          </button>
+                      </div>
+                  ))}
+              </div>
+
+              <div className="mt-8 flex justify-end">
+                  <button
+                      onClick={saveUniversalNotes}
+                      className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 flex items-center gap-2"
+                  >
+                      <Save size={20} /> Save All Notes
+                  </button>
+              </div>
+          </div>
+      )}
+
       {activeTab === 'UNIVERSAL_ANALYSIS' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
