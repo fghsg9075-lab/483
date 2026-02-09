@@ -24,13 +24,44 @@ interface Props {
 export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose, onViewAnalysis, onPublish, questions, onUpdateUser, initialView, onLaunchContent }) => {
   const [page, setPage] = useState(1);
   // Replaced showOMR with activeTab logic
-  const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'STATS' | 'AI' | 'MARKSHEET_1' | 'MARKSHEET_2'>('OMR');
+  const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'STATS' | 'AI' | 'MARKSHEET_1' | 'MARKSHEET_2' | 'TOPICS'>('STATS');
   
   // ULTRA ANALYSIS STATE
   const [ultraAnalysisResult, setUltraAnalysisResult] = useState('');
   const [isLoadingUltra, setIsLoadingUltra] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [viewingNote, setViewingNote] = useState<any>(null); // New state for HTML Note Modal
+  const [showAnalysisSelection, setShowAnalysisSelection] = useState(false); // Modal for Free vs Premium
+
+  const generateLocalAnalysis = () => {
+      // Calculate weak/strong based on topicStats
+      const topics = Object.keys(topicStats).map(t => {
+          const s = topicStats[t];
+          let status = 'AVERAGE';
+          if (s.percent >= 80) status = 'STRONG';
+          else if (s.percent < 50) status = 'WEAK';
+
+          return {
+              name: t,
+              status,
+              actionPlan: status === 'WEAK' ? 'Focus on basic concepts and practice more questions from this topic.' : 'Good job! Keep revising to maintain speed.',
+              studyMode: status === 'WEAK' ? 'DEEP_STUDY' : 'QUICK_REVISION'
+          };
+      });
+
+      const weakTopics = topics.filter(t => t.status === 'WEAK').map(t => t.name);
+
+      return JSON.stringify({
+          motivation: percentage > 80 ? "Excellent Performance! You are on track." : "Keep working hard. You can improve!",
+          topics: topics,
+          nextSteps: {
+              focusTopics: weakTopics.slice(0, 3),
+              action: weakTopics.length > 0 ? "Review the recommended notes for these topics immediately." : "Take a mock test to challenge yourself."
+          },
+          weakToStrongPath: weakTopics.map((t, i) => ({ step: i+1, action: `Read ${t} Notes` }))
+      });
+  };
   
   // TTS State
   const [voices, setVoices] = useState<{hindi: SpeechSynthesisVoice[], indianEnglish: SpeechSynthesisVoice[], others: SpeechSynthesisVoice[]}>({hindi: [], indianEnglish: [], others: []});
@@ -146,19 +177,28 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
            }
       }
 
-      // B) Premium Recommendations (Universal List + Topic Notes)
+      // B) Recommendations (Universal List)
       if (universalData && universalData.notesPlaylist) {
           const universalMatches = universalData.notesPlaylist.filter((n: any) =>
               searchTopics.some(t => n.title.toLowerCase().includes(t.toLowerCase()))
           );
-          recs.push(...universalMatches.map((n: any) => ({ ...n, type: 'UNIVERSAL_NOTE' })));
+          recs.push(...universalMatches.map((n: any) => ({
+              ...n,
+              type: 'UNIVERSAL_NOTE',
+              isPremium: n.access === 'PREMIUM' || n.type === 'PDF'
+          })));
       }
 
       if (chapterData && chapterData.topicNotes) {
           const topicMatches = chapterData.topicNotes.filter((n: any) =>
               searchTopics.some(wt => n.topic && n.topic.toLowerCase() === wt.toLowerCase())
           );
-          recs.push(...topicMatches.map((n: any) => ({ ...n, type: 'TOPIC_NOTE', access: n.isPremium ? 'PREMIUM' : 'FREE' })));
+          recs.push(...topicMatches.map((n: any) => ({
+              ...n,
+              type: 'TOPIC_NOTE',
+              access: n.isPremium ? 'PREMIUM' : 'FREE',
+              isPremium: n.isPremium
+          })));
       }
 
       setRecommendations(recs);
@@ -286,17 +326,9 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
               });
           }
 
-          // Generate Analysis FIRST
-          const analysisText = await generateUltraAnalysis({
-              questions: questions,
-              userAnswers: userAnswers,
-              score: result.score,
-              total: result.totalQuestions,
-              subject: result.subjectName,
-              chapter: result.chapterTitle,
-              classLevel: result.classLevel || '10'
-          }, settings);
-
+          // Generate Analysis LOCALLY (No API)
+          await new Promise(resolve => setTimeout(resolve, 1500)); // Fake delay for effect
+          const analysisText = generateLocalAnalysis();
           setUltraAnalysisResult(analysisText);
 
           // 2. DEDUCT CREDITS & SAVE REPORT (Only if not skipping cost or if it was free, but logic implies we save if generated)
@@ -901,7 +933,85 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
   );
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in overflow-hidden">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
+        {/* FREE HTML NOTE MODAL */}
+        {viewingNote && (
+            <div className="fixed inset-0 z-[300] bg-white flex flex-col animate-in fade-in">
+                <header className="bg-white border-b border-slate-200 p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+                    <div className="flex items-center gap-3">
+                        {settings?.appLogo && <img src={settings.appLogo} className="w-8 h-8 object-contain" />}
+                        <div>
+                            <h2 className="font-black text-slate-800 uppercase text-sm">{settings?.appName || 'Free Notes'}</h2>
+                            <p className="text-[10px] text-orange-600 font-bold uppercase tracking-widest">Recommended Reading</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setViewingNote(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><X size={20}/></button>
+                </header>
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+                    <div className="max-w-3xl mx-auto bg-white p-6 rounded-3xl shadow-sm border border-slate-100 min-h-[50vh]">
+                        <h1 className="text-2xl font-black text-slate-900 mb-6 border-b pb-4">{viewingNote.title}</h1>
+                        <div className="prose prose-slate max-w-none prose-headings:font-black" dangerouslySetInnerHTML={{ __html: (viewingNote.content) }} />
+                    </div>
+                </div>
+                <div className="bg-white border-t border-slate-200 p-4 text-center">
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Developed by Nadim Anwar</p>
+                </div>
+            </div>
+        )}
+
+        {/* ANALYSIS SELECTION MODAL */}
+        {showAnalysisSelection && (
+            <div className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in">
+                <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
+                    <div className="p-6 text-center border-b border-slate-100">
+                        <h3 className="text-xl font-black text-slate-800 mb-1">Unlock Analysis</h3>
+                        <p className="text-sm text-slate-500">Choose your insight level</p>
+                    </div>
+                    <div className="p-4 space-y-4">
+                        {/* FREE OPTION */}
+                        <button
+                            onClick={() => {
+                                setShowAnalysisSelection(false);
+                                setActiveTab('TOPICS'); // Free Analysis View
+                                handleRecommend(); // Load Free Notes
+                            }}
+                            className="w-full bg-orange-50 hover:bg-orange-100 border-2 border-orange-200 p-4 rounded-2xl flex items-center justify-between transition-all group"
+                        >
+                            <div className="text-left">
+                                <p className="font-black text-orange-800 text-lg group-hover:scale-105 transition-transform">Free Analysis</p>
+                                <p className="text-xs text-orange-600 font-bold mt-1">Review Answers + Topics + HTML Notes</p>
+                            </div>
+                            <div className="w-8 h-8 bg-orange-200 text-orange-700 rounded-full flex items-center justify-center font-bold">
+                                <ChevronRight size={20} />
+                            </div>
+                        </button>
+
+                        {/* PREMIUM OPTION */}
+                        <button
+                            onClick={() => {
+                                setShowAnalysisSelection(false);
+                                setActiveTab('AI'); // Premium Analysis View
+                                handleUltraAnalysis(); // Local Logic + Cost
+                            }}
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-2xl flex items-center justify-between transition-all shadow-xl shadow-slate-200 group relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="text-left relative z-10">
+                                <p className="font-black text-white text-lg group-hover:scale-105 transition-transform flex items-center gap-2">
+                                    Premium <span className="text-[10px] bg-yellow-400 text-black px-2 py-0.5 rounded-full">PRO</span>
+                                </p>
+                                <p className="text-xs text-slate-400 font-bold mt-1">Deep Analysis + PDF Notes</p>
+                            </div>
+                            <div className="text-right relative z-10">
+                                <span className="block text-xl font-black text-yellow-400">{settings?.mcqAnalysisCostUltra ?? 20} CR</span>
+                            </div>
+                        </button>
+                    </div>
+                    <button onClick={() => setShowAnalysisSelection(false)} className="w-full py-4 text-slate-400 font-bold text-sm hover:text-slate-600">Close</button>
+                </div>
+            </div>
+        )}
+
         <CustomConfirm
             isOpen={confirmConfig.isOpen}
             title={confirmConfig.title}
@@ -930,7 +1040,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             </div>
 
             {/* TAB HEADER */}
-            <div className="px-4 pt-2 pb-0 bg-white border-b border-slate-100 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide">
+            <div className="px-4 pt-2 pb-0 bg-white border-b border-slate-100 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide items-center">
+                <button
+                    onClick={() => setActiveTab('STATS')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'STATS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Marksheet
+                </button>
                 <button 
                     onClick={() => setActiveTab('OMR')}
                     className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'OMR' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
@@ -943,29 +1059,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 >
                     <XCircle size={14} className="inline mr-1 mb-0.5" /> Mistakes
                 </button>
+
+                {/* ANALYSIS BUTTON */}
                 <button 
-                    onClick={() => setActiveTab('STATS')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'STATS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                    onClick={() => setShowAnalysisSelection(true)}
+                    className={`ml-auto px-4 py-2 text-xs font-black rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-md flex items-center gap-2 transition-all active:scale-95`}
                 >
-                    <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Normal
-                </button>
-                <button
-                    onClick={() => setActiveTab('TOPICS')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'TOPICS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <Target size={14} className="inline mr-1 mb-0.5" /> Topics
-                </button>
-                <button 
-                    onClick={() => setActiveTab('AI')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> Premium Analysis
-                </button>
-                <button 
-                    onClick={() => setActiveTab('MARKSHEET_1')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'MARKSHEET_1' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <FileText size={14} className="inline mr-1 mb-0.5" /> Marksheet
+                    <BrainCircuit size={14} /> Analysis
                 </button>
             </div>
 
@@ -993,22 +1093,14 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     </div>
                 )}
                 
-                {/* 3.5 TOPIC ANALYSIS */}
+                {/* 3.5 TOPIC ANALYSIS (FREE) */}
                 {activeTab === 'TOPICS' && (
                     <div className="space-y-6 animate-in slide-in-from-bottom-4">
+                        {/* Topic Breakdown */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
-                                    <BarChart3 size={18} /> Topic Breakdown
-                                </h3>
-                                <button
-                                    onClick={handleRecommend}
-                                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg hover:bg-indigo-700 flex items-center gap-2 animate-pulse"
-                                >
-                                    <Lightbulb size={16} /> Get Recommendations
-                                </button>
-                            </div>
-
+                            <h3 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-6">
+                                <BarChart3 size={18} /> Topic Breakdown
+                            </h3>
                             <div className="space-y-4">
                                 {Object.entries(topicStats).map(([topic, stat]) => (
                                     <div key={topic} className="space-y-1">
@@ -1027,6 +1119,49 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                     </div>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* Free Recommendations List (Inlined) */}
+                        <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200">
+                             <h3 className="font-black text-orange-900 text-lg flex items-center gap-2 mb-4">
+                                <Lightbulb size={20} /> Recommended Free Notes
+                            </h3>
+                            {recommendations.length === 0 ? (
+                                <p className="text-sm text-orange-800 opacity-70">No specific notes found for your weak topics.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {recommendations.filter(r => !r.isPremium).map((rec, i) => (
+                                        <div key={i} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm flex justify-between items-center">
+                                            <div>
+                                                <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
+                                                <p className="text-[10px] text-slate-500 uppercase font-bold mt-1 bg-slate-50 px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
+                                            </div>
+                                            <button
+                                                className="text-xs font-bold text-white bg-orange-500 px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md transition-all"
+                                                onClick={() => {
+                                                    // Open HTML Modal
+                                                    if (rec.type === 'UNIVERSAL_NOTE' && rec.content) {
+                                                        setViewingNote(rec);
+                                                    } else if (onLaunchContent) {
+                                                         // Fallback to launch content if provided (Legacy)
+                                                         onLaunchContent({
+                                                             id: `REC_FREE_${i}`,
+                                                             title: rec.title,
+                                                             type: 'PDF', // Assuming fallback
+                                                             directResource: { url: rec.url, access: rec.access }
+                                                         });
+                                                    }
+                                                }}
+                                            >
+                                                Read Note
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {recommendations.filter(r => !r.isPremium).length === 0 && (
+                                         <p className="text-sm text-orange-800 opacity-70">No free notes available for these topics.</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

@@ -49,6 +49,7 @@ export const LessonView: React.FC<Props> = ({
   const [language, setLanguage] = useState<Language>('English');
   const [universalNotes, setUniversalNotes] = useState<any[]>([]);
   const [recLoading, setRecLoading] = useState(false);
+  const [viewingNote, setViewingNote] = useState<any>(null); // New state for HTML Note Modal
 
   // LANGUAGE AUTO-SELECT
   useEffect(() => {
@@ -261,6 +262,41 @@ export const LessonView: React.FC<Props> = ({
   // SCHOOL MODE FREE NOTES FIX
   const isFree = content.type === 'PDF_FREE' || content.type === 'NOTES_HTML_FREE' || (content.type === 'VIDEO_LECTURE' && content.videoPlaylist?.some(v => v.access === 'FREE'));
   
+  // FREE HTML NOTE MODAL
+  if (viewingNote) {
+      return (
+          <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in fade-in">
+              {/* Header */}
+              <header className="bg-white border-b border-slate-200 p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+                  <div className="flex items-center gap-3">
+                      {settings?.appLogo && <img src={settings.appLogo} className="w-8 h-8 object-contain" />}
+                      <div>
+                          <h2 className="font-black text-slate-800 uppercase text-sm">{settings?.appName || 'Free Notes'}</h2>
+                          <p className="text-[10px] text-orange-600 font-bold uppercase tracking-widest">Recommended Reading</p>
+                      </div>
+                  </div>
+                  <button onClick={() => setViewingNote(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><X size={20}/></button>
+              </header>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+                  <div className="max-w-3xl mx-auto bg-white p-6 rounded-3xl shadow-sm border border-slate-100 min-h-[50vh]">
+                      <h1 className="text-2xl font-black text-slate-900 mb-6 border-b pb-4">{viewingNote.title}</h1>
+                      <div
+                          className="prose prose-slate max-w-none prose-p:text-slate-700 prose-headings:font-black"
+                          dangerouslySetInnerHTML={{ __html: decodeHtml(viewingNote.content) }}
+                      />
+                  </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-white border-t border-slate-200 p-4 text-center">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Developed by Nadim Anwar</p>
+              </div>
+          </div>
+      );
+  }
+
   if (content.type === 'NOTES_IMAGE_AI' || isImage || isHtml) {
       const preventMenu = (e: React.MouseEvent | React.TouchEvent) => e.preventDefault();
       
@@ -667,20 +703,7 @@ export const LessonView: React.FC<Props> = ({
                                         </a>
                                     ) : (
                                         <button
-                                            onClick={() => {
-                                                const newWindow = window.open("", "_blank");
-                                                if(newWindow) {
-                                                    newWindow.document.write(`
-                                                        <html>
-                                                            <head>
-                                                                <title>${note.title}</title>
-                                                                <style>body { font-family: sans-serif; padding: 20px; line-height: 1.6; max-width: 800px; margin: 0 auto; }</style>
-                                                            </head>
-                                                            <body>${decodeHtml(note.content)}</body>
-                                                        </html>
-                                                    `);
-                                                }
-                                            }}
+                                            onClick={() => setViewingNote(note)}
                                             className="block w-full py-2 bg-orange-500 text-white text-center rounded-lg text-xs font-bold hover:bg-orange-600 shadow-md transition-all"
                                         >
                                             Read Summary
