@@ -14,7 +14,7 @@ interface Props {
 export const AnalyticsPage: React.FC<Props> = ({ user, onBack, settings, onNavigateToChapter }) => {
   const [selectedResult, setSelectedResult] = useState<MCQResult | null>(null);
   const [selectedQuestions, setSelectedQuestions] = useState<any[]>([]);
-  const [initialView, setInitialView] = useState<'ANALYSIS' | undefined>(undefined);
+  const [initialView, setInitialView] = useState<'ANALYSIS' | 'RECOMMEND' | undefined>(undefined);
 
   const historyRaw = user.mcqHistory || [];
   
@@ -41,7 +41,7 @@ export const AnalyticsPage: React.FC<Props> = ({ user, onBack, settings, onNavig
       return [];
   };
 
-  const handleOpenMarksheet = (result: MCQResult, view?: 'ANALYSIS') => {
+  const handleOpenMarksheet = (result: MCQResult, view?: 'ANALYSIS' | 'RECOMMEND') => {
       const questions = getQuestionsForAttempt(result.id);
       setSelectedQuestions(questions);
       setInitialView(view);
@@ -307,9 +307,19 @@ export const AnalyticsPage: React.FC<Props> = ({ user, onBack, settings, onNavig
                                         e.stopPropagation();
                                         handleOpenMarksheet(item, 'ANALYSIS');
                                     }}
+                                    className="flex-1 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors"
+                                >
+                                    <TrendingUp size={14} /> Free Analysis
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Open Smart Recommendations
+                                        handleOpenMarksheet(item, 'RECOMMEND');
+                                    }}
                                     className="flex-1 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform shadow-md shadow-indigo-200"
                                 >
-                                    <BrainCircuit size={14} /> Analysis
+                                    <BrainCircuit size={14} /> Recommend
                                 </button>
                             </div>
                         </div>

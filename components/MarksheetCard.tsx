@@ -67,20 +67,73 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       }
   }, [questions]);
 
+  // Handle Initial View Logic
+  useEffect(() => {
+      if (initialView === 'RECOMMEND' && questions && questions.length > 0) {
+          // Allow state to settle, then open
+          setTimeout(() => {
+              handleRecommend();
+          }, 500);
+      }
+  }, [initialView, questions]);
+
   const handleRecommend = async () => {
       setRecLoading(true);
       setShowRecModal(true);
 
       const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 60);
 
+      // If no weak topics found (perfect score or no data), default to all topics for general recommendation
+      const searchTopics = weakTopics.length > 0 ? weakTopics : Object.keys(topicStats);
+
       const streamKey = (result.classLevel === '11' || result.classLevel === '12') && user.stream ? `-${user.stream}` : '';
       const key = `nst_content_${user.board || 'CBSE'}_${result.classLevel || '10'}${streamKey}_${result.subjectName}_${result.chapterId}`;
 
-      const data = await getChapterData(key);
-      if (data && data.topicNotes) {
-          const recs = data.topicNotes.filter((n: any) => weakTopics.some(wt => n.topic && n.topic.toLowerCase() === wt.toLowerCase()));
-          setRecommendations(recs);
+      // 1. Fetch Chapter Content (For Free/Premium Notes)
+      let chapterData: any = {};
+      try {
+          chapterData = await getChapterData(key);
+      } catch (e) { console.error(e); }
+
+      // 2. Fetch Universal Notes (Recommended List)
+      let universalData: any = {};
+      try {
+          universalData = await getChapterData('nst_universal_notes');
+      } catch (e) { console.error(e); }
+
+      const recs: any[] = [];
+
+      // A) Free Recommendations (From Chapter HTML)
+      // Since cropping HTML is complex, we link to the Chapter's Free Notes if weak topics exist
+      // We can check if `freeNotesHtml` exists.
+      if (chapterData && (chapterData.freeNotesHtml || chapterData.schoolFreeNotesHtml)) {
+           // We create a "proxy" recommendation that points to the chapter free notes
+           recs.push({
+               title: `Review Chapter: ${result.chapterTitle}`,
+               topic: 'FREE REVISION',
+               type: 'FREE_NOTES_LINK', // Special type to handle click
+               isPremium: false,
+               url: 'FREE_CHAPTER_NOTES', // Flag
+               access: 'FREE'
+           });
       }
+
+      // B) Premium Recommendations (Universal List + Topic Notes)
+      if (universalData && universalData.notesPlaylist) {
+          const universalMatches = universalData.notesPlaylist.filter((n: any) =>
+              searchTopics.some(t => n.title.toLowerCase().includes(t.toLowerCase()))
+          );
+          recs.push(...universalMatches.map((n: any) => ({ ...n, type: 'UNIVERSAL_NOTE' })));
+      }
+
+      if (chapterData && chapterData.topicNotes) {
+          const topicMatches = chapterData.topicNotes.filter((n: any) =>
+              searchTopics.some(wt => n.topic && n.topic.toLowerCase() === wt.toLowerCase())
+          );
+          recs.push(...topicMatches.map((n: any) => ({ ...n, type: 'TOPIC_NOTE', access: n.isPremium ? 'PREMIUM' : 'FREE' })));
+      }
+
+      setRecommendations(recs);
       setRecLoading(false);
   };
 
@@ -1097,8 +1150,35 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                     <button
                                         className="text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-200"
                                         onClick={() => {
-                                            if (onLaunchContent) {
-                                                onLaunchContent(rec);
+                                            if (rec.type === 'FREE_NOTES_LINK') {
+                                                if (onLaunchContent) {
+                                                    // Construct a launch object that PdfView (via StudentDashboard) understands.
+                                                    // For Free Notes, we typically load via ID, BUT here we want to force "Free Notes HTML" view.
+                                                    // PdfView supports 'directResource' to bypass loading.
+                                                    // However, for Chapter Free Notes, we might just want to trigger the standard flow.
+                                                    // Given the limitation, we'll alert users to go to the chapter, OR try to load by ID if possible.
+                                                    // But here, let's use 'directResource' if we have a LINK. If we only have HTML flag, we rely on normal flow.
+                                                    // Actually, if we pass the chapter ID, PdfView will load content. Then user selects 'Free'.
+                                                    // Let's simulate clicking the Chapter Card.
+                                                    onLaunchContent({
+                                                        id: result.chapterId, // Use REAL Chapter ID
+                                                        title: result.chapterTitle,
+                                                        type: 'PDF', // Standard PDF View
+                                                        subjectName: result.subjectName,
+                                                        // We don't force 'content' to be Free Notes here because PdfView needs to fetch first.
+                                                        // By passing standard ID, StudentDashboard will load it.
+                                                    });
+                                                } else {
+                                                    alert("Please go to the Chapter page and open Free Notes.");
+                                                }
+                                            } else if (onLaunchContent) {
+                                                // For UNIVERSAL/TOPIC notes, we MUST pass directResource so PdfView doesn't try to fetch from DB
+                                                onLaunchContent({
+                                                    id: `REC_${i}`,
+                                                    title: rec.title,
+                                                    type: 'PDF',
+                                                    directResource: { url: rec.url, access: rec.access }
+                                                });
                                             } else {
                                                 alert("Please go back to Chapter Dashboard to access this note: " + rec.title);
                                             }
