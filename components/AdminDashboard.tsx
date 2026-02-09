@@ -76,6 +76,7 @@ type AdminTab =
   | 'CONFIG_WATERMARK'
   | 'CONFIG_INFO' // NEW: Info Popups
   | 'UNIVERSAL_PLAYLIST'
+  | 'UNIVERSAL_NOTES'
   | 'UNIVERSAL_ANALYSIS'
   | 'UNIVERSAL_AI_QA'
   | 'CONFIG_POPUP_THREE_TIER'
@@ -190,6 +191,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   };
 
   const [universalVideos, setUniversalVideos] = useState<any[]>([]);
+  const [universalNotes, setUniversalNotes] = useState<any[]>([]);
   const [aiGenType, setAiGenType] = useState<ContentType>('NOTES_SIMPLE');
   const [aiPreview, setAiPreview] = useState<LessonContent | null>(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
@@ -300,11 +302,22 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
               else setUniversalVideos([]);
           });
       }
+      if (activeTab === 'UNIVERSAL_NOTES') {
+          getChapterData('nst_universal_notes').then(data => {
+              if (data && data.notesPlaylist) setUniversalNotes(data.notesPlaylist);
+              else setUniversalNotes([]);
+          });
+      }
   }, [activeTab]);
 
   const saveUniversalPlaylist = async () => {
       await saveChapterData('nst_universal_playlist', { videoPlaylist: universalVideos });
       alert("Universal Playlist Saved!");
+  };
+
+  const saveUniversalNotes = async () => {
+      await saveChapterData('nst_universal_notes', { notesPlaylist: universalNotes });
+      alert("Universal Notes Saved!");
   };
   const [showAdminAi, setShowAdminAi] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -2712,6 +2725,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Trophy} label="Challenge Config" onClick={() => setActiveTab('CONFIG_CHALLENGE')} color="red" />
                           <DashboardCard icon={Rocket} label="Challenge 2.0" onClick={() => setActiveTab('CHALLENGE_CREATOR_20')} color="violet" />
                           <DashboardCard icon={Video} label="Universal Playlist" onClick={() => setActiveTab('UNIVERSAL_PLAYLIST')} color="rose" />
+                  <DashboardCard icon={FileText} label="Universal Notes" onClick={() => setActiveTab('UNIVERSAL_NOTES')} color="blue" />
                           <DashboardCard icon={Activity} label="Universal Analysis" onClick={() => setActiveTab('UNIVERSAL_ANALYSIS')} color="cyan" />
                           <DashboardCard icon={BrainCircuit} label="AI Q&A Logs" onClick={() => setActiveTab('UNIVERSAL_AI_QA')} color="violet" />
                           <DashboardCard icon={ShoppingBag} label="💰 Pricing" onClick={() => setActiveTab('PRICING_MGMT')} color="yellow" />
@@ -2724,6 +2738,91 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   {currentUser?.role === 'ADMIN' && <DashboardCard icon={Database} label="Database" onClick={() => setActiveTab('DATABASE')} color="gray" />}
                   {currentUser?.role === 'ADMIN' && <DashboardCard icon={Trash2} label="Recycle Bin" onClick={() => setActiveTab('RECYCLE')} color="red" count={recycleBin.length} />}
                   <DashboardCard icon={LogOut} label="Exit" onClick={() => onNavigate('STUDENT_DASHBOARD')} color="slate" />
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'UNIVERSAL_NOTES' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-blue-800">Universal Recommended Notes</h3>
+              </div>
+
+              <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">
+                  <div className="flex items-center gap-2 mb-4">
+                      <FileText size={24} className="text-blue-600" />
+                      <h4 className="font-bold text-blue-900">Manage Recommended Notes</h4>
+                  </div>
+                  <p className="text-xs text-blue-700 mb-6 bg-white p-3 rounded-lg border border-blue-100">
+                      These notes will be visible to ALL students on their dashboard under "Recommended Notes".
+                  </p>
+
+                  <div className="space-y-4 mb-6">
+                      {universalNotes.map((note, i) => (
+                          <div key={i} className="flex flex-col gap-2 bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                              <div className="flex gap-2 items-center">
+                                  <span className="w-8 text-center text-xs font-bold text-blue-500 bg-blue-50 rounded py-2">{i + 1}</span>
+                                  <input
+                                      type="text"
+                                      value={note.title}
+                                      onChange={(e) => {
+                                          const updated = [...universalNotes];
+                                          updated[i] = {...updated[i], title: e.target.value};
+                                          setUniversalNotes(updated);
+                                      }}
+                                      placeholder="Note Title"
+                                      className="flex-1 p-2 border border-slate-200 rounded text-xs font-bold"
+                                  />
+                                  <select
+                                      value={note.access || 'FREE'}
+                                      onChange={(e) => {
+                                          const updated = [...universalNotes];
+                                          updated[i] = {...updated[i], access: e.target.value};
+                                          setUniversalNotes(updated);
+                                      }}
+                                      className="w-24 p-2 border border-slate-200 rounded text-xs bg-slate-50"
+                                  >
+                                      <option value="FREE">Free</option>
+                                      <option value="BASIC">Basic</option>
+                                      <option value="ULTRA">Ultra</option>
+                                  </select>
+                                  <button
+                                      onClick={() => {
+                                          const updated = universalNotes.filter((_, idx) => idx !== i);
+                                          setUniversalNotes(updated);
+                                      }}
+                                      className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                  >
+                                      <Trash2 size={16} />
+                                  </button>
+                              </div>
+                              <input
+                                  type="text"
+                                  value={note.url || ''}
+                                  onChange={(e) => {
+                                      const updated = [...universalNotes];
+                                      updated[i] = {...updated[i], url: e.target.value};
+                                      setUniversalNotes(updated);
+                                  }}
+                                  placeholder="PDF URL (Google Drive / Direct Link)"
+                                  className="w-full p-2 border border-slate-200 rounded text-xs font-mono text-blue-600 bg-slate-50"
+                              />
+                          </div>
+                      ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                      <button
+                          onClick={() => setUniversalNotes([...universalNotes, {title: '', url: '', price: 0, access: 'FREE'}])}
+                          className="flex-1 py-3 bg-white border border-blue-200 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition dashed"
+                      >
+                          + Add Note
+                      </button>
+                      <button onClick={saveUniversalNotes} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl shadow hover:bg-blue-700 transition">
+                          💾 Save Notes
+                      </button>
+                  </div>
               </div>
           </div>
       )}
@@ -4716,6 +4815,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                       💾 Save Videos
                                   </button>
                               </div>
+                          </div>
                           </div>
                       )}
 
@@ -8901,6 +9001,47 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                   </div>
 
                   <div className="space-y-8">
+                      {/* STATISTICAL SUMMARY (Non-AI) */}
+                      <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-4 rounded-2xl border border-slate-200">
+                          <h4 className="font-bold text-slate-700 mb-3 text-xs uppercase tracking-widest">Performance Summary (Calculated)</h4>
+                          <div className="grid grid-cols-4 gap-4">
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase">Total Tests</p>
+                                  <p className="text-xl font-black text-slate-800">{viewingUserHistory.mcqHistory?.length || 0}</p>
+                              </div>
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase">Avg. Score</p>
+                                  <p className="text-xl font-black text-blue-600">
+                                      {viewingUserHistory.mcqHistory && viewingUserHistory.mcqHistory.length > 0
+                                          ? Math.round(viewingUserHistory.mcqHistory.reduce((acc: any, h: any) => acc + (h.totalQuestions > 0 ? (h.score/h.totalQuestions)*100 : 0), 0) / viewingUserHistory.mcqHistory.length)
+                                          : 0}%
+                                  </p>
+                              </div>
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase">Accuracy</p>
+                                  <p className="text-xl font-black text-green-600">
+                                      {(() => {
+                                          const hist = viewingUserHistory.mcqHistory || [];
+                                          const totalQ = hist.reduce((acc: any, h: any) => acc + h.totalQuestions, 0);
+                                          const correct = hist.reduce((acc: any, h: any) => acc + h.correctCount, 0);
+                                          return totalQ > 0 ? Math.round((correct/totalQ)*100) : 0;
+                                      })()}%
+                                  </p>
+                              </div>
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase">Avg Time/Q</p>
+                                  <p className="text-xl font-black text-purple-600">
+                                      {(() => {
+                                          const hist = viewingUserHistory.mcqHistory || [];
+                                          const totalQ = hist.reduce((acc: any, h: any) => acc + h.totalQuestions, 0);
+                                          const totalTime = hist.reduce((acc: any, h: any) => acc + h.totalTimeSeconds, 0);
+                                          return totalQ > 0 ? (totalTime/totalQ).toFixed(1) : 0;
+                                      })()}s
+                                  </p>
+                              </div>
+                          </div>
+                      </div>
+
                       {/* 1. MCQ RESULTS */}
                       <div>
                           <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><CheckCircle size={18}/> Test Performance</h4>

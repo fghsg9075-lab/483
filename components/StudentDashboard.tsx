@@ -118,7 +118,13 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   const [loadingChapters, setLoadingChapters] = useState(false);
   const [syllabusMode, setSyllabusMode] = useState<'SCHOOL' | 'COMPETITION'>('SCHOOL');
   const [currentAudioTrack, setCurrentAudioTrack] = useState<{url: string, title: string} | null>(null);
+  const [universalNotes, setUniversalNotes] = useState<any[]>([]);
 
+  useEffect(() => {
+      getChapterData('nst_universal_notes').then(data => {
+          if (data && data.notesPlaylist) setUniversalNotes(data.notesPlaylist);
+      });
+  }, []);
   
   // LOADING STATE FOR 10S RULE
   const [isLoadingContent, setIsLoadingContent] = useState(false);
@@ -900,7 +906,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
           if (type === 'VIDEO') {
             return <VideoPlaylistView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} initialSyllabusMode={syllabusMode} />;
           } else if (type === 'PDF') {
-            return <PdfView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} initialSyllabusMode={syllabusMode} />;
+            return <PdfView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} initialSyllabusMode={syllabusMode} directResource={(selectedChapter as any).directResource} />;
           } else if (type === 'AUDIO') {
             return <AudioPlaylistView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} onPlayAudio={setCurrentAudioTrack} initialSyllabusMode={syllabusMode} />;
           } else {
@@ -1568,6 +1574,46 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                               <Trophy size={14} /> Rank List
                           </button>
                       </div>
+
+                      {/* RECOMMENDED NOTES (Universal) */}
+                      {universalNotes.length > 0 && (
+                          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 animate-in slide-in-from-top-4">
+                              <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
+                                  <FileText size={18} className="text-blue-600" /> Recommended Notes
+                              </h3>
+                              <div className="space-y-2">
+                                  {universalNotes.map((note, i) => (
+                                      <button
+                                          key={i}
+                                          onClick={() => {
+                                              // Open PDF View
+                                              setSelectedSubject({ id: 'universal_notes', name: 'Recommended' } as any);
+                                              setSelectedChapter({
+                                                  id: `NOTE_${i}`,
+                                                  title: note.title,
+                                                  directResource: { url: note.url, access: note.access }
+                                              } as any);
+                                              setContentViewStep('PLAYER');
+                                              setFullScreen(true);
+                                              onTabChange('PDF');
+                                          }}
+                                          className="w-full bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex items-center justify-between group hover:border-blue-300 transition-all"
+                                      >
+                                          <div className="flex items-center gap-3 overflow-hidden">
+                                              <div className="bg-blue-100 text-blue-600 p-2 rounded-lg font-bold text-xs group-hover:bg-blue-600 group-hover:text-white transition-colors">PDF</div>
+                                              <div className="text-left">
+                                                  <p className="font-bold text-slate-800 text-xs truncate group-hover:text-blue-700">{note.title}</p>
+                                                  <p className="text-[10px] text-slate-400">{note.access === 'FREE' ? 'Free Access' : 'Premium'}</p>
+                                              </div>
+                                          </div>
+                                          <div className="bg-slate-50 p-1.5 rounded-full text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                              <ArrowRight size={14} />
+                                          </div>
+                                      </button>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
 
                       {/* SYLLABUS SELECTOR REMOVED FROM COURSES */}
                       
