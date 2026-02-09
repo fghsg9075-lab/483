@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MCQResult, User, SystemSettings } from '../types';
-import { X, Share2, ChevronLeft, ChevronRight, Download, FileSearch, Grid, CheckCircle, XCircle, Clock, Award, BrainCircuit, Play, StopCircle, BookOpen, Target, Zap, BarChart3, ListChecks, FileText, LayoutTemplate, TrendingUp, Lightbulb } from 'lucide-react';
+import { X, Share2, ChevronLeft, ChevronRight, Download, FileSearch, Grid, CheckCircle, XCircle, Clock, Award, BrainCircuit, Play, StopCircle, BookOpen, Target, Zap, BarChart3, ListChecks, FileText, LayoutTemplate, TrendingUp, Lightbulb, ExternalLink } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { generateUltraAnalysis } from '../services/groq';
 import { saveUniversalAnalysis, saveUserToLive, saveAiInteraction, getChapterData } from '../firebase';
@@ -107,6 +107,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
           }, 500);
       }
   }, [initialView, questions]);
+
+  // Auto-Load Recommendations on Tab Change
+  useEffect(() => {
+      if ((activeTab === 'TOPICS' || activeTab === 'AI') && questions && questions.length > 0 && recommendations.length === 0) {
+          handleRecommend();
+      }
+  }, [activeTab, questions]);
 
   const handleRecommend = async () => {
       setRecLoading(true);
@@ -719,26 +726,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         </div>
 
                         <div className="p-4 space-y-4">
-                            {/* Questions */}
-                            <div>
-                                <h4 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
-                                    <Grid size={12} /> Related Questions
-                                </h4>
-                                <div className="space-y-2">
-                                    {topic.questions && topic.questions.map((q: any, qi: number) => (
-                                        <div key={qi} className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex items-start gap-3">
-                                            {q.status === 'CORRECT' ? <CheckCircle size={16} className="text-green-500 shrink-0 mt-0.5" /> : <XCircle size={16} className="text-red-500 shrink-0 mt-0.5" />}
-                                            <div>
-                                                <p className="text-sm font-medium text-slate-700">{q.text}</p>
-                                                {q.status === 'WRONG' && q.correctAnswer && (
-                                                    <p className="text-xs text-green-600 mt-1 font-bold">Correct Answer: {q.correctAnswer}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
                             {/* Action Plan */}
                             <div className="bg-white p-3 rounded-xl border border-dashed border-slate-300">
                                 <h4 className="text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
@@ -760,6 +747,47 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     </div>
                 );
             })}
+
+            {/* PREMIUM PDF NOTES LIST */}
+            <div className="bg-red-50 p-6 rounded-2xl border border-red-200 mt-6">
+                <h3 className="font-black text-red-900 text-lg flex items-center gap-2 mb-4">
+                    <FileText size={20} /> Recommended Premium PDFs
+                </h3>
+                {recommendations.filter(r => r.isPremium).length === 0 ? (
+                    <p className="text-sm text-red-800 opacity-70">No specific premium notes found for your weak topics.</p>
+                ) : (
+                    <div className="space-y-3">
+                        {recommendations.filter(r => r.isPremium).map((rec, i) => (
+                            <div key={`prem-${i}`} className="bg-white p-4 rounded-xl border border-red-100 shadow-sm flex justify-between items-center hover:border-red-300 transition-colors">
+                                <div>
+                                    <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-[10px] text-slate-500 uppercase font-bold bg-slate-50 px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
+                                        <span className="text-[9px] text-white bg-red-500 px-2 py-0.5 rounded font-bold">PDF</span>
+                                    </div>
+                                </div>
+                                <button
+                                    className="text-xs font-bold text-white bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 shadow-md transition-all flex items-center gap-2"
+                                    onClick={() => {
+                                        if (onLaunchContent) {
+                                            onLaunchContent({
+                                                id: `REC_PREM_${i}`,
+                                                title: rec.title,
+                                                type: 'PDF',
+                                                directResource: { url: rec.url, access: rec.access }
+                                            });
+                                        } else {
+                                            window.open(rec.url, '_blank');
+                                        }
+                                    }}
+                                >
+                                    Open PDF <ExternalLink size={12} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
   };
@@ -1045,7 +1073,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     onClick={() => setActiveTab('STATS')}
                     className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'STATS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Marksheet
+                    <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Overview
                 </button>
                 <button 
                     onClick={() => setActiveTab('OMR')}
@@ -1059,13 +1087,31 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 >
                     <XCircle size={14} className="inline mr-1 mb-0.5" /> Mistakes
                 </button>
-
-                {/* ANALYSIS BUTTON */}
                 <button 
+                    onClick={() => setActiveTab('TOPICS')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'TOPICS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <Target size={14} className="inline mr-1 mb-0.5" /> Topics
+                </button>
+                <button
+                    onClick={() => setActiveTab('AI')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> AI Analysis
+                </button>
+                <button
+                    onClick={() => setActiveTab('MARKSHEET_1')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'MARKSHEET_1' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <FileText size={14} className="inline mr-1 mb-0.5" /> Official Marksheet
+                </button>
+
+                {/* ANALYSIS POPUP TRIGGER */}
+                <button
                     onClick={() => setShowAnalysisSelection(true)}
                     className={`ml-auto px-4 py-2 text-xs font-black rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-md flex items-center gap-2 transition-all active:scale-95`}
                 >
-                    <BrainCircuit size={14} /> Analysis
+                    <BrainCircuit size={14} /> Guided Analysis
                 </button>
             </div>
 
