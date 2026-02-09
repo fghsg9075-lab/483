@@ -95,6 +95,10 @@ const App: React.FC = () => {
         marqueeLines: ["Welcome to Leon karo Classes", "Learn Smart", "Contact Admin for Credits"], 
         liveMessage1: 'Experience the power of AI-driven education.', 
         liveMessage2: 'Start learning today!', 
+        bannerConfig: {
+            top: { text: 'Experience the power of AI-driven education.', enabled: true, autoHideSeconds: 0, bgColor: '#dc2626', textColor: '#ffffff' },
+            bottom: { text: 'Start learning today!', enabled: true, autoHideSeconds: 0, bgColor: '#2563eb', textColor: '#ffffff' }
+        },
         wheelRewards: [
             { id: '1', type: 'COINS', amount: 0, label: '0 Coins', value: 0 },
             { id: '2', type: 'COINS', amount: 1, label: '1 Coin', value: 1 },
@@ -164,6 +168,31 @@ const App: React.FC = () => {
   const [loadingMessage, setLoadingMessage] = useState<string>(''); // NEW
   const [activeWeeklyTest, setActiveWeeklyTest] = useState<WeeklyTest | null>(null);
   const [studentTab, setStudentTab] = useState<StudentTab>('HOME');
+
+  // BANNER STATE
+  const [showTopBanner, setShowTopBanner] = useState(true);
+  const [showBottomBanner, setShowBottomBanner] = useState(true);
+
+  // BANNER AUTO-HIDE LOGIC
+  useEffect(() => {
+      const top = state.settings.bannerConfig?.top;
+      if (top?.enabled && top.autoHideSeconds > 0) {
+          const timer = setTimeout(() => setShowTopBanner(false), top.autoHideSeconds * 1000);
+          return () => clearTimeout(timer);
+      } else {
+          setShowTopBanner(true);
+      }
+  }, [state.settings.bannerConfig?.top?.autoHideSeconds, state.settings.bannerConfig?.top?.enabled]);
+
+  useEffect(() => {
+      const bottom = state.settings.bannerConfig?.bottom;
+      if (bottom?.enabled && bottom.autoHideSeconds > 0) {
+          const timer = setTimeout(() => setShowBottomBanner(false), bottom.autoHideSeconds * 1000);
+          return () => clearTimeout(timer);
+      } else {
+          setShowBottomBanner(true);
+      }
+  }, [state.settings.bannerConfig?.bottom?.autoHideSeconds, state.settings.bannerConfig?.bottom?.enabled]);
 
   useEffect(() => {
     storage.getItem<StudentTab>('nst_active_student_tab').then(saved => {
@@ -533,6 +562,15 @@ const App: React.FC = () => {
           try {
               const parsed = JSON.parse(storedSettings);
               loadedSettings = { ...state.settings, ...parsed };
+
+              // BACKFILL BANNER CONFIG IF MISSING
+              if (!loadedSettings.bannerConfig) {
+                  loadedSettings.bannerConfig = {
+                      top: { text: loadedSettings.liveMessage1 || 'Experience the power of AI-driven education.', enabled: !!loadedSettings.liveMessage1, autoHideSeconds: 0, bgColor: '#dc2626', textColor: '#ffffff' },
+                      bottom: { text: loadedSettings.liveMessage2 || 'Start learning today!', enabled: !!loadedSettings.liveMessage2, autoHideSeconds: 0, bgColor: '#2563eb', textColor: '#ffffff' }
+                  };
+              }
+
               setState(prev => ({ 
                   ...prev, 
                   settings: loadedSettings 
@@ -1668,9 +1706,21 @@ const App: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 h-[env(safe-area-inset-bottom,32px)] bg-slate-900 z-[100]"></div>
       
       {/* GLOBAL LIVE DASHBOARD 1 (TOP) */}
-      {state.settings.liveMessage1 && (
-          <div className="bg-red-600 text-white text-[10px] font-bold py-1 overflow-hidden relative whitespace-nowrap z-50">
-              <div className="animate-marquee inline-block">{state.settings.liveMessage1} &nbsp;&nbsp;&bull;&nbsp;&nbsp; {state.settings.liveMessage1} &nbsp;&nbsp;&bull;&nbsp;&nbsp; {state.settings.liveMessage1}</div>
+      {state.settings.bannerConfig?.top?.enabled && showTopBanner && (
+          <div
+            className="text-[10px] font-bold py-1 overflow-hidden relative whitespace-nowrap z-50 transition-all duration-500 ease-in-out"
+            style={{
+                backgroundColor: state.settings.bannerConfig.top.bgColor || '#dc2626',
+                color: state.settings.bannerConfig.top.textColor || '#ffffff',
+                height: showTopBanner ? 'auto' : '0',
+                opacity: showTopBanner ? 1 : 0
+            }}
+          >
+              <div className="animate-marquee inline-block">
+                  {state.settings.bannerConfig.top.text} &nbsp;&nbsp;&bull;&nbsp;&nbsp;
+                  {state.settings.bannerConfig.top.text} &nbsp;&nbsp;&bull;&nbsp;&nbsp;
+                  {state.settings.bannerConfig.top.text}
+              </div>
           </div>
       )}
 
@@ -1803,9 +1853,21 @@ const App: React.FC = () => {
       )}
 
       {/* GLOBAL LIVE DASHBOARD 2 (BOTTOM) */}
-      {state.settings.liveMessage2 && (
-          <div className="fixed bottom-6 left-0 right-0 bg-blue-600 text-white text-[10px] font-bold py-1 overflow-hidden relative whitespace-nowrap z-[39]">
-              <div className="animate-marquee-reverse inline-block">{state.settings.liveMessage2} &nbsp;&nbsp;&bull;&nbsp;&nbsp; {state.settings.liveMessage2} &nbsp;&nbsp;&bull;&nbsp;&nbsp; {state.settings.liveMessage2}</div>
+      {state.settings.bannerConfig?.bottom?.enabled && showBottomBanner && (
+          <div
+            className="fixed bottom-6 left-0 right-0 text-[10px] font-bold py-1 overflow-hidden relative whitespace-nowrap z-[39] transition-all duration-500 ease-in-out"
+            style={{
+                backgroundColor: state.settings.bannerConfig.bottom.bgColor || '#2563eb',
+                color: state.settings.bannerConfig.bottom.textColor || '#ffffff',
+                height: showBottomBanner ? 'auto' : '0',
+                opacity: showBottomBanner ? 1 : 0
+            }}
+          >
+              <div className="animate-marquee-reverse inline-block">
+                  {state.settings.bannerConfig.bottom.text} &nbsp;&nbsp;&bull;&nbsp;&nbsp;
+                  {state.settings.bannerConfig.bottom.text} &nbsp;&nbsp;&bull;&nbsp;&nbsp;
+                  {state.settings.bannerConfig.bottom.text}
+              </div>
           </div>
       )}
 
