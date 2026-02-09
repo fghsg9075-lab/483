@@ -2806,25 +2806,29 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
 
                                       <button
                                           onClick={() => {
-                                              const url = prompt("Enter PDF URL for " + ch.title);
-                                              if (url) {
-                                                  const newNote = {
-                                                      id: `rec-${Date.now()}`,
-                                                      title: ch.title, // Default to chapter title
-                                                      url: url,
-                                                      access: 'FREE', // Default
-                                                      chapterId: ch.id,
-                                                      subjectName: selSubject?.name,
-                                                      topic: ch.title, // Auto-match topic
-                                                      board: selBoard,
-                                                      classLevel: selClass
-                                                  };
-                                                  setUniversalNotes([...universalNotes, newNote]);
-                                              }
+                                              // New logic: Ask for Topic Name first, then URL
+                                              const topicName = prompt(`Enter Topic Name for ${ch.title} (e.g. Ohm's Law):`);
+                                              if (!topicName) return;
+
+                                              const url = prompt("Enter PDF URL:");
+                                              if (!url) return;
+
+                                              const newNote = {
+                                                  id: `rec-${Date.now()}`,
+                                                  title: topicName, // Use input topic as title
+                                                  url: url,
+                                                  access: 'FREE', // Default, maybe customizable later
+                                                  chapterId: ch.id,
+                                                  subjectName: selSubject?.name,
+                                                  topic: topicName, // Crucial for matching
+                                                  board: selBoard,
+                                                  classLevel: selClass
+                                              };
+                                              setUniversalNotes([...universalNotes, newNote]);
                                           }}
                                           className="mt-auto w-full py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold border border-blue-100 hover:bg-blue-100 flex items-center justify-center gap-1"
                                       >
-                                          <Plus size={12} /> Add PDF
+                                          <Plus size={12} /> Add Topic Note
                                       </button>
                                   </div>
                               );
