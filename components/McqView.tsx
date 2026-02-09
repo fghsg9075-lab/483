@@ -289,11 +289,28 @@ export const McqView: React.FC<Props> = ({
       
       // 4.1 Topic Strength Tracking
       if (!updatedUser.topicStrength) updatedUser.topicStrength = {};
+
+      // A) Update overall Subject Strength
       const currentStrength = updatedUser.topicStrength[subject.name] || { correct: 0, total: 0 };
       updatedUser.topicStrength[subject.name] = {
           correct: currentStrength.correct + score,
           total: currentStrength.total + attemptsCount
       };
+
+      // B) Update Granular Topic Strength (if topics exist in questions)
+      submittedQuestions.forEach((q, idx) => {
+          if (q.topic) {
+              const topicKey = q.topic.trim();
+              const topicStats = updatedUser.topicStrength![topicKey] || { correct: 0, total: 0 };
+
+              const isCorrect = remappedAnswers[idx] === q.correctAnswer;
+
+              updatedUser.topicStrength![topicKey] = {
+                  correct: topicStats.correct + (isCorrect ? 1 : 0),
+                  total: topicStats.total + 1
+              };
+          }
+      });
 
       // 4.2 Add to History
       const newHistory = [result, ...(updatedUser.mcqHistory || [])];

@@ -2050,11 +2050,18 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           if (map[cols[5]] !== undefined) ansIdx = map[cols[5]];
                       }
 
+                      // Check for Topic in 8th column (Index 7)
+                      let topic = '';
+                      if (cols.length > 7) {
+                          topic = cols[7];
+                      }
+
                       return {
                           question: cols[0],
                           options: [cols[1], cols[2], cols[3], cols[4]],
                           correctAnswer: (ansIdx >= 0 && ansIdx <= 3) ? ansIdx : 0, // Default to A if invalid
-                          explanation: cols[6] || ''
+                          explanation: cols[6] || '',
+                          topic: topic
                       };
                   }).filter(q => q !== null) as MCQItem[];
               } 
@@ -2089,10 +2096,12 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                       // Parse Topic from Explanation or separate line
                       let explanation = expLines.join('\n');
                       let topic = '';
+                      // Updated Regex to handle Topic on new line more robustly
                       const topicMatch = explanation.match(/Topic:\s*(.*)/i);
                       if (topicMatch) {
                           topic = topicMatch[1].trim();
-                          explanation = explanation.replace(/Topic:\s*.*$/im, '').trim(); // Remove Topic line from explanation
+                          // Remove the Topic line from explanation to keep it clean
+                          explanation = explanation.replace(/Topic:\s*.*$/im, '').trim();
                       }
 
                       newQuestions.push({
