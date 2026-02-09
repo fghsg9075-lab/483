@@ -7,13 +7,14 @@ import { storage } from "./utils/storage";
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDNAarkY9MquMpJzKuXt4BayK6AHGImyr0",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "dec2025-96ecd.firebaseapp.com",
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://dec2025-96ecd-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "dec2025-96ecd",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "dec2025-96ecd.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "617035489092",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:617035489092:web:68e1e646d9d78e001cc111"
+  apiKey: "AIzaSyBaf1iGBIHgtma9SCt1Q4SduRAQP5DBnlE",
+  authDomain: "iic-adf79.firebaseapp.com",
+  databaseURL: "https://iic-adf79-default-rtdb.firebaseio.com",
+  projectId: "iic-adf79",
+  storageBucket: "iic-adf79.firebasestorage.app",
+  messagingSenderId: "970486594646",
+  appId: "1:970486594646:web:e1eccee34b14b38923cff7",
+  measurementId: "G-VWPT3BYEZK"
 };
 
 // Initialize Firebase
