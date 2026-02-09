@@ -2770,70 +2770,124 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   <SubjectSelector />
 
                   <div className="space-y-4 mb-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto pr-2">
-                          {selChapters.length === 0 && <p className="col-span-full text-center text-slate-400 text-sm py-8">Select a subject to view lessons.</p>}
-                          {selChapters.map((ch) => {
-                              const chapterNotes = universalNotes.filter(n => n.chapterId === ch.id);
+                      {!editingChapterId ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto pr-2">
+                              {selChapters.length === 0 && <p className="col-span-full text-center text-slate-400 text-sm py-8">Select a subject to view lessons.</p>}
+                              {selChapters.map((ch) => {
+                                  const chapterNotes = universalNotes.filter(n => n.chapterId === ch.id);
 
-                              return (
-                                  <div key={ch.id} className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex flex-col gap-2">
-                                      <div className="flex justify-between items-center">
-                                          <h5 className="font-bold text-slate-800 text-xs truncate w-3/4" title={ch.title}>{ch.title}</h5>
-                                          <span className="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 font-bold">{chapterNotes.length}</span>
-                                      </div>
-
-                                      {/* Existing Notes for Chapter */}
-                                      {chapterNotes.length > 0 && (
-                                          <div className="space-y-1">
-                                              {chapterNotes.map((note, idx) => (
-                                                  <div key={idx} className="flex items-center justify-between text-[10px] bg-slate-50 p-1.5 rounded border border-slate-100">
-                                                      <span className="truncate w-2/3 text-slate-600" title={note.url}>{note.title || 'Note'}</span>
-                                                      <button
-                                                          onClick={() => {
-                                                              if(confirm(`Remove "${note.title}"?`)) {
-                                                                  const updated = universalNotes.filter(n => n !== note);
-                                                                  setUniversalNotes(updated);
-                                                              }
-                                                          }}
-                                                          className="text-red-400 hover:text-red-600"
-                                                      >
-                                                          <Trash2 size={12} />
-                                                      </button>
-                                                  </div>
-                                              ))}
+                                  return (
+                                      <div key={ch.id} className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex flex-col gap-2">
+                                          <div className="flex justify-between items-center">
+                                              <h5 className="font-bold text-slate-800 text-xs truncate w-3/4" title={ch.title}>{ch.title}</h5>
+                                              <span className="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 font-bold">{chapterNotes.length}</span>
                                           </div>
-                                      )}
-
-                                      <button
-                                          onClick={() => {
-                                              // New logic: Ask for Topic Name first, then URL
-                                              const topicName = prompt(`Enter Topic Name for ${ch.title} (e.g. Ohm's Law):`);
-                                              if (!topicName) return;
-
-                                              const url = prompt("Enter PDF URL:");
-                                              if (!url) return;
-
-                                              const newNote = {
-                                                  id: `rec-${Date.now()}`,
-                                                  title: topicName, // Use input topic as title
-                                                  url: url,
-                                                  access: 'FREE', // Default, maybe customizable later
-                                                  chapterId: ch.id,
-                                                  subjectName: selSubject?.name,
-                                                  topic: topicName, // Crucial for matching
-                                                  board: selBoard,
-                                                  classLevel: selClass
-                                              };
-                                              setUniversalNotes([...universalNotes, newNote]);
-                                          }}
-                                          className="mt-auto w-full py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold border border-blue-100 hover:bg-blue-100 flex items-center justify-center gap-1"
-                                      >
-                                          <Plus size={12} /> Add Topic Note
-                                      </button>
+                                          <button
+                                              onClick={() => setEditingChapterId(ch.id)}
+                                              className="mt-2 w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-blue-700 flex items-center justify-center gap-2"
+                                          >
+                                              <Edit3 size={14} /> Manage Notes
+                                          </button>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      ) : (
+                          <div className="bg-white p-4 rounded-xl border border-blue-200">
+                              <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                                  <div>
+                                      <h4 className="font-black text-slate-800 text-lg">{selChapters.find(c => c.id === editingChapterId)?.title}</h4>
+                                      <p className="text-xs text-slate-500">Managing Recommended Notes</p>
                                   </div>
-                              );
-                          })}
-                      </div>
+                                  <button onClick={() => setEditingChapterId(null)} className="text-xs font-bold text-slate-400 hover:text-slate-600">Close Editor</button>
+                              </div>
+
+                              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+                                  {universalNotes.filter(n => n.chapterId === editingChapterId).map((note, idx) => (
+                                      <div key={note.id || idx} className="flex flex-col gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                          <div className="flex gap-2 items-center">
+                                              <span className="w-6 text-center text-xs font-bold text-slate-400">{idx + 1}</span>
+                                              <input
+                                                  type="text"
+                                                  value={note.title}
+                                                  onChange={(e) => {
+                                                      const updated = universalNotes.map(n => n === note ? { ...n, title: e.target.value, topic: e.target.value } : n);
+                                                      setUniversalNotes(updated);
+                                                  }}
+                                                  placeholder="Topic Name (e.g. Ohm's Law)"
+                                                  className="flex-1 p-2 border border-slate-200 rounded text-xs font-bold"
+                                              />
+                                              <input
+                                                  type="number"
+                                                  value={note.price || 0}
+                                                  onChange={(e) => {
+                                                      const updated = universalNotes.map(n => n === note ? { ...n, price: Number(e.target.value) } : n);
+                                                      setUniversalNotes(updated);
+                                                  }}
+                                                  placeholder="Cost"
+                                                  className="w-16 p-2 border border-slate-200 rounded text-xs text-center"
+                                              />
+                                              <select
+                                                  value={note.access || 'FREE'}
+                                                  onChange={(e) => {
+                                                      const updated = universalNotes.map(n => n === note ? { ...n, access: e.target.value } : n);
+                                                      setUniversalNotes(updated);
+                                                  }}
+                                                  className="w-20 p-2 border border-slate-200 rounded text-xs bg-white"
+                                              >
+                                                  <option value="FREE">Free</option>
+                                                  <option value="BASIC">Basic</option>
+                                                  <option value="ULTRA">Ultra</option>
+                                              </select>
+                                              <button
+                                                  onClick={() => {
+                                                      const updated = universalNotes.filter(n => n !== note);
+                                                      setUniversalNotes(updated);
+                                                  }}
+                                                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                              >
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </div>
+                                          <input
+                                              type="text"
+                                              value={note.url}
+                                              onChange={(e) => {
+                                                  const updated = universalNotes.map(n => n === note ? { ...n, url: e.target.value } : n);
+                                                  setUniversalNotes(updated);
+                                              }}
+                                              placeholder="PDF URL"
+                                              className="w-full p-2 border border-slate-200 rounded text-xs font-mono text-blue-600 bg-white ml-8"
+                                          />
+                                      </div>
+                                  ))}
+                              </div>
+
+                              <button
+                                  onClick={() => {
+                                      const ch = selChapters.find(c => c.id === editingChapterId);
+                                      if (ch) {
+                                          const newNote = {
+                                              id: `rec-${Date.now()}`,
+                                              title: '',
+                                              url: '',
+                                              access: 'FREE',
+                                              price: 0,
+                                              chapterId: ch.id,
+                                              subjectName: selSubject?.name,
+                                              topic: '',
+                                              board: selBoard,
+                                              classLevel: selClass
+                                          };
+                                          setUniversalNotes([...universalNotes, newNote]);
+                                      }
+                                  }}
+                                  className="mt-4 w-full py-3 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold border border-blue-100 hover:bg-blue-100 flex items-center justify-center gap-2 border-dashed"
+                              >
+                                  <Plus size={16} /> Add Note (Max 100)
+                              </button>
+                          </div>
+                      )}
                   </div>
 
                   <div className="flex gap-2 border-t border-blue-200 pt-4">
