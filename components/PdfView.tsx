@@ -24,10 +24,11 @@ interface Props {
   onUpdateUser: (user: User) => void;
   settings?: SystemSettings;
   initialSyllabusMode?: 'SCHOOL' | 'COMPETITION';
+  directResource?: { url: string, access: string }; // NEW: For Universal Notes
 }
 
 export const PdfView: React.FC<Props> = ({ 
-  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode
+  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, directResource
 }) => {
   const [contentData, setContentData] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -217,6 +218,12 @@ export const PdfView: React.FC<Props> = ({
   }, [activePdf, user.id]);
 
   useEffect(() => {
+    if (directResource) {
+        setLoading(false);
+        setActivePdf(directResource.url);
+        return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -238,7 +245,7 @@ export const PdfView: React.FC<Props> = ({
     };
 
     fetchData();
-  }, [chapter.id, board, classLevel, stream, subject.name]);
+  }, [chapter.id, board, classLevel, stream, subject.name, directResource]);
 
   const handlePdfClick = (type: 'FREE' | 'PREMIUM' | 'ULTRA') => {
       let link = '';
