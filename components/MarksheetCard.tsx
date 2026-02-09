@@ -1045,7 +1045,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     onClick={() => setActiveTab('STATS')}
                     className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'STATS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Marksheet
+                    <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Overview
                 </button>
                 <button 
                     onClick={() => setActiveTab('OMR')}
@@ -1059,13 +1059,31 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 >
                     <XCircle size={14} className="inline mr-1 mb-0.5" /> Mistakes
                 </button>
-
-                {/* ANALYSIS BUTTON */}
                 <button 
+                    onClick={() => setActiveTab('TOPICS')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'TOPICS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <Target size={14} className="inline mr-1 mb-0.5" /> Topics
+                </button>
+                <button
+                    onClick={() => setActiveTab('AI')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> AI Analysis
+                </button>
+                <button
+                    onClick={() => setActiveTab('MARKSHEET_1')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'MARKSHEET_1' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <FileText size={14} className="inline mr-1 mb-0.5" /> Official Marksheet
+                </button>
+
+                {/* ANALYSIS POPUP TRIGGER */}
+                <button
                     onClick={() => setShowAnalysisSelection(true)}
                     className={`ml-auto px-4 py-2 text-xs font-black rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-md flex items-center gap-2 transition-all active:scale-95`}
                 >
-                    <BrainCircuit size={14} /> Analysis
+                    <BrainCircuit size={14} /> Guided Analysis
                 </button>
             </div>
 
