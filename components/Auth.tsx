@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Board, ClassLevel, Stream, SystemSettings, RecoveryRequest } from '../types';
 import { ADMIN_EMAIL } from '../constants';
-import { saveUserToLive, auth, getUserByEmail } from '../firebase';
+import { saveUserToLive, auth, getUserByEmail, rtdb, getUserData } from '../firebase';
+import { ref, set } from "firebase/database";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, signInAnonymously } from 'firebase/auth';
 import { UserPlus, LogIn, Lock, User as UserIcon, Phone, Mail, ShieldCheck, ArrowRight, School, GraduationCap, Layers, KeyRound, Copy, Check, AlertTriangle, XCircle, MessageCircle, Send, RefreshCcw, ShieldAlert, HelpCircle } from 'lucide-react';
 import { LoginGuide } from './LoginGuide';
@@ -137,9 +138,57 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity }) => {
       }
   };
 
-  const checkLoginStatus = () => { /* ... existing ... */ };
+  const checkLoginStatus = async () => {
+      if (!pendingLoginUser) return;
+      setStatusCheckLoading(true);
+      try {
+          const freshUser = await getUserData(pendingLoginUser.id) || await getUserByEmail(pendingLoginUser.email);
+          if (freshUser && freshUser.isPasswordless) {
+              logActivity("LOGIN_RECOVERY", "Logged in via Admin Approval", freshUser);
+              onLogin(freshUser);
+          } else {
+              setError("Request Pending. Please wait for Admin approval.");
+          }
+      } catch (e: any) {
+          setError("Status Check Failed: " + e.message);
+      } finally {
+          setStatusCheckLoading(false);
+      }
+  };
   
-  const handleRequestLogin = async () => { /* ... existing ... */ };
+  const handleRequestLogin = async () => {
+      if (!formData.id) {
+          setError("Please enter your Login ID or Mobile.");
+          return;
+      }
+
+      const storedUsersStr = localStorage.getItem('nst_users');
+      const users: User[] = storedUsersStr ? JSON.parse(storedUsersStr) : [];
+      const user = users.find(u => u.id === formData.id || u.displayId === formData.id || u.mobile === formData.id || u.email === formData.id);
+
+      if (!user) {
+          setError("User not found. Please Register first.");
+          return;
+      }
+
+      try {
+          const req: RecoveryRequest = {
+              id: user.id,
+              name: user.name,
+              mobile: user.mobile,
+              timestamp: new Date().toISOString(),
+              status: 'PENDING'
+          };
+
+          await set(ref(rtdb, `recovery_requests/${user.id}`), req);
+
+          setPendingLoginUser(user);
+          setRequestSent(true);
+          setError(null);
+      } catch (e: any) {
+          setError("Request Failed: " + e.message);
+      }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,6 +260,14 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity }) => {
             }
 
             if (appUser.isArchived) { setError('Account Deleted.'); return; }
+
+            // CHECK PASSWORDLESS LOGIN
+            if (appUser.isPasswordless) {
+                logActivity("LOGIN_PASSWORDLESS", "Student Logged In (No Password)", appUser);
+                onLogin(appUser);
+                return;
+            }
+
             logActivity("LOGIN", "Student Logged In (Firebase)", appUser);
             onLogin(appUser);
 

@@ -2,13 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { LessonContent, Subject, ClassLevel, Chapter, MCQItem, ContentType, User, SystemSettings } from '../types';
-import { ArrowLeft, Clock, AlertTriangle, ExternalLink, CheckCircle, XCircle, Trophy, BookOpen, Play, Lock, ChevronRight, ChevronLeft, Save, X, Maximize, Volume2, Square, Zap, StopCircle, Globe } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, ExternalLink, CheckCircle, XCircle, Trophy, BookOpen, Play, Lock, ChevronRight, ChevronLeft, Save, X, Maximize, Volume2, Square, Zap, StopCircle, Globe, Lightbulb, FileText, BrainCircuit } from 'lucide-react';
 import { CustomConfirm, CustomAlert } from './CustomDialogs';
 import { CustomPlayer } from './CustomPlayer';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { decodeHtml } from '../utils/htmlDecoder';
 import { storage } from '../utils/storage';
+import { getChapterData } from '../firebase';
 
 interface Props {
   content: LessonContent | null;
@@ -46,7 +47,9 @@ export const LessonView: React.FC<Props> = ({
   const [analysisUnlocked, setAnalysisUnlocked] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [language, setLanguage] = useState<Language>('English');
-  
+  const [universalNotes, setUniversalNotes] = useState<any[]>([]);
+  const [recLoading, setRecLoading] = useState(false);
+
   // LANGUAGE AUTO-SELECT
   useEffect(() => {
     if (user?.board === 'BSEB') {
@@ -55,6 +58,19 @@ export const LessonView: React.FC<Props> = ({
         setLanguage('English');
     }
   }, [user?.board]);
+
+  // LOAD UNIVERSAL NOTES FOR ANALYSIS
+  useEffect(() => {
+      if (content?.type === 'MCQ_ANALYSIS' && universalNotes.length === 0) {
+          setRecLoading(true);
+          getChapterData('nst_universal_notes').then(data => {
+              if (data && data.notesPlaylist) {
+                  setUniversalNotes(data.notesPlaylist);
+              }
+              setRecLoading(false);
+          });
+      }
+  }, [content?.type]);
 
   // Full Screen Ref
   const containerRef = useRef<HTMLDivElement>(null);
@@ -584,6 +600,101 @@ export const LessonView: React.FC<Props> = ({
         });
     };
 
+    const renderAnalysisDashboard = () => {
+        const isPremium = content?.analysisType === 'PREMIUM';
+        const notes = universalNotes.filter(n => {
+            const isTypeMatch = isPremium ? (!n.type || n.type === 'PDF') : (n.type === 'HTML');
+            return isTypeMatch && n.chapterId === chapter.id;
+        });
+
+        return (
+            <div className="space-y-6 mb-8 animate-in slide-in-from-top-4">
+
+                {/* AI REPORT (PREMIUM ONLY) */}
+                {isPremium && content?.aiAnalysisText && (
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-purple-100 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10"></div>
+                        <div className="flex items-center gap-3 mb-4 relative z-10">
+                            <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
+                                <BrainCircuit size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-black text-slate-800 text-lg">AI Performance Report</h3>
+                                <p className="text-xs text-purple-600 font-bold">Deep Insights & Strategy</p>
+                            </div>
+                        </div>
+                        <div className="prose prose-sm prose-slate max-w-none prose-p:text-slate-600 prose-headings:font-black prose-headings:text-slate-800 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <ReactMarkdown>{content.aiAnalysisText}</ReactMarkdown>
+                        </div>
+                    </div>
+                )}
+
+                {/* RECOMMENDED NOTES */}
+                <div className={`p-6 rounded-3xl shadow-sm border relative overflow-hidden ${isPremium ? 'bg-white border-red-100' : 'bg-white border-orange-100'}`}>
+                    <div className="flex items-center gap-3 mb-4 relative z-10">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${isPremium ? 'bg-red-600 text-white shadow-red-200' : 'bg-orange-500 text-white shadow-orange-200'}`}>
+                            {isPremium ? <FileText size={20} /> : <Lightbulb size={20} />}
+                        </div>
+                        <div>
+                            <h3 className="font-black text-slate-800 text-lg">{isPremium ? 'Premium Study Notes' : 'Recommended Reading'}</h3>
+                            <p className={`text-xs font-bold ${isPremium ? 'text-red-600' : 'text-orange-600'}`}>
+                                {isPremium ? 'High-Yield PDFs for Weak Topics' : 'Quick Revision Summaries'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {recLoading ? (
+                        <div className="text-center py-8 text-slate-400 font-bold animate-pulse">Finding best notes...</div>
+                    ) : notes.length === 0 ? (
+                        <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                            <p className="text-slate-400 font-bold text-sm">No specific notes found for this chapter.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {notes.map((note, idx) => (
+                                <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors group">
+                                    <h4 className="font-bold text-slate-800 text-sm mb-1 group-hover:text-blue-700">{note.title}</h4>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-3 bg-white px-2 py-0.5 rounded w-fit border">{note.topic || 'General'}</p>
+
+                                    {isPremium ? (
+                                        <a
+                                            href={note.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-full py-2 bg-red-600 text-white text-center rounded-lg text-xs font-bold hover:bg-red-700 shadow-md transition-all"
+                                        >
+                                            Open PDF Note
+                                        </a>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                const newWindow = window.open("", "_blank");
+                                                if(newWindow) {
+                                                    newWindow.document.write(`
+                                                        <html>
+                                                            <head>
+                                                                <title>${note.title}</title>
+                                                                <style>body { font-family: sans-serif; padding: 20px; line-height: 1.6; max-width: 800px; margin: 0 auto; }</style>
+                                                            </head>
+                                                            <body>${decodeHtml(note.content)}</body>
+                                                        </html>
+                                                    `);
+                                                }
+                                            }}
+                                            className="block w-full py-2 bg-orange-500 text-white text-center rounded-lg text-xs font-bold hover:bg-orange-600 shadow-md transition-all"
+                                        >
+                                            Read Summary
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
       const handleNextPage = () => {
           setBatchIndex(prev => prev + 1);
           const container = document.querySelector('.mcq-container');
@@ -681,6 +792,8 @@ export const LessonView: React.FC<Props> = ({
                </div>
                
                <div className="flex-1 overflow-y-auto p-4 space-y-6 max-w-3xl mx-auto w-full pb-32 mcq-container">
+                   {showResults && content.type === 'MCQ_ANALYSIS' && renderAnalysisDashboard()}
+
                    {currentBatchData.map((q, localIdx) => {
                        const idx = (batchIndex * BATCH_SIZE) + localIdx;
                        const userAnswer = mcqState[idx];

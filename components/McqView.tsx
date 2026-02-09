@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Chapter, User, Subject, SystemSettings, MCQResult, PerformanceTag } from '../types';
-import { CheckCircle, Lock, ArrowLeft, Crown, PlayCircle, HelpCircle, Trophy, Clock, BrainCircuit } from 'lucide-react';
+import { CheckCircle, Lock, ArrowLeft, Crown, PlayCircle, HelpCircle, Trophy, Clock, BrainCircuit, FileText } from 'lucide-react';
 import { CustomAlert, CustomConfirm } from './CustomDialogs';
 import { getChapterData, saveUserToLive, saveUserHistory, savePublicActivity } from '../firebase';
+import { generateLocalAnalysis } from '../utils/analysisUtils';
 import { LessonView } from './LessonView'; 
 import { MarksheetCard } from './MarksheetCard';
 import { AiInterstitial } from './AiInterstitial';
@@ -35,7 +36,8 @@ export const McqView: React.FC<Props> = ({
   // Custom Dialog State
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({isOpen: false, message: ''});
   const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
-  
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+
   // Interstitial State
   const [showInterstitial, setShowInterstitial] = useState(false);
   const [pendingStart, setPendingStart] = useState<{mode: 'PRACTICE' | 'TEST', data: any} | null>(null);
@@ -383,50 +385,82 @@ export const McqView: React.FC<Props> = ({
       setViewMode('SELECTION');
   };
 
-  const handleViewAnalysis = (cost: number) => {
-      // DYNAMIC COST CALCULATION
-      let analysisCost = settings?.mcqAnalysisCost ?? 10;
+  const handleViewAnalysis = () => {
+      setShowAnalysisModal(true);
+  };
+
+  const handleFreeAnalysis = () => {
+      const userAnswers = resultData?.omrData?.reduce((acc: any, curr) => {
+          acc[curr.qIndex] = curr.selected;
+          return acc;
+      }, {}) || {};
+
+      setShowAnalysisModal(false);
+
+      const analysisContent = {
+          ...lessonContent,
+          id: `analysis-${Date.now()}`,
+          type: 'MCQ_ANALYSIS',
+          mcqData: completedMcqData,
+          userAnswers: userAnswers,
+          analysisType: 'FREE'
+      };
       
-      // Basic/Ultra: Proportional Cost (10 credits per 50 questions = 0.2 per question)
-      // This ensures Premium users pay less for smaller tests, and fair amount for large ones.
-      if ((user.subscriptionLevel === 'BASIC' || user.subscriptionLevel === 'ULTRA') && user.isPremium) {
-           const qCount = completedMcqData.length || 1;
-           analysisCost = Math.max(1, Math.ceil((qCount / 50) * 10));
-      }
+      setResultData(null);
+      setLessonContent(analysisContent);
+      setViewMode('TEST');
+  };
+
+  const handlePremiumAnalysis = () => {
+      const cost = settings?.mcqAnalysisCostUltra ?? 20;
       
-      // 1. Check Credits
-      if (user.credits < analysisCost) {
-          setAlertConfig({isOpen: true, title: "Insufficient Credits", message: `You need ${analysisCost} coins to unlock analysis.`});
+      if (user.credits < cost) {
+          setAlertConfig({isOpen: true, title: "Low Balance", message: `Insufficient Credits! You need ${cost} coins.`});
           return;
       }
 
       setConfirmConfig({
           isOpen: true,
-          title: "Unlock Analysis",
-          message: `Pay ${analysisCost} Coins to view detailed solutions?`,
+          title: "Unlock Premium Analysis",
+          message: `Pay ${cost} Coins to unlock detailed AI Analysis & Premium Notes?`,
           onConfirm: () => {
-              // 2. Deduct Credits
-              const updatedUser = { ...user, credits: user.credits - analysisCost };
+              // Deduct Credits
+              const updatedUser = { ...user, credits: user.credits - cost };
               localStorage.setItem('nst_current_user', JSON.stringify(updatedUser));
               saveUserToLive(updatedUser);
               onUpdateUser(updatedUser);
-              setConfirmConfig(prev => ({...prev, isOpen: false}));
 
-              // 3. Open Analysis
+              // Generate Analysis
+              const userAnswers = resultData?.omrData?.reduce((acc: any, curr) => {
+                  acc[curr.qIndex] = curr.selected;
+                  return acc;
+              }, {}) || {};
+
+              const analysisText = generateLocalAnalysis(
+                  completedMcqData,
+                  userAnswers,
+                  resultData?.score || 0,
+                  resultData?.totalQuestions || 0,
+                  chapter.title,
+                  subject.name
+              );
+
+              setConfirmConfig(prev => ({...prev, isOpen: false}));
+              setShowAnalysisModal(false);
+
               const analysisContent = {
                   ...lessonContent,
                   id: `analysis-${Date.now()}`,
                   type: 'MCQ_ANALYSIS',
                   mcqData: completedMcqData,
-                  userAnswers: resultData?.omrData?.reduce((acc: any, curr) => {
-                      acc[curr.qIndex] = curr.selected;
-                      return acc;
-                  }, {})
+                  userAnswers: userAnswers,
+                  analysisType: 'PREMIUM',
+                  aiAnalysisText: analysisText
               };
               
               setResultData(null);
               setLessonContent(analysisContent);
-              setViewMode('TEST'); 
+              setViewMode('TEST');
           }
       });
   };
@@ -495,6 +529,50 @@ export const McqView: React.FC<Props> = ({
            onConfirm={confirmConfig.onConfirm}
            onCancel={() => setConfirmConfig({...confirmConfig, isOpen: false})}
        />
+
+       {showAnalysisModal && (
+           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+               <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative">
+                   <div className="bg-slate-900 p-6 text-center relative overflow-hidden">
+                       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
+                       <Trophy className="mx-auto text-yellow-400 mb-2 relative z-10" size={48} />
+                       <h3 className="text-xl font-black text-white relative z-10">Choose Analysis</h3>
+                       <button onClick={() => setShowAnalysisModal(false)} className="absolute top-4 right-4 text-white/50 hover:text-white"><ArrowLeft size={20} /></button>
+                   </div>
+
+                   <div className="p-6 space-y-4">
+                       <button
+                           onClick={handleFreeAnalysis}
+                           className="w-full p-4 rounded-2xl border-2 border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-all text-left flex items-center gap-4 group"
+                       >
+                           <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                               <FileText size={24} />
+                           </div>
+                           <div>
+                               <h4 className="font-bold text-slate-800">Free Analysis</h4>
+                               <p className="text-xs text-slate-500">Review Answers & Topics</p>
+                           </div>
+                       </button>
+
+                       <button
+                           onClick={handlePremiumAnalysis}
+                           className="w-full p-4 rounded-2xl border-2 border-purple-200 bg-purple-50 hover:border-purple-400 hover:bg-purple-100 transition-all text-left flex items-center gap-4 group relative overflow-hidden"
+                       >
+                           <div className="w-12 h-12 rounded-full bg-purple-200 text-purple-700 flex items-center justify-center group-hover:scale-110 transition-transform z-10">
+                               <BrainCircuit size={24} />
+                           </div>
+                           <div className="z-10">
+                               <h4 className="font-bold text-purple-900">Premium Analysis</h4>
+                               <p className="text-xs text-purple-600">AI Report + PDF Notes</p>
+                           </div>
+                           <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-white text-purple-700 px-3 py-1 rounded-full text-xs font-black shadow-sm z-10">
+                               {settings?.mcqAnalysisCostUltra ?? 20} CR
+                           </div>
+                       </button>
+                   </div>
+               </div>
+           </div>
+       )}
        {/* HEADER */}
        <div className="sticky top-0 z-20 bg-white border-b border-slate-100 shadow-sm p-4 flex items-center gap-3">
            <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-600">
