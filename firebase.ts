@@ -60,23 +60,50 @@ export const subscribeToAuth = (callback: (user: any) => void) => {
 
 // --- NUCLEAR RESET ---
 export const resetAllContent = async () => {
+  let cloudError = null;
   try {
     console.log("STARTING NUCLEAR RESET...");
-    // 1. RTDB Wipes
-    const rtdbPaths = ['content_data', 'custom_syllabus', 'public_activity', 'ai_interactions', 'universal_analysis_logs'];
-    await Promise.all(rtdbPaths.map(path => remove(ref(rtdb, path))));
 
-    // 2. Firestore Wipes (Iterative delete)
-    const collections = ['content_data', 'custom_syllabus', 'public_activity', 'ai_interactions', 'universal_analysis_logs'];
-    for (const colName of collections) {
-      const q = query(collection(db, colName));
-      const snapshot = await getDocs(q);
-      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
+    // 1. Clear Local Storage (Synchronous & Async) FIRST
+    // This ensures local cleanup happens regardless of cloud status
+    try {
+        localStorage.clear(); // Clear standard local storage (Session, Settings, Cache)
+        await storage.clear(); // Clear IndexedDB/LocalForage (Heavy Content)
+        console.log("✅ Local Data Cleared Successfully");
+    } catch (localErr) {
+        console.error("Local Clear Error (Non-Fatal):", localErr);
     }
 
-    // Clear Local Storage items related to content
-    storage.clear();
+    // 2. RTDB Wipes
+    try {
+        const rtdbPaths = ['content_data', 'custom_syllabus', 'public_activity', 'ai_interactions', 'universal_analysis_logs'];
+        await Promise.all(rtdbPaths.map(path => remove(ref(rtdb, path))));
+        console.log("✅ RTDB Cleared Successfully");
+    } catch (e: any) {
+        console.error("RTDB Reset Error:", e);
+        cloudError = e;
+    }
+
+    // 3. Firestore Wipes (Iterative delete)
+    try {
+        const collections = ['content_data', 'custom_syllabus', 'public_activity', 'ai_interactions', 'universal_analysis_logs'];
+        for (const colName of collections) {
+          const q = query(collection(db, colName));
+          const snapshot = await getDocs(q);
+          const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+          await Promise.all(deletePromises);
+        }
+        console.log("✅ Firestore Cleared Successfully");
+    } catch (e: any) {
+        console.error("Firestore Reset Error:", e);
+        if (!cloudError) cloudError = e;
+    }
+
+    // Report Outcome
+    if (cloudError) {
+        // We throw modified error to inform UI that Local succeeded but Cloud failed
+        throw new Error(`LOCAL DATA CLEARED, but Cloud Reset Failed (Permission Denied). check Console.`);
+    }
 
     console.log("NUCLEAR RESET COMPLETE");
   } catch (e) {

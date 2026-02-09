@@ -8645,13 +8645,39 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                       onClick={() => {
                           if (confirm("⚠️ NUCLEAR RESET: Are you sure you want to delete ALL content data?")) {
                               if (confirm("🔴 FINAL WARNING: This will wipe Firebase Content. Are you absolutely sure?")) {
-                                  resetAllContent().then(() => alert("✅ Database Reset Complete.")).catch(e => alert("Error: " + e));
+                                  resetAllContent()
+                                    .then(() => {
+                                        alert("✅ Database Reset Complete.");
+                                        window.location.reload();
+                                    })
+                                    .catch(e => {
+                                        alert("⚠️ " + e.message);
+                                        window.location.reload();
+                                    });
                               }
                           }
                       }}
-                      className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 animate-pulse"
+                      className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 animate-pulse flex items-center justify-center gap-2"
                   >
-                      ☢️ RESET ALL CONTENT DATA
+                      <AlertOctagon size={18} /> ☢️ RESET ALL CONTENT DATA
+                  </button>
+
+                  <button
+                      onClick={async () => {
+                          if(confirm("🧹 Clear Local Cache Only?\n\nThis will remove 'Old Notes' stored on this device without affecting the Cloud Database. You will be logged out.")) {
+                              try {
+                                  localStorage.clear();
+                                  await storage.clear();
+                                  alert("✅ Cache Cleared!");
+                                  window.location.reload();
+                              } catch(e) {
+                                  alert("Error clearing cache: " + e);
+                              }
+                          }
+                      }}
+                      className="w-full mt-4 py-3 bg-orange-100 text-orange-700 font-bold rounded-xl border border-orange-200 hover:bg-orange-200 flex items-center justify-center gap-2"
+                  >
+                      <RefreshCw size={18} /> 🧹 Clear Local Cache Only (Fix "Old Notes")
                   </button>
               </div>
 

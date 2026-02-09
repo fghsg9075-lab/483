@@ -28,5 +28,14 @@ export const storage = {
     } catch (err) {
       console.error(`Error removing ${key} from localforage:`, err);
     }
+  },
+
+  clear: async (): Promise<void> => {
+    try {
+      await localforage.clear();
+      console.log('IndexedDB cleared successfully via localforage.');
+    } catch (err) {
+      console.error('Error clearing localforage:', err);
+    }
   }
 };
