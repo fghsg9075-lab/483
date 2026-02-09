@@ -159,7 +159,7 @@ const MODELS = [
     "mixtral-8x7b-32768"
 ];
 
-const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSettings, onImpersonate, logActivity, isDarkMode, onToggleDarkMode }) => {
+const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSettings, onImpersonate, logActivity, isDarkMode, onToggleDarkMode, user }) => {
 
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
   const [dashboardMode, setDashboardMode] = useState<'MASTER' | 'PILOT' | null>(null);
@@ -176,9 +176,13 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   // CURRENT USER CONTEXT (From Props or LocalStorage if missing)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   useEffect(() => {
-      const stored = localStorage.getItem('nst_current_user');
-      if (stored) setCurrentUser(JSON.parse(stored));
-  }, []);
+      if (user) {
+          setCurrentUser(user);
+      } else {
+          const stored = localStorage.getItem('nst_current_user');
+          if (stored) setCurrentUser(JSON.parse(stored));
+      }
+  }, [user]);
 
   // --- PERMISSION HELPER ---
   const hasPermission = (perm: string) => {
