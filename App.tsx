@@ -1725,7 +1725,7 @@ const App: React.FC = () => {
         ) : (
             <ErrorBoundary>
             <>
-                {state.view === 'ADMIN_DASHBOARD' && (state.user.role === 'ADMIN' || state.user.role === 'SUB_ADMIN') && <AdminDashboard onNavigate={(v) => setState(prev => ({...prev, view: v}))} settings={state.settings} onUpdateSettings={updateSettings} onImpersonate={handleImpersonate} logActivity={logActivity} isDarkMode={darkMode} onToggleDarkMode={setDarkMode} />}
+                {state.view === 'ADMIN_DASHBOARD' && (state.user.role === 'ADMIN' || state.user.role === 'SUB_ADMIN') && <AdminDashboard user={state.user} onNavigate={(v) => setState(prev => ({...prev, view: v}))} settings={state.settings} onUpdateSettings={updateSettings} onImpersonate={handleImpersonate} logActivity={logActivity} isDarkMode={darkMode} onToggleDarkMode={setDarkMode} />}
                 
                 {/* ACTIVE WEEKLY TEST OVERRIDE */}
                 {activeWeeklyTest ? (
