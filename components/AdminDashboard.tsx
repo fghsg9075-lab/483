@@ -4346,7 +4346,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                               </div>
 
                               {/* FREE PDF SECTION (DYNAMIC) */}
-                              <div className="bg-green-50 p-4 rounded-xl border border-green-100 opacity-50 pointer-events-none grayscale">
+                              <div className="bg-green-50 p-4 rounded-xl border border-green-100">
                                   <label className="block text-xs font-black text-green-800 uppercase mb-1 flex items-center gap-2">
                                       <FileText size={14} /> Legacy Free PDF Link ({syllabusMode})
                                   </label>

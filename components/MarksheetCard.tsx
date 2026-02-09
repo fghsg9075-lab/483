@@ -104,18 +104,46 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       const recs: any[] = [];
 
       // A) Free Recommendations (From Chapter HTML)
-      // Since cropping HTML is complex, we link to the Chapter's Free Notes if weak topics exist
-      // We can check if `freeNotesHtml` exists.
-      if (chapterData && (chapterData.freeNotesHtml || chapterData.schoolFreeNotesHtml)) {
-           // We create a "proxy" recommendation that points to the chapter free notes
-           recs.push({
-               title: `Review Chapter: ${result.chapterTitle}`,
-               topic: 'FREE REVISION',
-               type: 'FREE_NOTES_LINK', // Special type to handle click
-               isPremium: false,
-               url: 'FREE_CHAPTER_NOTES', // Flag
-               access: 'FREE'
-           });
+      const freeHtml = chapterData?.freeNotesHtml || chapterData?.schoolFreeNotesHtml;
+
+      if (freeHtml) {
+           // EXTRACT TOPIC NAMES FROM HTML HEADERS
+           const extractedTopics: string[] = [];
+           try {
+               const doc = new DOMParser().parseFromString(freeHtml, 'text/html');
+               const headers = doc.querySelectorAll('h1, h2, h3, h4');
+               headers.forEach(h => {
+                   if(h.textContent && h.textContent.length > 3) extractedTopics.push(h.textContent.trim());
+               });
+           } catch(e) {}
+
+           // Filter extracted topics that match weak areas
+           const relevantExtracted = extractedTopics.filter(et =>
+               searchTopics.some(st => et.toLowerCase().includes(st.toLowerCase()))
+           );
+
+           if (relevantExtracted.length > 0) {
+               relevantExtracted.forEach(topicName => {
+                   recs.push({
+                       title: topicName,
+                       topic: 'FREE NOTES TOPIC',
+                       type: 'FREE_NOTES_LINK',
+                       isPremium: false,
+                       url: 'FREE_CHAPTER_NOTES',
+                       access: 'FREE'
+                   });
+               });
+           } else {
+               // Fallback if no specific headers found or matched
+               recs.push({
+                   title: `Review Chapter: ${result.chapterTitle}`,
+                   topic: 'FREE REVISION',
+                   type: 'FREE_NOTES_LINK', // Special type to handle click
+                   isPremium: false,
+                   url: 'FREE_CHAPTER_NOTES', // Flag
+                   access: 'FREE'
+               });
+           }
       }
 
       // B) Premium Recommendations (Universal List + Topic Notes)
@@ -931,7 +959,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     onClick={() => setActiveTab('AI')}
                     className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> AI Analysis
+                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> Premium Analysis
                 </button>
                 <button 
                     onClick={() => setActiveTab('MARKSHEET_1')}
@@ -1009,7 +1037,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <div className="flex justify-between items-center mb-3 px-2">
                             <div className="flex items-center gap-2">
                                 <BrainCircuit className="text-violet-600" size={20} />
-                                <h3 className="font-black text-slate-800 text-lg">AI Performance Analysis</h3>
+                                <h3 className="font-black text-slate-800 text-lg">Premium Performance Analysis</h3>
                             </div>
                             {ultraAnalysisResult && (
                                 <div className="flex items-center gap-2">
@@ -1097,7 +1125,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             <div className="bg-white p-4 border-t border-slate-100 flex gap-2 justify-center z-10 shrink-0 flex-col sm:flex-row">
                 {onViewAnalysis && (
                     <button onClick={() => onViewAnalysis(0)} className="flex-1 bg-blue-50 text-blue-600 px-4 py-3 rounded-xl font-bold text-xs shadow-sm border border-blue-100 hover:bg-blue-100 flex justify-center gap-2">
-                        <FileSearch size={16} /> Review Answers
+                        <FileSearch size={16} /> Free Analysis
                     </button>
                 )}
                 
@@ -1134,60 +1162,85 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         </h3>
                         <button onClick={() => setShowRecModal(false)} className="p-2 bg-slate-100 rounded-full"><X size={16} /></button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-6">
                         {recLoading ? (
                             <div className="text-center py-8 text-slate-400 font-bold animate-pulse">Finding best notes...</div>
                         ) : recommendations.length === 0 ? (
                             <div className="text-center py-8 text-slate-400">No specific notes found for your weak topics. Try reviewing the chapter again!</div>
                         ) : (
-                            recommendations.map((rec, i) => (
-                                <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1 bg-white px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
-                                        {rec.isPremium && <span className="text-[9px] text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded ml-1 font-bold">PREMIUM</span>}
+                            <>
+                                {/* FREE RECOMMENDATIONS */}
+                                {recommendations.filter(r => !r.isPremium).length > 0 && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">Free Material</h4>
+                                        {recommendations.filter(r => !r.isPremium).map((rec, i) => (
+                                            <div key={`free-${i}`} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                                                <div>
+                                                    <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
+                                                    <p className="text-[10px] text-slate-500 uppercase font-bold mt-1 bg-white px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
+                                                </div>
+                                                <button
+                                                    className="text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-200"
+                                                    onClick={() => {
+                                                        if (rec.type === 'FREE_NOTES_LINK') {
+                                                            if (onLaunchContent) {
+                                                                onLaunchContent({
+                                                                    id: result.chapterId,
+                                                                    title: result.chapterTitle,
+                                                                    type: 'PDF',
+                                                                    subjectName: result.subjectName,
+                                                                });
+                                                            } else {
+                                                                alert("Please go to the Chapter page and open Free Notes.");
+                                                            }
+                                                        } else if (onLaunchContent) {
+                                                            onLaunchContent({
+                                                                id: `REC_FREE_${i}`,
+                                                                title: rec.title,
+                                                                type: 'PDF',
+                                                                directResource: { url: rec.url, access: rec.access }
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    Read
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <button
-                                        className="text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-200"
-                                        onClick={() => {
-                                            if (rec.type === 'FREE_NOTES_LINK') {
-                                                if (onLaunchContent) {
-                                                    // Construct a launch object that PdfView (via StudentDashboard) understands.
-                                                    // For Free Notes, we typically load via ID, BUT here we want to force "Free Notes HTML" view.
-                                                    // PdfView supports 'directResource' to bypass loading.
-                                                    // However, for Chapter Free Notes, we might just want to trigger the standard flow.
-                                                    // Given the limitation, we'll alert users to go to the chapter, OR try to load by ID if possible.
-                                                    // But here, let's use 'directResource' if we have a LINK. If we only have HTML flag, we rely on normal flow.
-                                                    // Actually, if we pass the chapter ID, PdfView will load content. Then user selects 'Free'.
-                                                    // Let's simulate clicking the Chapter Card.
-                                                    onLaunchContent({
-                                                        id: result.chapterId, // Use REAL Chapter ID
-                                                        title: result.chapterTitle,
-                                                        type: 'PDF', // Standard PDF View
-                                                        subjectName: result.subjectName,
-                                                        // We don't force 'content' to be Free Notes here because PdfView needs to fetch first.
-                                                        // By passing standard ID, StudentDashboard will load it.
-                                                    });
-                                                } else {
-                                                    alert("Please go to the Chapter page and open Free Notes.");
-                                                }
-                                            } else if (onLaunchContent) {
-                                                // For UNIVERSAL/TOPIC notes, we MUST pass directResource so PdfView doesn't try to fetch from DB
-                                                onLaunchContent({
-                                                    id: `REC_${i}`,
-                                                    title: rec.title,
-                                                    type: 'PDF',
-                                                    directResource: { url: rec.url, access: rec.access }
-                                                });
-                                            } else {
-                                                alert("Please go back to Chapter Dashboard to access this note: " + rec.title);
-                                            }
-                                        }}
-                                    >
-                                        View
-                                    </button>
-                                </div>
-                            ))
+                                )}
+
+                                {/* PREMIUM RECOMMENDATIONS */}
+                                {recommendations.filter(r => r.isPremium).length > 0 && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-black text-yellow-600 uppercase tracking-widest border-b pb-2">Premium Resources</h4>
+                                        {recommendations.filter(r => r.isPremium).map((rec, i) => (
+                                            <div key={`prem-${i}`} className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 flex justify-between items-center">
+                                                <div>
+                                                    <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
+                                                    <p className="text-[10px] text-slate-500 uppercase font-bold mt-1 bg-white px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
+                                                    <span className="text-[9px] text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded ml-1 font-bold">PREMIUM</span>
+                                                </div>
+                                                <button
+                                                    className="text-xs font-bold text-yellow-700 bg-yellow-200 px-3 py-1.5 rounded-lg hover:bg-yellow-300 shadow-sm"
+                                                    onClick={() => {
+                                                        if (onLaunchContent) {
+                                                            onLaunchContent({
+                                                                id: `REC_PREM_${i}`,
+                                                                title: rec.title,
+                                                                type: 'PDF',
+                                                                directResource: { url: rec.url, access: rec.access }
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    Unlock
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
