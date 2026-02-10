@@ -5686,6 +5686,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                   <label className="text-xs font-bold uppercase text-slate-500">Chat Edit Time (Mins)</label>
                                   <input type="number" value={localSettings.chatEditTimeLimit ?? 15} onChange={e => setLocalSettings({...localSettings, chatEditTimeLimit: Number(e.target.value)})} className="w-full p-3 border rounded-xl" />
                               </div>
+                          </div>
                           
                           {/* SYLLABUS TYPE SELECTOR */}
                           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-4">
@@ -5739,7 +5740,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                               >
                                   ⚠️ Force Update All Apps
                               </button>
-                          </div>
                           </div>
 
                           {/* NEW: POPUP CONTROLS */}
@@ -6754,6 +6754,9 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                            )}
                       </div>
                   )}
+              </div>
+          </div>
+      )}
 
                   {/* FEATURE GATING CONFIG */}
                   {activeTab === 'CONFIG_GATING' && (

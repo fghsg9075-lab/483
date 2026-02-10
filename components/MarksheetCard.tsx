@@ -24,7 +24,7 @@ interface Props {
 export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose, onViewAnalysis, onPublish, questions, onUpdateUser, initialView, onLaunchContent }) => {
   const [page, setPage] = useState(1);
   // Replaced showOMR with activeTab logic
-  const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'STATS' | 'AI' | 'MARKSHEET_1' | 'MARKSHEET_2' | 'TOPICS'>('STATS');
+  const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'STATS' | 'AI' | 'MARKSHEET_1' | 'MARKSHEET_2' | 'TOPICS'>('MARKSHEET_1');
   
   // ULTRA ANALYSIS STATE
   const [ultraAnalysisResult, setUltraAnalysisResult] = useState('');
