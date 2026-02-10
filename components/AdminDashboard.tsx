@@ -821,6 +821,48 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       }
   };
 
+  // --- GENERATE NOTES FROM MCQS ---
+  const generateNotePlaceholders = () => {
+      const mcqList = activeTab === 'CONTENT_TEST' ? editingTestMcqs : editingMcqs;
+      if (mcqList.length === 0) {
+          alert("No MCQs found. Please add questions first.");
+          return;
+      }
+
+      const uniqueTopics = Array.from(new Set(mcqList.map(q => q.topic).filter(t => t && t.trim() !== '')));
+      if (uniqueTopics.length === 0) {
+          alert("No topics found in MCQs. Please ensure questions have 'Topic' assigned.");
+          return;
+      }
+
+      let addedCount = 0;
+      const newNotes = [...topicNotes];
+
+      uniqueTopics.forEach(topic => {
+          const normalizedTopic = topic!.trim();
+          // Check if note exists
+          const exists = newNotes.some(n => n.topic.toLowerCase() === normalizedTopic.toLowerCase());
+
+          if (!exists) {
+              newNotes.push({
+                  id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  title: `Notes: ${normalizedTopic}`,
+                  topic: normalizedTopic,
+                  content: '', // Placeholder
+                  isPremium: true // Default to premium as per requirement
+              });
+              addedCount++;
+          }
+      });
+
+      if (addedCount > 0) {
+          setTopicNotes(newNotes);
+          alert(`✅ Added ${addedCount} placeholder notes for topics: ${uniqueTopics.join(', ')}`);
+      } else {
+          alert("ℹ️ Notes already exist for all topics found.");
+      }
+  };
+
   // --- GIFT CODE STATE ---
   const [newCodeType, setNewCodeType] = useState<'CREDITS' | 'SUBSCRIPTION'>('CREDITS');
   const [newCodeAmount, setNewCodeAmount] = useState(10);
@@ -5551,6 +5593,13 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                       >
                                           {isAiGenerating ? <RefreshCw className="animate-spin" size={14} /> : <Sparkles size={14} />}
                                           Generate MCQs
+                                      </button>
+                                      <button
+                                          onClick={generateNotePlaceholders}
+                                          className="flex-1 bg-amber-100 text-amber-700 py-2 rounded-lg font-bold text-xs shadow-sm border border-amber-200 hover:bg-amber-200 flex items-center justify-center gap-2"
+                                          title="Generate Note Placeholders from Topics"
+                                      >
+                                          <FileText size={14} /> Auto Notes
                                       </button>
                                   </div>
                               </div>

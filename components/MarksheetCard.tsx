@@ -7,6 +7,7 @@ import { saveUniversalAnalysis, saveUserToLive, saveAiInteraction, getChapterDat
 import ReactMarkdown from 'react-markdown';
 import { speakText, stopSpeech, getCategorizedVoices } from '../utils/textToSpeech';
 import { CustomConfirm } from './CustomDialogs'; // Import CustomConfirm
+import { SpeakButton } from './SpeakButton';
 
 interface Props {
   result: MCQResult;
@@ -499,60 +500,40 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                       return (
                           <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                               <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                                  <div>
-                                      <h3 className="font-black text-slate-800 text-sm uppercase">{topicName}</h3>
-                                      {stats && (
-                                          <div className="flex gap-2 mt-1">
-                                              <span className="text-[10px] font-bold text-red-500">{stats.total - stats.correct} Wrong</span>
-                                              <span className="text-[10px] font-bold text-green-600">{stats.correct} Correct</span>
+                                  <div className="flex items-center gap-2">
+                                      <div>
+                                          <div className="flex items-center gap-2">
+                                              <h3 className="font-black text-slate-800 text-sm uppercase">{topicName}</h3>
+                                              <SpeakButton text={`${topicName}. ${stats ? `${stats.total - stats.correct} Wrong, ${stats.correct} Correct` : ''}`} className="p-1 hover:bg-slate-200" iconSize={14} />
                                           </div>
-                                      )}
+                                          {stats && (
+                                              <div className="flex gap-2 mt-1">
+                                                  <span className="text-[10px] font-bold text-red-500">{stats.total - stats.correct} Wrong</span>
+                                                  <span className="text-[10px] font-bold text-green-600">{stats.correct} Correct</span>
+                                              </div>
+                                          )}
+                                      </div>
                                   </div>
                                   <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-[10px] font-bold">FOCUS</span>
                               </div>
 
                               <div className="p-4 space-y-4">
-                                  {/* 1. WRONG QUESTIONS FIRST */}
+                                  {/* 1. WRONG QUESTIONS FIRST - SIMPLIFIED */}
                                   {topicWrongQs.length > 0 && (
-                                      <div className="space-y-3 mb-4">
+                                      <div className="space-y-2 mb-4">
                                           <p className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1">
                                               <XCircle size={12} /> Mistakes in this Topic
                                           </p>
-                                          {topicWrongQs.map((q, qIdx) => {
-                                               const omr = result.omrData?.find((d: any) => questions && d.qIndex === questions.indexOf(q));
-                                               return (
-                                                  <div key={`wq-${qIdx}`} className="bg-red-50 rounded-xl p-3 border border-red-100">
-                                                      <div className="flex gap-2 mb-2">
-                                                          <span className="text-[10px] font-bold bg-red-200 text-red-700 px-1.5 py-0.5 rounded h-fit">Q</span>
-                                                          <p className="text-xs font-bold text-slate-800">{q.question}</p>
-                                                      </div>
-                                                      {/* Options - Show Correct Answer */}
-                                                      <div className="space-y-1 pl-6">
-                                                          {q.options.map((opt: string, oIdx: number) => {
-                                                              const isCorrect = oIdx === q.correctAnswer;
-                                                              const isSelected = omr?.selected === oIdx;
-                                                              if (!isCorrect && !isSelected) return null; // Only show relevant options
-
-                                                              return (
-                                                                  <div key={oIdx} className={`text-[10px] px-2 py-1 rounded border flex items-center justify-between ${isCorrect ? 'bg-green-100 border-green-200 text-green-800 font-bold' : 'bg-red-100 border-red-200 text-red-800'}`}>
-                                                                      <span>{opt}</span>
-                                                                      {isCorrect && <CheckCircle size={10}/>}
-                                                                      {isSelected && !isCorrect && <XCircle size={10}/>}
-                                                                  </div>
-                                                              );
-                                                          })}
-                                                      </div>
-                                                      {/* Explanation */}
-                                                      {q.explanation && (
-                                                          <div className="mt-2 pt-2 border-t border-red-100">
-                                                              <p className="text-[10px] text-slate-600 italic">
-                                                                  <span className="font-bold text-slate-800">Exp:</span> {q.explanation}
-                                                              </p>
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                               );
-                                          })}
+                                          <div className="flex flex-wrap gap-2">
+                                              {topicWrongQs.map((q, qIdx) => {
+                                                  const originalIndex = questions ? questions.indexOf(q) + 1 : qIdx + 1;
+                                                  return (
+                                                      <span key={`wq-${qIdx}`} className="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded border border-red-200">
+                                                          Q{originalIndex}
+                                                      </span>
+                                                  );
+                                              })}
+                                          </div>
                                       </div>
                                   )}
 
@@ -568,8 +549,11 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${rec.isPremium ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
                                                           {rec.isPremium ? <FileText size={14} /> : <Lightbulb size={14} />}
                                                       </div>
-                                                      <div>
-                                                          <p className="font-bold text-slate-700 text-xs line-clamp-1">{rec.title}</p>
+                                                      <div className="flex-1 min-w-0">
+                                                          <div className="flex items-center gap-1">
+                                                              <p className="font-bold text-slate-700 text-xs line-clamp-1">{rec.title}</p>
+                                                              <SpeakButton text={rec.title} className="p-1 shrink-0" iconSize={12} />
+                                                          </div>
                                                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${rec.isPremium ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
                                                               {rec.isPremium ? 'PREMIUM PDF' : 'FREE NOTE'}
                                                           </span>
@@ -666,9 +650,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                     {idx + 1}
                                 </span>
                                 <div className="flex-1">
-                                    <p className="text-sm font-bold text-slate-800 leading-snug">
-                                        {q.question}
-                                    </p>
+                                    <div className="flex justify-between items-start gap-2">
+                                        <div
+                                            className="text-sm font-bold text-slate-800 leading-snug prose prose-sm max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: q.question }}
+                                        />
+                                        <SpeakButton text={q.question} className="shrink-0" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -695,7 +683,10 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] border ${isTheCorrectAnswer ? 'border-green-400 bg-green-100 text-green-700' : isSelectedByUser ? 'border-red-400 bg-red-100 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
                                                     {String.fromCharCode(65 + optIdx)}
                                                 </div>
-                                                <div className="flex-1">{opt}</div>
+                                                <div className="flex-1 flex items-center justify-between gap-2">
+                                                    <div dangerouslySetInnerHTML={{ __html: opt }} />
+                                                    <SpeakButton text={opt} className="shrink-0 p-1" iconSize={14} />
+                                                </div>
                                                 {icon}
                                             </div>
                                         );
@@ -706,12 +697,16 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                             {/* Explanation Box */}
                             {(q.explanation) && (
                                 <div className="p-4 bg-blue-50 border-t border-blue-100">
-                                    <p className="text-[10px] font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
-                                        <Lightbulb size={12} /> Explanation
-                                    </p>
-                                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                                        {q.explanation}
-                                    </p>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <p className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1">
+                                            <Lightbulb size={12} /> Explanation
+                                        </p>
+                                        <SpeakButton text={q.explanation} className="p-1 text-blue-400 hover:bg-blue-100" iconSize={14} />
+                                    </div>
+                                    <div
+                                        className="text-xs text-slate-700 leading-relaxed font-medium prose prose-sm max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: q.explanation }}
+                                    />
                                 </div>
                             )}
                         </div>
@@ -836,7 +831,41 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             </div>
 
 
-            {/* TOPIC BREAKDOWN & CHARTS REMOVED AS PER REQUEST */}
+            {/* TOPIC PERFORMANCE DISTRIBUTION GRAPH */}
+            {totalTopics > 0 && (
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Topic Strength Distribution</h3>
+
+                    {/* Progress Bar */}
+                    <div className="h-4 w-full bg-slate-200 rounded-full overflow-hidden flex">
+                        {topicStats.strong > 0 && (
+                            <div style={{ width: `${(topicStats.strong / totalTopics) * 100}%` }} className="h-full bg-green-500"></div>
+                        )}
+                        {topicStats.avg > 0 && (
+                            <div style={{ width: `${(topicStats.avg / totalTopics) * 100}%` }} className="h-full bg-blue-500"></div>
+                        )}
+                        {topicStats.weak > 0 && (
+                            <div style={{ width: `${(topicStats.weak / totalTopics) * 100}%` }} className="h-full bg-red-500"></div>
+                        )}
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex justify-between mt-3 text-[10px] font-bold uppercase">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span className="text-slate-600">Strong ({topicStats.strong})</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                            <span className="text-slate-600">Average ({topicStats.avg})</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                            <span className="text-slate-600">Weak ({topicStats.weak})</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {data.motivation && (
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-xl text-white shadow-lg text-center italic font-medium">
