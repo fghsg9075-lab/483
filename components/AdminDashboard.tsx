@@ -26,6 +26,8 @@ import QRCode from "react-qr-code";
 // Configure PDF Worker (CDN for stability)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
+const QUESTION_START_REGEX = /^(Q\s*\d+[\.:]?|\d+[\.:)]|Question\s*\d+[\.:]?)\s/i;
+
 interface Props {
   onNavigate: (view: ViewState) => void;
   settings?: SystemSettings;
@@ -2069,7 +2071,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                       
                       while (nextIndex < lines.length) {
                           const line = lines[nextIndex];
-                          const isNewQuestion = /^(Q\d+|Question|\d+[\.)])\s/.test(line);
+                          const isNewQuestion = QUESTION_START_REGEX.test(line);
                           if (isNewQuestion) break; 
                           expLines.push(line);
                           nextIndex++;
@@ -2219,8 +2221,17 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               continue;
                           }
 
+feature-notes-analysis-upgrade-7255104201917027923
                           // 2. QUESTION START CHECK
                           if (questionStartRegex.test(line)) {
+
+                          // 2. CHECK FOR QUESTION START
+                          // Matches: "Q1.", "1.", "Q1", "(1)", "Question 1:" etc.
+                          // OR simply starts with typical question words if numbered list fails,
+                          // but strict numbering is safer for bulk.
+                          // Let's assume standard format: Q1. or 1.
+                          const isQuestionStart = QUESTION_START_REGEX.test(line);
+main
 
                               // A. COLLECT QUESTION TEXT (Support Multi-line)
                               let qText = line;
@@ -2253,6 +2264,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                   j++;
                               }
 
+feature-notes-analysis-upgrade-7255104201917027923
                               // B2. RETROACTIVE OPTION RECOVERY (If no markers found)
                               // If options are empty but we have collected a lot of text, maybe options were unmarked?
                               if (options.length === 0) {
@@ -2264,7 +2276,11 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                       qText = qLines.slice(0, -4).join('\n');
                                       options.push(...potentialOptions);
                                   }
-                              }
+                            
+                              while (nextIndex < lines.length) {
+                                  const nextLine = lines[nextIndex];
+                                  const isNextTopic = /^<TOPIC:\s*(.*?)>/i.test(nextLine);
+                                  const isNextQ = QUESTION_START_REGEX.test(nextLine) main
 
                               // Fill empty options if < 4
                               while (options.length < 4) options.push("");
