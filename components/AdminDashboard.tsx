@@ -2248,6 +2248,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               while (nextIndex < lines.length) {
                                   const nextLine = lines[nextIndex];
                                   const isNextTopic = /^<TOPIC:\s*(.*?)>/i.test(nextLine);
+                                  // Explicitly check for question start to avoid parsing errors
                                   const isNextQ = QUESTION_START_REGEX.test(nextLine);
 
                                   // Stop if next line looks like a new item
