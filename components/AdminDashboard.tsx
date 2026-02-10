@@ -5686,8 +5686,9 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                   <label className="text-xs font-bold uppercase text-slate-500">Chat Edit Time (Mins)</label>
                                   <input type="number" value={localSettings.chatEditTimeLimit ?? 15} onChange={e => setLocalSettings({...localSettings, chatEditTimeLimit: Number(e.target.value)})} className="w-full p-3 border rounded-xl" />
                               </div>
+ feature-notes-analysis-upgrade-7255104201917027923
                           </div>
-                          
+                        main
                           {/* SYLLABUS TYPE SELECTOR */}
                           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-4">
                               <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Syllabus Mode</label>
