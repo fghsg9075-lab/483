@@ -179,6 +179,8 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestData, setRequestData] = useState({ subject: '', topic: '', type: 'PDF' });
 
+  const [showAllTopics, setShowAllTopics] = useState(false);
+
   // AI Modal State
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
@@ -1116,37 +1118,81 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                             <div 
                                 className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 cursor-default opacity-80"
                             >
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                                        <BookOpen size={14} /> Topic Strength Areas
-                                    </h4>
-                                </div>
-                                {user.topicStrength && Object.keys(user.topicStrength).length > 0 ? (
-                                    <div className="space-y-2">
-                                        {Object.entries(user.topicStrength).filter(([topic, stats]) => {
-                                            const pct = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
-                                            return pct < 60; // Keep in trend list if performance < 60%
-                                        }).map(([topic, stats]) => {
-                                            const pct = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
-                                            return (
-                                                <div key={topic} className="space-y-1">
-                                                    <div className="flex justify-between text-[9px] font-bold">
-                                                        <span className="text-white/60 truncate mr-2">{topic}</span>
-                                                        <span className="text-white">{pct}%</span>
+                                {(() => {
+                                    const totalTopics = user.topicStrength ? Object.keys(user.topicStrength).length : 0;
+                                    const topicStats = Object.values(user.topicStrength || {}).reduce((acc: any, curr: any) => {
+                                        const pct = curr.total > 0 ? (curr.correct / curr.total) * 100 : 0;
+                                        if (pct >= 80) acc.strong++;
+                                        else if (pct < 60) acc.weak++;
+                                        else acc.avg++;
+                                        return acc;
+                                    }, { strong: 0, avg: 0, weak: 0 });
+
+                                    return (
+                                        <>
+                                            <div className="flex justify-between items-center mb-3">
+                                                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <BookOpen size={14} /> Topic Analysis
+                                                </h4>
+                                                {totalTopics > 0 && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setShowAllTopics(!showAllTopics); }}
+                                                        className="text-[9px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-white transition-colors border border-white/10"
+                                                    >
+                                                        {showAllTopics ? 'Hide' : 'Details'}
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {totalTopics > 0 ? (
+                                                <div>
+                                                    {/* Summary Bar */}
+                                                    <div className="flex h-2 w-full rounded-full overflow-hidden mb-2 bg-slate-800">
+                                                        <div style={{ width: `${(topicStats.strong / totalTopics) * 100}%` }} className="bg-green-500 h-full" />
+                                                        <div style={{ width: `${(topicStats.avg / totalTopics) * 100}%` }} className="bg-yellow-500 h-full" />
+                                                        <div style={{ width: `${(topicStats.weak / totalTopics) * 100}%` }} className="bg-red-500 h-full" />
                                                     </div>
-                                                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                                        <div 
-                                                            className={`h-full transition-all duration-1000 ${pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`} 
-                                                            style={{ width: `${pct}%` }} 
-                                                        />
+                                                    <div className="flex justify-between text-[8px] font-bold text-white/60 mb-3">
+                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>Strong ({topicStats.strong})</div>
+                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>Avg ({topicStats.avg})</div>
+                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>Weak ({topicStats.weak})</div>
                                                     </div>
+
+                                                    {/* Detailed List (Collapsible) */}
+                                                    {showAllTopics && (
+                                                        <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-1 scrollbar-hide">
+                                                            {Object.entries(user.topicStrength || {})
+                                                                .sort(([,a]: any, [,b]: any) => {
+                                                                    const pctA = a.total > 0 ? (a.correct/a.total) : 0;
+                                                                    const pctB = b.total > 0 ? (b.correct/b.total) : 0;
+                                                                    return pctA - pctB; // Weakest first
+                                                                })
+                                                                .map(([topic, stats]: any) => {
+                                                                    const pct = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+                                                                    return (
+                                                                        <div key={topic} className="space-y-1">
+                                                                            <div className="flex justify-between text-[9px] font-bold">
+                                                                                <span className="text-white/60 truncate mr-2">{topic}</span>
+                                                                                <span className="text-white">{pct}%</span>
+                                                                            </div>
+                                                                            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                                                                <div
+                                                                                    className={`h-full transition-all duration-1000 ${pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                                                    style={{ width: `${pct}%` }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <p className="text-[10px] text-white/40 italic py-4 text-center">Analyze topics by taking tests</p>
-                                )}
+                                            ) : (
+                                                <p className="text-[10px] text-white/40 italic py-4 text-center">Analyze topics by taking tests</p>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>

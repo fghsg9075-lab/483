@@ -30,7 +30,7 @@ export const SpeakButton: React.FC<Props> = ({ text, className, iconSize = 18, c
                 text,
                 null,
                 1.0,
-                'en-US',
+                'hi-IN',
                 () => setIsSpeaking(true),
                 () => setIsSpeaking(false)
             ).catch(() => setIsSpeaking(false));
