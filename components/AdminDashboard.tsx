@@ -10454,4 +10454,3 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
 
     </div>
   );
-};
