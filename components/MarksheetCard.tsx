@@ -1000,16 +1000,21 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <button
                             onClick={() => {
                                 setShowAnalysisSelection(false);
-                                setActiveTab('TOPICS'); // Free Analysis View
-                                handleRecommend(); // Load Free Notes
+                            // Auto-open first free HTML note
+                            const freeRecs = recommendations.filter(r => !r.isPremium);
+                            if (freeRecs.length > 0 && freeRecs[0].content) {
+                                setViewingNote(freeRecs[0]);
+                            } else {
+                                alert("No free HTML notes available. Check 'Performance & Notes' tab.");
+                            }
                             }}
-                            className="w-full bg-orange-50 hover:bg-orange-100 border-2 border-orange-200 p-4 rounded-2xl flex items-center justify-between transition-all group"
+                        className="w-full bg-white hover:bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between transition-all group"
                         >
                             <div className="text-left">
-                                <p className="font-black text-orange-800 text-lg group-hover:scale-105 transition-transform">Free Analysis</p>
-                                <p className="text-xs text-orange-600 font-bold mt-1">Review Answers + Topics + HTML Notes</p>
+                            <p className="font-black text-slate-800 text-lg group-hover:scale-105 transition-transform">Free Notes</p>
+                            <p className="text-xs text-slate-500 font-bold mt-1">View Topic Summary (HTML)</p>
                             </div>
-                            <div className="w-8 h-8 bg-orange-200 text-orange-700 rounded-full flex items-center justify-center font-bold">
+                        <div className="w-8 h-8 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
                                 <ChevronRight size={20} />
                             </div>
                         </button>
@@ -1017,18 +1022,30 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         {/* PREMIUM OPTION */}
                         <button
                             onClick={() => {
+                            const cost = settings?.mcqAnalysisCostUltra ?? 20;
+                            if (user.credits < cost) {
+                                alert(`Insufficient Credits! Need ${cost}.`);
+                                return;
+                            }
+                            if (confirm(`Unlock Premium PDF Notes for ${cost} Credits?`)) {
+                                if (onUpdateUser) onUpdateUser({...user, credits: user.credits - cost});
+                                setPremiumUnlocked(true);
                                 setShowAnalysisSelection(false);
-                                setActiveTab('AI'); // Premium Analysis View
-                                handleUltraAnalysis(); // Local Logic + Cost
+                                // Scroll to bottom of TOPICS tab where Premium content appears
+                                setTimeout(() => {
+                                    const el = document.getElementById('marksheet-content');
+                                    if(el) el.scrollTop = el.scrollHeight;
+                                }, 100);
+                            }
                             }}
                             className="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-2xl flex items-center justify-between transition-all shadow-xl shadow-slate-200 group relative overflow-hidden"
                         >
-                            <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <div className="text-left relative z-10">
                                 <p className="font-black text-white text-lg group-hover:scale-105 transition-transform flex items-center gap-2">
-                                    Premium <span className="text-[10px] bg-yellow-400 text-black px-2 py-0.5 rounded-full">PRO</span>
+                                Premium Notes
                                 </p>
-                                <p className="text-xs text-slate-400 font-bold mt-1">Deep Analysis + PDF Notes</p>
+                            <p className="text-xs text-slate-400 font-bold mt-1">Unlock PDF Downloads</p>
                             </div>
                             <div className="text-right relative z-10">
                                 <span className="block text-xl font-black text-yellow-400">{settings?.mcqAnalysisCostUltra ?? 20} CR</span>
