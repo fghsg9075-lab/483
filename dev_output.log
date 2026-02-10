@@ -53,3 +53,6 @@ Port 5000 is in use, trying another one...
 12:42:31 AM [vite] (client) hmr update /components/AdminDashboard.tsx
 1:22:43 AM [vite] (client) hmr update /components/AdminDashboard.tsx
 1:50:56 AM [vite] (client) hmr update /components/MarksheetCard.tsx
+2:01:55 AM [vite] (client) hmr update /components/MarksheetCard.tsx
+2:05:22 AM [vite] (client) hmr update /components/MarksheetCard.tsx
+2:11:54 AM [vite] (client) hmr update /components/AdminDashboard.tsx

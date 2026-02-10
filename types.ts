@@ -158,6 +158,7 @@ export interface User {
   mcqHistory?: MCQResult[]; // List of all completed tests
   topicStrength?: Record<string, { correct: number, total: number }>; // Key: subjectId or topicId
   usageHistory?: UsageHistoryEntry[];
+  subscriptionHistory?: SubscriptionHistoryEntry[];
 }
 
 export interface MarksheetSettings {
@@ -275,6 +276,7 @@ export interface SystemSettings {
   mcqTestCost?: number;
   mcqAnalysisCost?: number;
   appShortName?: string; // e.g. "IIC"
+  officialAppUrl?: string; // NEW: Play Store Link
   bannerConfig?: {
       top: BannerSettings;
       bottom: BannerSettings;
@@ -319,11 +321,23 @@ export interface SystemSettings {
   aiPromptNotesCompetitionCBSE?: string;
   aiPromptNotesPremiumCompetitionCBSE?: string;
   aiPromptMCQCompetitionCBSE?: string;
+  aiPromptNotesBSEB?: string;
+  aiPromptNotesPremiumBSEB?: string;
+  aiPromptMCQBSEB?: string;
+  aiPromptNotesCompetitionBSEB?: string;
+  aiPromptNotesPremiumCompetitionBSEB?: string;
+  aiPromptMCQCompetitionBSEB?: string;
+  forceRefreshTimestamp?: string;
   marqueeLines?: string[];
   liveMessage1?: string;
   liveMessage2?: string;
   wheelRewards?: any[];
   chatCost?: number;
+  chatMode?: 'GLOBAL' | 'ROOMS'; // NEW
+  chatCooldownHours?: number; // NEW
+  chatEditTimeLimit?: number; // NEW
+  featuredItems?: FeaturedItem[]; // NEW
+  aiUsageSplit?: any; // NEW (for stats)
   dailyReward?: number;
   signupBonus?: number;
   isChatEnabled?: boolean;
@@ -360,6 +374,11 @@ export interface SystemSettings {
   profileEditCost?: number;
   nameChangeCost?: number;
   defaultVideoCost?: number;
+  defaultPdfCost?: number; // NEW
+  enableMcqUnlockRestriction?: boolean; // NEW
+  lessonUnlockPolicy?: 'SEQUENTIAL_100_MCQ' | 'ALL_OPEN'; // NEW
+  externalApps?: ExternalApp[]; // NEW
+  chatRooms?: ChatRoom[]; // NEW
   engagementRewards?: EngagementReward[];
   prizeRules?: PrizeRule[]; // NEW: Prize Configuration
   weeklyTests?: WeeklyTest[];
@@ -670,6 +689,8 @@ export interface MCQResult {
   wrongQuestions?: {
     question: string;
     qIndex: number;
+    correctAnswer?: string | number;
+    explanation?: string;
   }[];
   ultraAnalysisReport?: string;
 }
