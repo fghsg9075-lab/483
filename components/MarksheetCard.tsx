@@ -120,11 +120,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       setRecLoading(true);
       if(openModal) setShowRecModal(true);
 
-      // Identify weak topics (Percent < 60)
-      const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 60);
-
-      // Strictly only weak topics
-      const searchTopics = weakTopics.map(t => t.trim().toLowerCase());
+      // Identify weak topics (Percent < 70)
+      const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 70);
 
       const streamKey = (result.classLevel === '11' || result.classLevel === '12') && user.stream ? `-${user.stream}` : '';
       const key = `nst_content_${user.board || 'CBSE'}_${result.classLevel || '10'}${streamKey}_${result.subjectName}_${result.chapterId}`;
@@ -145,10 +142,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
       // A) Free Recommendations (From Chapter HTML)
       const freeHtml = chapterData?.freeNotesHtml || chapterData?.schoolFreeNotesHtml;
-
+      const extractedTopics: string[] = [];
       if (freeHtml) {
-           // EXTRACT TOPIC NAMES FROM HTML HEADERS
-           const extractedTopics: string[] = [];
            try {
                const doc = new DOMParser().parseFromString(freeHtml, 'text/html');
                const headers = doc.querySelectorAll('h1, h2, h3, h4');
@@ -156,72 +151,65 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                    if(h.textContent && h.textContent.length > 3) extractedTopics.push(h.textContent.trim());
                });
            } catch(e) {}
+      }
 
-           // Filter extracted topics that match weak areas (Partial Match)
-           const relevantExtracted = extractedTopics.filter(et =>
-               searchTopics.some(st => et.toLowerCase().includes(st)) ||
-               searchTopics.some(st => st.includes(et.toLowerCase()))
-           );
+      // Iterate Weak Topics to find matches for EACH
+      weakTopics.forEach(wt => {
+          const wtLower = wt.trim().toLowerCase();
 
-           // If specific matches found, push them. Otherwise, push generic Chapter Notes.
-           if (relevantExtracted.length > 0) {
-               relevantExtracted.forEach(topicName => {
-                   recs.push({
-                       title: topicName,
-                       topic: 'FREE NOTES TOPIC',
+          // 1. Check Free Notes HTML Headers
+          if (extractedTopics.length > 0) {
+              const matchedHeader = extractedTopics.find(et =>
+                  et.toLowerCase().includes(wtLower) || wtLower.includes(et.toLowerCase())
+              );
+              if (matchedHeader) {
+                  recs.push({
+                       title: matchedHeader,
+                       topic: wt, // Map strictly to Weak Topic Name
                        type: 'FREE_NOTES_LINK',
                        isPremium: false,
                        url: 'FREE_CHAPTER_NOTES',
                        access: 'FREE'
-                   });
-               });
-           } else {
-               // Fallback if no specific headers found or matched
-               recs.push({
-                   title: `Review Chapter: ${result.chapterTitle}`,
-                   topic: 'FREE REVISION',
-                   type: 'FREE_NOTES_LINK', // Special type to handle click
-                   isPremium: false,
-                   url: 'FREE_CHAPTER_NOTES', // Flag
-                   access: 'FREE'
-               });
-           }
-      }
+                  });
+              }
+          }
 
-      // B) Recommendations (Universal List)
-      if (universalData && universalData.notesPlaylist) {
-          const universalMatches = universalData.notesPlaylist.filter((n: any) =>
-              searchTopics.some(t =>
-                  n.title.toLowerCase().includes(t) ||
-                  (n.topic && n.topic.toLowerCase().includes(t)) || // Partial Match
-                  t.includes(n.topic?.toLowerCase() || '') // Reverse Partial Match
-              )
-          );
-          recs.push(...universalMatches.map((n: any) => ({
-              ...n,
-              type: 'UNIVERSAL_NOTE',
-              isPremium: n.access === 'PREMIUM' || n.type === 'PDF'
-          })));
-      }
+          // 2. Check Universal Notes
+          if (universalData && universalData.notesPlaylist) {
+              const matches = universalData.notesPlaylist.filter((n: any) =>
+                  n.title.toLowerCase().includes(wtLower) ||
+                  (n.topic && n.topic.toLowerCase().includes(wtLower)) ||
+                  wtLower.includes(n.topic?.toLowerCase() || '')
+              );
+              recs.push(...matches.map((n: any) => ({
+                  ...n,
+                  topic: wt, // Map strictly
+                  type: 'UNIVERSAL_NOTE',
+                  isPremium: n.access === 'PREMIUM' || n.type === 'PDF'
+              })));
+          }
 
-      if (chapterData && chapterData.topicNotes) {
-          // Robust Topic Matching (Case Insensitive, Trimmed, Partial)
-          const topicMatches = chapterData.topicNotes.filter((n: any) =>
-              searchTopics.some(wt =>
-                  (n.topic && n.topic.toLowerCase().trim() === wt) ||
-                  (n.topic && n.topic.toLowerCase().includes(wt)) ||
-                  (n.topic && wt.includes(n.topic.toLowerCase()))
-              )
-          );
-          recs.push(...topicMatches.map((n: any) => ({
-              ...n,
-              type: 'TOPIC_NOTE',
-              access: n.isPremium ? 'PREMIUM' : 'FREE',
-              isPremium: n.isPremium
-          })));
-      }
+          // 3. Check Chapter Topic Notes
+          if (chapterData && chapterData.topicNotes) {
+              const matches = chapterData.topicNotes.filter((n: any) =>
+                  (n.topic && n.topic.toLowerCase().trim() === wtLower) ||
+                  (n.topic && n.topic.toLowerCase().includes(wtLower)) ||
+                  (n.topic && wtLower.includes(n.topic.toLowerCase()))
+              );
+              recs.push(...matches.map((n: any) => ({
+                  ...n,
+                  topic: wt, // Map strictly
+                  type: 'TOPIC_NOTE',
+                  access: n.isPremium ? 'PREMIUM' : 'FREE',
+                  isPremium: n.isPremium
+              })));
+          }
+      });
 
-      setRecommendations(recs);
+      // Deduplicate by title
+      const uniqueRecs = recs.filter((v,i,a)=>a.findIndex(v2=>(v2.title===v.title && v2.topic === v.topic))===i);
+
+      setRecommendations(uniqueRecs);
       setRecLoading(false);
   };
 
@@ -480,10 +468,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
           groupedRecs[topic].push(rec);
       });
 
-      // Filter for Weak/Average Topics based on topicStats
-      const weakAvgTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 80);
-
-      const displayTopics = weakAvgTopics;
+      // Filter for Weak Topics based on topicStats (< 70%)
+      const displayTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 70);
 
       return (
           <div className="bg-slate-50 min-h-full">
@@ -682,13 +668,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                             )}
 
                             {/* Explanation Box */}
-                            {q.explanation && (
+                            {(q.explanation || fullQuestion?.explanation) && (
                                 <div className="p-4 bg-blue-50 border-t border-blue-100">
                                     <p className="text-[10px] font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
                                         <Lightbulb size={12} /> Explanation
                                     </p>
                                     <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                                        {q.explanation}
+                                        {q.explanation || fullQuestion?.explanation}
                                     </p>
                                 </div>
                             )}
@@ -816,85 +802,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 </div>
             </div>
 
-            {/* TOPIC BREAKDOWN (From Topics) */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-6">
-                    <BarChart3 size={18} /> Topic Breakdown
-                </h3>
-                <div className="space-y-4">
-                    {Object.entries(topicStats).map(([topic, stat]) => (
-                        <div key={topic} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="font-bold text-slate-700 text-sm uppercase">{topic}</span>
-                                <span className={`text-xs font-black ${stat.percent < 60 ? 'text-red-500' : 'text-green-600'}`}>
-                                    {stat.percent}%
-                                </span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 text-center mb-3">
-                                <div className="bg-white p-1 rounded border border-slate-200">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase">Total</p>
-                                    <p className="text-xs font-black text-slate-800">{stat.total}</p>
-                                </div>
-                                <div className="bg-green-50 p-1 rounded border border-green-200">
-                                    <p className="text-[9px] font-bold text-green-600 uppercase">Right</p>
-                                    <p className="text-xs font-black text-green-700">{stat.correct}</p>
-                                </div>
-                                <div className="bg-red-50 p-1 rounded border border-red-200">
-                                    <p className="text-[9px] font-bold text-red-600 uppercase">Wrong</p>
-                                    <p className="text-xs font-black text-red-700">{stat.total - stat.correct}</p>
-                                </div>
-                            </div>
-
-                            {/* REMOVED INLINE NOTE BUTTONS AS PER USER REQUEST */}
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* NEW: AI ROADMAP SECTION */}
-            {data.nextSteps && (
-                <div className="bg-gradient-to-r from-violet-50 to-indigo-50 p-5 rounded-2xl border border-indigo-100 shadow-sm">
-                    <h3 className="text-sm font-black text-indigo-800 uppercase tracking-wide mb-3 flex items-center gap-2">
-                        <Target size={16} /> Next 2 Days Plan
-                    </h3>
-                    <div className="bg-white p-4 rounded-xl border border-indigo-100">
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Focus Topics</p>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                            {data.nextSteps.focusTopics?.map((t: string, i: number) => (
-                                <span key={i} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold border border-indigo-200">
-                                    {t}
-                                </span>
-                            ))}
-                        </div>
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Action</p>
-                        <p className="text-sm text-slate-700 font-medium">{data.nextSteps.action}</p>
-                    </div>
-                </div>
-            )}
-
-            {/* NEW: WEAK TO STRONG PATH */}
-            {data.weakToStrongPath && data.weakToStrongPath.length > 0 && (
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide mb-4 flex items-center gap-2">
-                        <TrendingUp size={16} className="text-green-600" /> Weak to Strong Path
-                    </h3>
-                    <div className="space-y-4">
-                        {data.weakToStrongPath.map((step: any, i: number) => (
-                            <div key={i} className="flex gap-4">
-                                <div className="flex flex-col items-center">
-                                    <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs shadow-md z-10">
-                                        {step.step || i + 1}
-                                    </div>
-                                    {i < data.weakToStrongPath.length - 1 && <div className="w-0.5 h-full bg-slate-200 -my-2"></div>}
-                                </div>
-                                <div className="pb-4">
-                                    <p className="text-sm font-bold text-slate-800">{step.action}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* PERFORMANCE CHART (CSS) */}
             {totalTopics > 0 && (
@@ -1230,11 +1137,11 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
         {/* SIDE BUTTON FOR RECOMMENDATIONS */}
         <button
             onClick={() => setActiveTab('RECOMMEND')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-[250] bg-yellow-400 text-slate-900 font-black text-xs py-4 px-1 rounded-l-xl shadow-lg border-y border-l border-yellow-500 hover:bg-yellow-300 transition-transform hover:-translate-x-1 flex flex-col items-center gap-2"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-[250] bg-yellow-400 text-slate-900 font-black text-xs py-6 px-2 rounded-l-2xl shadow-xl border-y-2 border-l-2 border-yellow-500 hover:bg-yellow-300 transition-all hover:-translate-x-1 hover:scale-105 flex flex-col items-center gap-3"
             title="Recommended Notes"
         >
-            <Lightbulb size={16} />
-            <span className="vertical-text" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>NOTES</span>
+            <div className="bg-white p-1 rounded-full"><Lightbulb size={20} className="text-yellow-600" /></div>
+            <span className="vertical-text" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', letterSpacing: '2px' }}>NOTES</span>
         </button>
 
         {/* FREE HTML NOTE MODAL */}
