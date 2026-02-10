@@ -2158,6 +2158,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
               }
 
               // 2. REMOVE NOTES FROM TEXT TO PARSE MCQs
+              // Note: We deliberately handle this to avoid parsing Note content as questions.
               const textForMcq = rawText.replace(noteRegex, "");
 
               // 3. PARSE MCQs (Reusing logic applied to cleaned text)
@@ -2195,8 +2196,21 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   else {
                       const lines = textForMcq.split('\n').map(l => l.trim()).filter(l => l);
                       let i = 0;
+                      let currentGlobalTopic = ''; // NEW: Track global topic context
+
                       while (i + 5 < lines.length) {
+                          // CHECK FOR TOPIC TAG FIRST
+                          const topicTagMatch = lines[i].match(/^<TOPIC:\s*(.*?)>/i);
+                          if (topicTagMatch) {
+                              currentGlobalTopic = topicTagMatch[1].trim();
+                              i++; // Skip the topic tag line
+                              continue;
+                          }
+
                           const q = lines[i];
+                          // Simple check: Question usually doesn't start with Option pattern or Answer pattern
+                          // This helps skip garbage or unfinished lines
+
                           const opts = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
 
                           let ansRaw = lines[i+5].replace(/^(Answer|Ans|Correct)[:\s-]*/i, '').trim();
@@ -2211,8 +2225,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           let nextIndex = i + 6;
                           while (nextIndex < lines.length) {
                               const line = lines[nextIndex];
+                              // Also check if next line is a Topic Tag
+                              const isNextTopicTag = /^<TOPIC:\s*(.*?)>/i.test(line);
                               const isNewQuestion = /^(Q\d+|Question|\d+[\.)])\s/.test(line);
-                              if (isNewQuestion) break;
+                              if (isNewQuestion || isNextTopicTag) break;
                               expLines.push(line);
                               nextIndex++;
                           }
@@ -2230,7 +2246,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               options: opts,
                               correctAnswer: (ansIdx >= 0 && ansIdx <= 3) ? ansIdx : 0,
                               explanation: explanation,
-                              topic: topic
+                              topic: topic || currentGlobalTopic // Use specific topic or fallback to global context
                           });
 
                           i = nextIndex;
@@ -5329,12 +5345,14 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
 
                                   <div className="bg-slate-50 p-2 rounded-lg text-[10px] text-slate-600 mb-2 border border-slate-200 font-mono">
                                       <strong>Supported Format:</strong><br/>
-                                      1. <b>MCQs:</b> Standard Excel/Vertical format (Questions, Options, Answer).<br/>
-                                      2. <b>Notes:</b> Use <span className="bg-yellow-100 px-1 rounded">&lt;NOTE: TopicName&gt; HTML Content &lt;/NOTE&gt;</span><br/>
+                                      1. <b>MCQs:</b> Standard Vertical format (Questions, Options, Answer).<br/>
+                                      2. <b>Bulk Topic:</b> Use <span className="bg-blue-100 px-1 rounded">&lt;TOPIC: Force&gt;</span> to set topic for following questions.<br/>
+                                      3. <b>Notes:</b> Use <span className="bg-yellow-100 px-1 rounded">&lt;NOTE: Force&gt; HTML Content &lt;/NOTE&gt;</span><br/>
                                       <br/>
                                       <i>Example:</i><br/>
-                                      Q1. ...<br/>
-                                      Topic: Gravity<br/>
+                                      &lt;TOPIC: Gravity&gt;<br/>
+                                      Q1. ... Answer: A<br/>
+                                      Q2. ... Answer: B<br/>
                                       &lt;NOTE: Gravity&gt;Gravity is a force...&lt;/NOTE&gt;
                                   </div>
 
