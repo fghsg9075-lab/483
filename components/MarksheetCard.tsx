@@ -751,6 +751,50 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 );
             })}
 
+            {/* RECOMMENDED FREE NOTES */}
+            <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200 mt-6">
+                <h3 className="font-black text-orange-900 text-lg flex items-center gap-2 mb-4">
+                    <Lightbulb size={20} /> Recommended Free Notes
+                </h3>
+                {recommendations.filter(r => !r.isPremium).length === 0 ? (
+                    <p className="text-sm text-orange-800 opacity-70">No specific notes found for your weak topics.</p>
+                ) : (
+                    <div className="space-y-3">
+                        {recommendations.filter(r => !r.isPremium).map((rec, i) => (
+                            <div key={`free-${i}`} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm flex justify-between items-center hover:border-orange-300 transition-colors">
+                                <div>
+                                    <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-[10px] text-slate-500 uppercase font-bold bg-slate-50 px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
+                                        <span className="text-[9px] text-white bg-orange-500 px-2 py-0.5 rounded font-bold">FREE</span>
+                                    </div>
+                                </div>
+                                <button
+                                    className="text-xs font-bold text-white bg-orange-500 px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md transition-all flex items-center gap-2"
+                                    onClick={() => {
+                                        if (rec.content) {
+                                            setViewingNote(rec);
+                                        } else if (onLaunchContent) {
+                                            onLaunchContent({
+                                                id: `REC_FREE_${i}`,
+                                                title: rec.title,
+                                                type: 'PDF',
+                                                directResource: { url: rec.url, access: rec.access }
+                                            });
+                                        } else {
+                                            // Fallback
+                                            setViewingNote(rec);
+                                        }
+                                    }}
+                                >
+                                    Read Note
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* PREMIUM PDF NOTES LIST */}
             <div className="bg-red-50 p-6 rounded-2xl border border-red-200 mt-6">
                 <h3 className="font-black text-red-900 text-lg flex items-center gap-2 mb-4">
@@ -1099,7 +1143,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     onClick={() => setActiveTab('AI')}
                     className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> AI Analysis
+                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> Analysis
                 </button>
                 <button
                     onClick={() => setActiveTab('MARKSHEET_1')}
@@ -1220,7 +1264,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <div className="flex justify-between items-center mb-3 px-2">
                             <div className="flex items-center gap-2">
                                 <BrainCircuit className="text-violet-600" size={20} />
-                                <h3 className="font-black text-slate-800 text-lg">Premium Performance Analysis</h3>
+                                <h3 className="font-black text-slate-800 text-lg">Analysis & Recommendations</h3>
                             </div>
                             {ultraAnalysisResult && (
                                 <div className="flex items-center gap-2">
