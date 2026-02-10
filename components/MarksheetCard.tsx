@@ -781,7 +781,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                     {stat.percent}%
                                 </span>
                             </div>
-                            <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="grid grid-cols-3 gap-2 text-center mb-3">
                                 <div className="bg-white p-1 rounded border border-slate-200">
                                     <p className="text-[9px] font-bold text-slate-400 uppercase">Total</p>
                                     <p className="text-xs font-black text-slate-800">{stat.total}</p>
@@ -795,6 +795,54 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                     <p className="text-xs font-black text-red-700">{stat.total - stat.correct}</p>
                                 </div>
                             </div>
+
+                            {/* NOTE BUTTONS FOR THIS TOPIC */}
+                            {(() => {
+                                // Match Logic (Same as handleRecommend)
+                                const topicRecs = recommendations.filter(rec =>
+                                    (rec.topic && rec.topic.toLowerCase().trim() === topic.toLowerCase().trim()) ||
+                                    (rec.topic && topic.toLowerCase().includes(rec.topic.toLowerCase())) ||
+                                    (rec.topic && rec.topic.toLowerCase().includes(topic.toLowerCase()))
+                                );
+
+                                if (topicRecs.length === 0) return null;
+
+                                const hasFree = topicRecs.some(r => !r.isPremium);
+                                const hasPremium = topicRecs.some(r => r.isPremium);
+
+                                return (
+                                    <div className="flex gap-2 border-t border-slate-100 pt-2">
+                                        {hasFree && (
+                                            <button
+                                                onClick={() => {
+                                                    const note = topicRecs.find(r => !r.isPremium);
+                                                    if(note) {
+                                                        if(note.content) setViewingNote(note);
+                                                        else if(onLaunchContent) onLaunchContent({id: `REC_FREE_T_${topic}`, title: note.title, type: 'PDF', directResource: {url: note.url, access: 'FREE'}});
+                                                    }
+                                                }}
+                                                className="flex-1 py-1.5 rounded-lg bg-orange-100 text-orange-700 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-orange-200 transition-colors"
+                                            >
+                                                <Lightbulb size={10} /> Free Note
+                                            </button>
+                                        )}
+                                        {hasPremium && (
+                                            <button
+                                                onClick={() => {
+                                                    const note = topicRecs.find(r => r.isPremium);
+                                                    if(note) {
+                                                        if(onLaunchContent) onLaunchContent({id: `REC_PREM_T_${topic}`, title: note.title, type: 'PDF', directResource: {url: note.url, access: 'PREMIUM'}});
+                                                        else window.open(note.url, '_blank');
+                                                    }
+                                                }}
+                                                className="flex-1 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-slate-800 transition-colors"
+                                            >
+                                                <FileText size={10} /> Premium PDF
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     ))}
                 </div>
