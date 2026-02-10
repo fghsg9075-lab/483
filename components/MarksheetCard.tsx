@@ -6,7 +6,11 @@ import html2canvas from 'html2canvas';
 import { generateUltraAnalysis } from '../services/groq';
 import { saveUniversalAnalysis, saveUserToLive, saveAiInteraction, getChapterData } from '../firebase';
 import ReactMarkdown from 'react-markdown';
+ feature-tts-and-marksheet-updates-unified-speaker-6650736980094601488
 import { speakText, stopSpeech, getCategorizedVoices, stripHtml } from '../utils/textToSpeech';
+
+import { speakText, stopSpeech, getCategorizedVoices, speakSequence } from '../utils/textToSpeech';
+ main
 import { CustomConfirm } from './CustomDialogs'; // Import CustomConfirm
 import { SpeakButton } from './SpeakButton';
 
@@ -694,13 +698,32 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
         </div>
   );
 
-  const renderSolutionSection = () => (
+  const renderSolutionSection = () => {
+      const constructAnalysisText = (q: any) => {
+          let text = `Question. ${q.question}. `;
+          if(q.options) {
+              q.options.forEach((opt: string, i: number) => {
+                  text += `Option ${String.fromCharCode(65 + i)}. ${opt}. `;
+              });
+          }
+          const correctAnswerIndex = q.correctAnswer;
+          if(correctAnswerIndex !== undefined && q.options) {
+               text += `Correct Answer is Option ${String.fromCharCode(65 + correctAnswerIndex)}. ${q.options[correctAnswerIndex]}. `;
+          }
+          if (q.explanation) {
+              text += `Explanation. ${q.explanation}`;
+          }
+          return text;
+      };
+
+      return (
         <>
         <div className="flex items-center justify-between mb-3 px-2">
             <div className="flex items-center gap-2">
                 <FileSearch className="text-blue-600" size={20} />
                 <h3 className="font-black text-slate-800 text-lg">Detailed Analysis</h3>
             </div>
+ feature-tts-and-marksheet-updates-unified-speaker-6650736980094601488
             <button
                 onClick={() => handlePlayAll(questions || [], true)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-colors ${isPlayingAll ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-700'}`}
@@ -708,6 +731,16 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 {isPlayingAll ? <StopCircle size={16} /> : <Play size={16} />}
                 {isPlayingAll ? 'Stop Listening' : 'Listen All'}
             </button>
+
+            {questions && questions.length > 0 && (
+                <button
+                    onClick={() => speakSequence(questions.map(q => constructAnalysisText(q)))}
+                    className="flex items-center gap-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100"
+                >
+                    <Play size={12} /> Listen Full Analysis
+                </button>
+            )}
+main
         </div>
         {questions && questions.length > 0 ? (
             <div className="space-y-6">
@@ -733,7 +766,10 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                             className="text-sm font-bold text-slate-800 leading-snug prose prose-sm max-w-none"
                                             dangerouslySetInnerHTML={{ __html: q.question }}
                                         />
+feature-tts-and-marksheet-updates-unified-speaker-6650736980094601488
                                         <SpeakButton text={fullText} className="shrink-0" />
+                                        <SpeakButton text={constructAnalysisText(q)} className="shrink-0" />
+ main
                                     </div>
                                 </div>
                             </div>
@@ -1002,7 +1038,11 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <div className="p-4 space-y-4">
                             {/* Action Plan & Study Mode Removed as per "Next 2 Days Plan" request */}
 
+ feature-tts-and-marksheet-updates-unified-speaker-6650736980094601488
                             {/* TOPIC QUESTIONS SUMMARY (Full Cards) */}
+
+                            {/* TOPIC QUESTIONS LIST (Detailed) */}
+ main
                             {questions && questions.length > 0 && (() => {
                                 const topicQs = questions.filter((q: any) =>
                                     (q.topic && q.topic.toLowerCase().trim() === topic.name.toLowerCase().trim()) ||
@@ -1015,9 +1055,15 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                 return (
                                     <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
                                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
+ feature-tts-and-marksheet-updates-unified-speaker-6650736980094601488
                                             <ListChecks size={12} /> Topic Questions
                                         </h4>
                                         <div className="space-y-3">
+
+                                            <ListChecks size={12} /> Questions in this Topic
+                                        </h4>
+                                        <div className="space-y-2">
+main
                                             {topicQs.map((q: any, i: number) => {
                                                 const qIndex = questions.indexOf(q);
                                                 const fullText = generateQuestionText(q, false, qIndex); // No Explanation
@@ -1026,6 +1072,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                 const isCorrect = omr && omr.selected === q.correctAnswer;
 
                                                 return (
+feature-tts-and-marksheet-updates-unified-speaker-6650736980094601488
                                                     <div key={i} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                                                         <div className="flex justify-between items-start gap-2 mb-2">
                                                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isCorrect ? 'bg-green-100 text-green-700' : selected === -1 ? 'bg-slate-200 text-slate-600' : 'bg-red-100 text-red-700'}`}>
@@ -1050,6 +1097,20 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                                     </div>
                                                                 )
                                                             })}
+
+                                                    <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-100' : isSkipped ? 'bg-slate-50 border-slate-100' : 'bg-red-50 border-red-100'}`}>
+                                                        <div className={`w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold ${isCorrect ? 'bg-green-500 text-white' : isSkipped ? 'bg-slate-300 text-white' : 'bg-red-500 text-white'}`}>
+                                                            {qIndex + 1}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div
+                                                                className="text-[11px] font-medium text-slate-700 leading-snug line-clamp-2"
+                                                                dangerouslySetInnerHTML={{ __html: q.question }}
+                                                            />
+                                                        </div>
+                                                        <div className="text-[10px] font-bold">
+                                                            {isCorrect ? <span className="text-green-600">Correct</span> : isSkipped ? <span className="text-slate-400">Skipped</span> : <span className="text-red-500">Wrong</span>}
+ main
                                                         </div>
                                                     </div>
                                                 );

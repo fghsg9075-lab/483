@@ -54,17 +54,20 @@ export const speakText = async (
     text: string,
     voice?: SpeechSynthesisVoice | null,
     rate: number = 1.0,
-    lang: string = 'en-US',
+    lang: string = 'hi-IN',
     onStart?: () => void,
-    onEnd?: () => void
+    onEnd?: () => void,
+    shouldCancel: boolean = true
 ): Promise<SpeechSynthesisUtterance | null> => {
     if (!('speechSynthesis' in window)) {
         console.warn('Text-to-speech not supported.');
         return null;
     }
 
-    // Cancel any existing speech
-    window.speechSynthesis.cancel();
+    // Cancel any existing speech if requested
+    if (shouldCancel) {
+        window.speechSynthesis.cancel();
+    }
 
     // Strip HTML if present (simple check, but utility ensures clean text)
     const cleanText = stripHtml(text);
@@ -99,6 +102,44 @@ export const speakText = async (
 
     window.speechSynthesis.speak(utterance);
     return utterance;
+};
+
+export const speakSequence = async (
+    texts: string[],
+    voice?: SpeechSynthesisVoice | null,
+    rate: number = 1.0,
+    lang: string = 'hi-IN',
+    onStart?: () => void,
+    onEnd?: () => void
+) => {
+    if (!('speechSynthesis' in window)) return;
+
+    // Cancel existing speech
+    window.speechSynthesis.cancel();
+    if (onStart) onStart();
+
+    // Iterate and queue all utterances
+    for (let i = 0; i < texts.length; i++) {
+        const text = texts[i];
+        const isLast = i === texts.length - 1;
+
+        // IMPORTANT: We must NOT await speakText here because speak() is async in nature but returns immediately.
+        // If we await a promise that resolves on 'end', it works.
+        // But the previous implementation of speakText returned the utterance, not a promise that resolves on end.
+        // So `await speakText` just waited for the utterance creation, not completion.
+        // HOWEVER, window.speechSynthesis.speak() automatically queues if called sequentially.
+        // So we just need to call them in a loop without cancelling.
+
+        speakText(
+            text,
+            voice,
+            rate,
+            lang,
+            undefined,
+            isLast ? onEnd : undefined,
+            false // Do not cancel previous
+        );
+    }
 };
 
 export const stopSpeech = () => {
