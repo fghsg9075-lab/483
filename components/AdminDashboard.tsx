@@ -2119,6 +2119,148 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       }, 100);
   };
 
+  // --- UNIFIED IMPORT HANDLER (MCQ + NOTES) ---
+  const handleUnifiedImport = (isTest: boolean) => {
+      if (!importText.trim()) {
+          alert("Please paste data first!");
+          return;
+      }
+
+      setIsContentLoading(true);
+
+      setTimeout(() => {
+          try {
+              let rawText = importText.trim();
+              const newTopicNotes: typeof topicNotes = [];
+
+              // 1. EXTRACT NOTES BLOCKS
+              // Regex to find <NOTE: Topic> Content </NOTE>
+              const noteRegex = /<NOTE:\s*(.*?)>([\s\S]*?)<\/NOTE>/gi;
+              let match;
+              while ((match = noteRegex.exec(rawText)) !== null) {
+                  const topicName = match[1].trim();
+                  const noteContent = match[2].trim();
+
+                  if (topicName && noteContent) {
+                      newTopicNotes.push({
+                          id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                          title: `Note: ${topicName}`,
+                          topic: topicName,
+                          content: noteContent,
+                          isPremium: false // Default to Free HTML
+                      });
+                  }
+              }
+
+              // Update Topic Notes State
+              if (newTopicNotes.length > 0) {
+                  setTopicNotes(prev => [...prev, ...newTopicNotes]);
+              }
+
+              // 2. REMOVE NOTES FROM TEXT TO PARSE MCQs
+              const textForMcq = rawText.replace(noteRegex, "");
+
+              // 3. PARSE MCQs (Reusing logic applied to cleaned text)
+              let newQuestions: MCQItem[] = [];
+
+              if (textForMcq.trim().length > 0) {
+                  // MODE A: Tab-Separated
+                  if (textForMcq.includes('\t')) {
+                      const rows = textForMcq.split('\n').filter(r => r.trim());
+                      newQuestions = rows.map((row, idx) => {
+                          let cols = row.split('\t');
+                          if (cols.length < 3 && row.includes(',')) cols = row.split(',');
+                          cols = cols.map(c => c.trim());
+                          if (cols.length < 6) return null;
+
+                          let ansIdx = parseInt(cols[5]) - 1;
+                          if (isNaN(ansIdx)) {
+                              const map: any = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+                              if (map[cols[5]] !== undefined) ansIdx = map[cols[5]];
+                          }
+
+                          let topic = '';
+                          if (cols.length > 7) topic = cols[7];
+
+                          return {
+                              question: cols[0],
+                              options: [cols[1], cols[2], cols[3], cols[4]],
+                              correctAnswer: (ansIdx >= 0 && ansIdx <= 3) ? ansIdx : 0,
+                              explanation: cols[6] || '',
+                              topic: topic
+                          };
+                      }).filter(q => q !== null) as MCQItem[];
+                  }
+                  // MODE B: Vertical Block
+                  else {
+                      const lines = textForMcq.split('\n').map(l => l.trim()).filter(l => l);
+                      let i = 0;
+                      while (i + 5 < lines.length) {
+                          const q = lines[i];
+                          const opts = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
+
+                          let ansRaw = lines[i+5].replace(/^(Answer|Ans|Correct)[:\s-]*/i, '').trim();
+                          let ansIdx = parseInt(ansRaw) - 1;
+                          if (isNaN(ansIdx)) {
+                              const firstChar = ansRaw.charAt(0).toUpperCase();
+                              const map: any = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                              if (map[firstChar] !== undefined) ansIdx = map[firstChar];
+                          }
+
+                          let expLines = [];
+                          let nextIndex = i + 6;
+                          while (nextIndex < lines.length) {
+                              const line = lines[nextIndex];
+                              const isNewQuestion = /^(Q\d+|Question|\d+[\.)])\s/.test(line);
+                              if (isNewQuestion) break;
+                              expLines.push(line);
+                              nextIndex++;
+                          }
+
+                          let explanation = expLines.join('\n');
+                          let topic = '';
+                          const topicMatch = explanation.match(/Topic:\s*(.*)/i);
+                          if (topicMatch) {
+                              topic = topicMatch[1].trim();
+                              explanation = explanation.replace(/Topic:\s*.*$/im, '').trim();
+                          }
+
+                          newQuestions.push({
+                              question: q,
+                              options: opts,
+                              correctAnswer: (ansIdx >= 0 && ansIdx <= 3) ? ansIdx : 0,
+                              explanation: explanation,
+                              topic: topic
+                          });
+
+                          i = nextIndex;
+                      }
+                  }
+              }
+
+              if (newQuestions.length > 0) {
+                  if (isTest) {
+                      setEditingTestMcqs(prev => [...prev, ...newQuestions]);
+                  } else {
+                      setEditingMcqs(prev => [...prev, ...newQuestions]);
+                  }
+              }
+
+              if (newQuestions.length === 0 && newTopicNotes.length === 0) {
+                  throw new Error("No valid content found.");
+              }
+
+              setImportText('');
+              alert(`Success! Imported ${newQuestions.length} MCQs and ${newTopicNotes.length} Notes.`);
+
+          } catch (error: any) {
+              alert("Import Failed: " + error.message);
+          } finally {
+              setIsContentLoading(false);
+          }
+      }, 100);
+  };
+
   // --- ACCESS REQUEST HANDLERS ---
   const handleApproveRequest = async (req: RecoveryRequest) => {
       // 1. Update Request Status in RTDB
@@ -5173,32 +5315,38 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                       {/* MCQ / TEST EDITOR */}
                       {(activeTab === 'CONTENT_MCQ' || activeTab === 'CONTENT_TEST') && (
                           <div className="space-y-4">
-                              {/* GOOGLE SHEETS IMPORT */}
+                              {/* UNIFIED IMPORT (MCQ + NOTES) */}
                               <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200 shadow-sm">
                                   <div className="flex items-center gap-2 mb-3">
                                       <div className="bg-green-100 p-2 rounded text-green-700">
                                           <Database size={18} />
                                       </div>
                                       <div>
-                                          <h4 className="font-bold text-slate-800 text-sm">Bulk Import from Google Sheets</h4>
-                                          <p className="text-[10px] text-slate-500">Copy cells from Excel/Sheets and paste below</p>
+                                          <h4 className="font-bold text-slate-800 text-sm">Unified Content Import (MCQs + Notes)</h4>
+                                          <p className="text-[10px] text-slate-500">Paste mixed content here. The system will separate MCQs and Notes automatically.</p>
                                       </div>
                                   </div>
 
                                   <div className="bg-slate-50 p-2 rounded-lg text-[10px] text-slate-600 mb-2 border border-slate-200 font-mono">
-                                      <strong>Supported Formats:</strong><br/>
-                                      1. Copy from Excel (7 Columns): Q | Opt A | Opt B | Opt C | Opt D | Ans(1-4) | Exp<br/>
-                                      2. Vertical List: Q \n 4 Options \n Answer \n Explanation (Multi-line). <br/>
-                                      *Note: For multi-line explanation, ensure next Question starts with "1.", "2." etc.
+                                      <strong>Supported Format:</strong><br/>
+                                      1. <b>MCQs:</b> Standard Excel/Vertical format (Questions, Options, Answer).<br/>
+                                      2. <b>Notes:</b> Use <span className="bg-yellow-100 px-1 rounded">&lt;NOTE: TopicName&gt; HTML Content &lt;/NOTE&gt;</span><br/>
+                                      <br/>
+                                      <i>Example:</i><br/>
+                                      Q1. ...<br/>
+                                      Topic: Gravity<br/>
+                                      &lt;NOTE: Gravity&gt;Gravity is a force...&lt;/NOTE&gt;
                                   </div>
 
                                   <textarea 
                                       value={importText} 
                                       onChange={e => setImportText(e.target.value)}
-                                      placeholder={`Example:
-What is 2+2?    3       4       5       6       2       The answer is 4
-Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the capital`}
-                                      className="w-full h-24 p-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-green-500 outline-none mb-2"
+                                      placeholder={`Q1. What is Force? ... Answer: A ... Topic: Force
+
+<NOTE: Force>
+<b>Force</b> is a push or pull.
+</NOTE>`}
+                                      className="w-full h-32 p-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-green-500 outline-none mb-2"
                                   />
                                   
                                   <div className="flex gap-2">
@@ -5209,12 +5357,115 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                           Clear
                                       </button>
                                       <button 
-                                          onClick={() => handleGoogleSheetImport(activeTab === 'CONTENT_TEST')} 
+                                          onClick={() => handleUnifiedImport(activeTab === 'CONTENT_TEST')}
                                           className="flex-[2] bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 shadow"
                                       >
-                                          <Upload size={14} /> Import & Add
+                                          <Upload size={14} /> Process & Import
                                       </button>
                                   </div>
+                              </div>
+
+                              {/* TOPIC WISE NOTES MANAGEMENT */}
+                              <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 shadow-sm">
+                                  <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center gap-2">
+                                          <div className="bg-orange-100 p-2 rounded text-orange-700">
+                                              <FileText size={18} />
+                                          </div>
+                                          <div>
+                                              <h4 className="font-bold text-slate-800 text-sm">Topic-Wise Recommended Notes</h4>
+                                              <p className="text-[10px] text-slate-500">Auto-suggested based on weak topics.</p>
+                                          </div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <button
+                                              onClick={() => {
+                                                  const topic = prompt("Enter Topic Name:");
+                                                  if(topic) {
+                                                      setTopicNotes([...topicNotes, {
+                                                          id: `note-${Date.now()}`,
+                                                          title: `Note: ${topic}`,
+                                                          topic: topic,
+                                                          content: "<p>New Note</p>",
+                                                          isPremium: false
+                                                      }]);
+                                                  }
+                                              }}
+                                              className="bg-white border border-orange-200 text-orange-600 px-3 py-1 rounded-lg text-[10px] font-bold hover:bg-orange-100"
+                                          >
+                                              + Free Note (HTML)
+                                          </button>
+                                          <button
+                                              onClick={() => {
+                                                  const topic = prompt("Enter Topic Name:");
+                                                  if(topic) {
+                                                      setTopicNotes([...topicNotes, {
+                                                          id: `note-${Date.now()}`,
+                                                          title: `Premium Note: ${topic}`,
+                                                          topic: topic,
+                                                          content: "", // Will hold URL
+                                                          isPremium: true
+                                                      }]);
+                                                  }
+                                              }}
+                                              className="bg-orange-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold hover:bg-orange-700"
+                                          >
+                                              + Premium (PDF)
+                                          </button>
+                                      </div>
+                                  </div>
+
+                                  {topicNotes.length === 0 ? (
+                                      <div className="text-center p-4 text-slate-400 text-xs italic border border-dashed border-orange-200 rounded-lg">
+                                          No topic notes added. Import unified content or add manually.
+                                      </div>
+                                  ) : (
+                                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                                          {topicNotes.map((note, idx) => (
+                                              <div key={note.id} className="bg-white p-3 rounded-lg border border-orange-100 flex flex-col gap-2">
+                                                  <div className="flex justify-between items-start">
+                                                      <div>
+                                                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${note.isPremium ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                                                              {note.isPremium ? 'PREMIUM PDF' : 'FREE HTML'}
+                                                          </span>
+                                                          <p className="font-bold text-xs text-slate-700 mt-1">Topic: {note.topic}</p>
+                                                      </div>
+                                                      <button
+                                                          onClick={() => setTopicNotes(topicNotes.filter((_, i) => i !== idx))}
+                                                          className="text-red-400 hover:text-red-600"
+                                                      >
+                                                          <Trash2 size={14} />
+                                                      </button>
+                                                  </div>
+
+                                                  {note.isPremium ? (
+                                                      <input
+                                                          type="text"
+                                                          value={note.content}
+                                                          onChange={e => {
+                                                              const updated = [...topicNotes];
+                                                              updated[idx].content = e.target.value;
+                                                              setTopicNotes(updated);
+                                                          }}
+                                                          placeholder="Paste PDF URL here..."
+                                                          className="w-full p-2 border border-slate-200 rounded text-xs text-blue-600"
+                                                      />
+                                                  ) : (
+                                                      <textarea
+                                                          value={note.content}
+                                                          onChange={e => {
+                                                              const updated = [...topicNotes];
+                                                              updated[idx].content = e.target.value;
+                                                              setTopicNotes(updated);
+                                                          }}
+                                                          placeholder="HTML Content..."
+                                                          className="w-full h-16 p-2 border border-slate-200 rounded text-xs font-mono"
+                                                      />
+                                                  )}
+                                              </div>
+                                          ))}
+                                      </div>
+                                  )}
                               </div>
 
 
