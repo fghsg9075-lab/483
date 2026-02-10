@@ -24,7 +24,7 @@ interface Props {
 export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose, onViewAnalysis, onPublish, questions, onUpdateUser, initialView, onLaunchContent }) => {
   const [page, setPage] = useState(1);
   // Replaced showOMR with activeTab logic
-  const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'STATS' | 'AI' | 'MARKSHEET_1' | 'MARKSHEET_2' | 'TOPICS'>('MARKSHEET_1');
+  const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'AI' | 'RECOMMEND' | 'MARKSHEET_1' | 'MARKSHEET_2'>('MARKSHEET_1');
   
   // ULTRA ANALYSIS STATE
   const [ultraAnalysisResult, setUltraAnalysisResult] = useState('');
@@ -110,7 +110,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
   // Auto-Load Recommendations on Tab Change
   useEffect(() => {
-      if ((activeTab === 'TOPICS' || activeTab === 'AI') && questions && questions.length > 0 && recommendations.length === 0) {
+      if ((activeTab === 'RECOMMEND' || activeTab === 'AI') && questions && questions.length > 0 && recommendations.length === 0) {
           handleRecommend();
       }
   }, [activeTab, questions]);
@@ -239,7 +239,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
     return `${mins}m ${secs}s`;
   };
 
-  const devName = 'Nadim Anwar'; // Strict Branding
+  const devName = settings?.footerText || 'Nadim Anwar'; // Configurable via Admin
 
   useEffect(() => {
     if (initialView === 'ANALYSIS' || result.ultraAnalysisReport) {
@@ -468,6 +468,127 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
   };
 
   // --- SECTION RENDERERS ---
+
+  // NEW: Recommended Notes Section (Premium Style)
+  const renderRecommendationsSection = () => {
+      // Group recommendations by Topic
+      const groupedRecs: Record<string, any[]> = {};
+      recommendations.forEach(rec => {
+          const topic = rec.topic || 'General';
+          if(!groupedRecs[topic]) groupedRecs[topic] = [];
+          groupedRecs[topic].push(rec);
+      });
+
+      // Filter for Weak/Average Topics based on topicStats
+      const weakAvgTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 80);
+
+      // If no specific weak topics, show all
+      const displayTopics = weakAvgTopics.length > 0 ? weakAvgTopics : Object.keys(groupedRecs);
+
+      return (
+          <div className="bg-slate-50 min-h-full">
+              {/* Branding Header */}
+              <div className="bg-white p-6 rounded-b-3xl shadow-sm border-b border-slate-200 mb-6 text-center">
+                  {settings?.appLogo && <img src={settings.appLogo} className="w-12 h-12 mx-auto mb-2 object-contain" />}
+                  <h2 className="font-black text-slate-800 text-lg uppercase tracking-widest">{settings?.appName || 'INSTITUTE'}</h2>
+                  <p className="text-xs font-bold text-slate-400">Personalized Study Plan for <span className="text-slate-900">{user.name}</span></p>
+              </div>
+
+              <div className="px-4 space-y-6 pb-20">
+                  {displayTopics.map((topicName, idx) => {
+                      // Find matching notes (partial match logic from handleRecommend needs to be consistent here,
+                      // but since we group by 'topic' field in recs, we rely on that.
+                      // However, handleRecommend puts correct 'topic' field in recs.
+                      // Let's filter groupedRecs keys that match this topicName
+                      const relevantRecs = groupedRecs[topicName] || [];
+
+                      // Also check case-insensitive match if direct match fails
+                      if (relevantRecs.length === 0) {
+                          const key = Object.keys(groupedRecs).find(k => k.toLowerCase() === topicName.toLowerCase());
+                          if (key) relevantRecs.push(...groupedRecs[key]);
+                      }
+
+                      if (relevantRecs.length === 0) return null;
+
+                      const stats = topicStats[topicName];
+
+                      return (
+                          <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                  <div>
+                                      <h3 className="font-black text-slate-800 text-sm uppercase">{topicName}</h3>
+                                      {stats && (
+                                          <div className="flex gap-2 mt-1">
+                                              <span className="text-[10px] font-bold text-red-500">{stats.total - stats.correct} Wrong</span>
+                                              <span className="text-[10px] font-bold text-green-600">{stats.correct} Correct</span>
+                                          </div>
+                                      )}
+                                  </div>
+                                  <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-[10px] font-bold">FOCUS</span>
+                              </div>
+
+                              <div className="p-2 space-y-2">
+                                  {relevantRecs.map((rec, rIdx) => (
+                                      <div key={rIdx} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+                                          <div className="flex items-center gap-3">
+                                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${rec.isPremium ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                  {rec.isPremium ? <FileText size={14} /> : <Lightbulb size={14} />}
+                                              </div>
+                                              <div>
+                                                  <p className="font-bold text-slate-700 text-xs line-clamp-1">{rec.title}</p>
+                                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${rec.isPremium ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                      {rec.isPremium ? 'PREMIUM PDF' : 'FREE NOTE'}
+                                                  </span>
+                                              </div>
+                                          </div>
+
+                                          <button
+                                              onClick={() => {
+                                                  if (rec.isPremium) {
+                                                      // Premium Flow
+                                                      if (onLaunchContent) {
+                                                          onLaunchContent({
+                                                              id: `REC_PREM_${idx}_${rIdx}`,
+                                                              title: rec.title,
+                                                              type: 'PDF',
+                                                              directResource: { url: rec.url, access: rec.access }
+                                                          });
+                                                      } else {
+                                                          window.open(rec.url, '_blank');
+                                                      }
+                                                  } else {
+                                                      // Free Flow
+                                                       if (rec.content) {
+                                                          setViewingNote(rec);
+                                                      } else if (onLaunchContent) {
+                                                          onLaunchContent({
+                                                              id: `REC_FREE_${idx}_${rIdx}`,
+                                                              title: rec.title,
+                                                              type: 'PDF',
+                                                              directResource: { url: rec.url, access: rec.access }
+                                                          });
+                                                      }
+                                                  }
+                                              }}
+                                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold text-white shadow-sm ${rec.isPremium ? 'bg-slate-900 hover:bg-slate-800' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                          >
+                                              {rec.isPremium ? 'View PDF' : 'Read'}
+                                          </button>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      );
+                  })}
+              </div>
+
+              {/* Developer Footer */}
+              <div className="text-center py-6 text-slate-400 border-t border-slate-200">
+                  <p className="text-[10px] font-black uppercase tracking-widest">Developed by {devName}</p>
+              </div>
+          </div>
+      );
+  };
 
   const renderOMRSection = () => (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
@@ -871,46 +992,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             })}
 
 
-            {/* PREMIUM PDF NOTES LIST */}
-            <div className="bg-red-50 p-6 rounded-2xl border border-red-200 mt-6">
-                <h3 className="font-black text-red-900 text-lg flex items-center gap-2 mb-4">
-                    <FileText size={20} /> Recommended Premium PDFs
-                </h3>
-                {recommendations.filter(r => r.isPremium).length === 0 ? (
-                    <p className="text-sm text-red-800 opacity-70">No specific premium notes found for your weak topics.</p>
-                ) : (
-                    <div className="space-y-3">
-                        {recommendations.filter(r => r.isPremium).map((rec, i) => (
-                            <div key={`prem-${i}`} className="bg-white p-4 rounded-xl border border-red-100 shadow-sm flex justify-between items-center hover:border-red-300 transition-colors">
-                                <div>
-                                    <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold bg-slate-50 px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
-                                        <span className="text-[9px] text-white bg-red-500 px-2 py-0.5 rounded font-bold">PDF</span>
-                                    </div>
-                                </div>
-                                <button
-                                    className="text-xs font-bold text-white bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 shadow-md transition-all flex items-center gap-2"
-                                    onClick={() => {
-                                        if (onLaunchContent) {
-                                            onLaunchContent({
-                                                id: `REC_PREM_${i}`,
-                                                title: rec.title,
-                                                type: 'PDF',
-                                                directResource: { url: rec.url, access: rec.access }
-                                            });
-                                        } else {
-                                            window.open(rec.url, '_blank');
-                                        }
-                                    }}
-                                >
-                                    Open PDF <ExternalLink size={12} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
         </div>
     );
   };
@@ -1128,8 +1209,25 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         className="w-full bg-white hover:bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between transition-all group"
                         >
                             <div className="text-left">
-                            <p className="font-black text-slate-800 text-lg group-hover:scale-105 transition-transform">Free Notes</p>
-                            <p className="text-xs text-slate-500 font-bold mt-1">Review Answers & Topic Summary</p>
+                            <p className="font-black text-slate-800 text-lg group-hover:scale-105 transition-transform">Free Analysis</p>
+                            <p className="text-xs text-slate-500 font-bold mt-1">Review Answers</p>
+                            </div>
+                        <div className="w-8 h-8 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
+                                <ChevronRight size={20} />
+                            </div>
+                        </button>
+
+                        {/* RECOMMENDED NOTES OPTION */}
+                        <button
+                            onClick={() => {
+                                setShowAnalysisSelection(false);
+                                setActiveTab('RECOMMEND');
+                            }}
+                        className="w-full bg-white hover:bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between transition-all group"
+                        >
+                            <div className="text-left">
+                            <p className="font-black text-slate-800 text-lg group-hover:scale-105 transition-transform">Recommended Notes</p>
+                            <p className="text-xs text-slate-500 font-bold mt-1">Weak Topic Notes & PDFs</p>
                             </div>
                         <div className="w-8 h-8 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
                                 <ChevronRight size={20} />
@@ -1148,9 +1246,9 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <div className="text-left relative z-10">
                                 <p className="font-black text-white text-lg group-hover:scale-105 transition-transform flex items-center gap-2">
-                                Premium Notes
+                                Premium Analysis
                                 </p>
-                            <p className="text-xs text-slate-400 font-bold mt-1">Unlock AI Analysis & PDF Downloads</p>
+                            <p className="text-xs text-slate-400 font-bold mt-1">Unlock AI Analysis</p>
                             </div>
                             <div className="text-right relative z-10">
                                 <span className="block text-xl font-black text-yellow-400">{settings?.mcqAnalysisCostUltra ?? 20} CR</span>
@@ -1231,45 +1329,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 {activeTab === 'MISTAKES' && (
                     <div className="animate-in slide-in-from-bottom-4">
                         {renderMistakesSection()}
+                    </div>
+                )}
 
-                        {/* FREE RECOMMENDED NOTES IN MISTAKES TAB */}
-                        <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200 mt-6">
-                             <h3 className="font-black text-orange-900 text-lg flex items-center gap-2 mb-4">
-                                <Lightbulb size={20} /> Recommended Free Notes
-                            </h3>
-                            {recommendations.filter(r => !r.isPremium).length === 0 ? (
-                                <p className="text-sm text-orange-800 opacity-70">No specific notes found for your weak topics.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {recommendations.filter(r => !r.isPremium).map((rec, i) => (
-                                        <div key={i} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm flex justify-between items-center hover:border-orange-300 transition-colors">
-                                            <div>
-                                                <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
-                                                <p className="text-[10px] text-slate-500 uppercase font-bold mt-1 bg-slate-50 px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
-                                            </div>
-                                            <button
-                                                className="text-xs font-bold text-white bg-orange-500 px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md transition-all"
-                                                onClick={() => {
-                                                    // Open HTML Modal
-                                                    if (rec.type === 'UNIVERSAL_NOTE' && rec.content) {
-                                                        setViewingNote(rec);
-                                                    } else if (onLaunchContent) {
-                                                         onLaunchContent({
-                                                             id: `REC_FREE_${i}`,
-                                                             title: rec.title,
-                                                             type: 'PDF',
-                                                             directResource: { url: rec.url, access: rec.access }
-                                                         });
-                                                    }
-                                                }}
-                                            >
-                                                Read Note
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                {/* 3. RECOMMENDED NOTES PAGE (Premium Style) */}
+                {activeTab === 'RECOMMEND' && (
+                    <div className="animate-in slide-in-from-bottom-4 h-full">
+                        {renderRecommendationsSection()}
                     </div>
                 )}
 
