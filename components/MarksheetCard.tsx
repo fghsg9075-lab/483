@@ -187,7 +187,10 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       // B) Recommendations (Universal List)
       if (universalData && universalData.notesPlaylist) {
           const universalMatches = universalData.notesPlaylist.filter((n: any) =>
-              searchTopics.some(t => n.title.toLowerCase().includes(t.toLowerCase()))
+              searchTopics.some(t =>
+                  n.title.toLowerCase().includes(t.toLowerCase()) ||
+                  (n.topic && n.topic.toLowerCase().includes(t.toLowerCase())) // MATCH TOPIC FIELD
+              )
           );
           recs.push(...universalMatches.map((n: any) => ({
               ...n,
