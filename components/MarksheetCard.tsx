@@ -1020,7 +1020,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                         <div className="space-y-3">
                                             {topicQs.map((q: any, i: number) => {
                                                 const qIndex = questions.indexOf(q);
-                                                const fullText = generateQuestionText(q, false, qIndex); // No Explanation
+                                                // Updated: Include Explanation in TTS
+                                                const fullText = generateQuestionText(q, true, qIndex);
                                                 const omr = result.omrData?.find(d => d.qIndex === qIndex);
                                                 const selected = omr ? omr.selected : -1;
                                                 const isCorrect = omr && omr.selected === q.correctAnswer;
@@ -1034,7 +1035,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                             <SpeakButton text={fullText} className="p-1" iconSize={14} />
                                                         </div>
                                                         <div className="text-xs font-bold text-slate-700 mb-2" dangerouslySetInnerHTML={{__html: q.question}} />
-                                                        <div className="space-y-1">
+                                                        <div className="space-y-1 mb-3">
                                                             {q.options && q.options.map((opt: string, optIdx: number) => {
                                                                 const isSelected = selected === optIdx;
                                                                 const isTheCorrect = q.correctAnswer === optIdx;
@@ -1051,10 +1052,58 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                                 )
                                                             })}
                                                         </div>
+
+                                                        {/* ADDED: Explanation Section */}
+                                                        {q.explanation && (
+                                                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mt-2">
+                                                                <p className="text-[9px] font-bold text-blue-600 uppercase mb-1 flex items-center gap-1"><Lightbulb size={10} /> Explanation</p>
+                                                                <div className="text-[10px] text-slate-600 leading-relaxed" dangerouslySetInnerHTML={{__html: q.explanation}} />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
                                         </div>
+
+                                        {/* ADDED: Topic Notes Section (HTML Only) */}
+                                        {(() => {
+                                            // Find notes for this topic
+                                            const topicNotes = recommendations.filter(rec =>
+                                                rec.topic && topic.name &&
+                                                (rec.topic.toLowerCase().trim() === topic.name.toLowerCase().trim() ||
+                                                 rec.topic.toLowerCase().includes(topic.name.toLowerCase()))
+                                            );
+
+                                            if (topicNotes.length === 0) return null;
+
+                                            return (
+                                                <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
+                                                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
+                                                        <BookOpen size={12} /> Topic Notes
+                                                    </h4>
+                                                    <div className="space-y-4">
+                                                        {topicNotes.map((note, nIdx) => {
+                                                            // Only render if it has HTML content or description (not just a PDF link)
+                                                            const content = note.content || note.html || note.description;
+                                                            if (!content) return null;
+
+                                                            return (
+                                                                <div key={nIdx} className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded uppercase">Note</span>
+                                                                        <h5 className="text-xs font-bold text-slate-800">{note.title}</h5>
+                                                                    </div>
+                                                                    <div
+                                                                        className="prose prose-sm max-w-none text-[11px] text-slate-700 leading-relaxed"
+                                                                        dangerouslySetInnerHTML={{ __html: content }}
+                                                                    />
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 );
                             })()}
