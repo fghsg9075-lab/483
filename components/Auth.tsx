@@ -50,10 +50,30 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity }) => {
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string}>({isOpen: false, message: ''});
   const [pendingLoginUser, setPendingLoginUser] = useState<User | null>(null);
 
+  // LOGIN REQUEST TIMER STATE
+  const [requestTimestamp, setRequestTimestamp] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+
   useEffect(() => {
       const s = localStorage.getItem('nst_system_settings');
       if (s) setSettings(JSON.parse(s));
   }, []);
+
+  // Timer Effect
+  useEffect(() => {
+      let interval: any;
+      if (requestTimestamp) {
+          interval = setInterval(() => {
+              const elapsed = Date.now() - requestTimestamp;
+              const remaining = Math.max(0, 10 * 60 * 1000 - elapsed); // 10 minutes in ms
+              setTimeLeft(remaining);
+              if (remaining === 0) {
+                  clearInterval(interval);
+              }
+          }, 1000);
+      }
+      return () => clearInterval(interval);
+  }, [requestTimestamp]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -138,16 +158,47 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity }) => {
       }
   };
 
+  const checkLocalAutoLogin = (user: User): boolean => {
+      const tsStr = localStorage.getItem(`login_request_ts_${user.id}`);
+      if (!tsStr) return false;
+
+      const ts = parseInt(tsStr);
+      const elapsed = Date.now() - ts;
+      const waitTime = 10 * 60 * 1000; // 10 minutes
+
+      if (elapsed > waitTime) {
+          // Auto Approve Locally
+          logActivity("LOGIN_RECOVERY", "Logged in via Auto-Approval (10m)", user);
+          onLogin(user);
+          localStorage.removeItem(`login_request_ts_${user.id}`);
+          return true;
+      }
+      return false;
+  };
+
   const checkLoginStatus = async () => {
       if (!pendingLoginUser) return;
       setStatusCheckLoading(true);
+
+      // 1. Check Local Timer First
+      if (checkLocalAutoLogin(pendingLoginUser)) {
+          setStatusCheckLoading(false);
+          return;
+      }
+
+      // 2. Check Firebase (Fallback)
       try {
           const freshUser = await getUserData(pendingLoginUser.id) || await getUserByEmail(pendingLoginUser.email);
           if (freshUser && freshUser.isPasswordless) {
               logActivity("LOGIN_RECOVERY", "Logged in via Admin Approval", freshUser);
               onLogin(freshUser);
           } else {
-              setError("Request Pending. Please wait for Admin approval.");
+              // Show time remaining if local timer exists
+              if (timeLeft > 0) {
+                   setError(`Request Processing. Please wait for the timer to finish.`);
+              } else {
+                   setError("Request Pending. Please wait for Admin approval.");
+              }
           }
       } catch (e: any) {
           setError("Status Check Failed: " + e.message);
@@ -181,6 +232,11 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity }) => {
           };
 
           await set(ref(rtdb, `recovery_requests/${user.id}`), req);
+
+          // Start Timer Logic
+          const ts = Date.now();
+          localStorage.setItem(`login_request_ts_${user.id}`, ts.toString());
+          setRequestTimestamp(ts);
 
           setPendingLoginUser(user);
           setRequestSent(true);
@@ -447,8 +503,27 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity }) => {
                         </button>
                     ) : (
                         <div className="space-y-3">
-                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-center"><p className="text-sm font-bold text-yellow-800">Request Sent!</p><p className="text-xs text-yellow-600 mt-1">Your account will restart in 24 hours.</p></div>
-                            <button type="button" onClick={checkLoginStatus} disabled={statusCheckLoading} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2">{statusCheckLoading ? 'Checking...' : <><RefreshCcw size={18} /> Check Status & Login</>}</button>
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-center animate-pulse">
+                                <p className="text-sm font-black text-blue-900 mb-2">Wait for Approval</p>
+                                <p className="text-xs text-blue-800 font-medium mb-3">We will give you access once time login without password in your account. Your request will be approved within 10 min.</p>
+
+                                {timeLeft > 0 ? (
+                                    <div className="text-2xl font-black text-blue-600 font-mono bg-white inline-block px-4 py-2 rounded-lg shadow-sm">
+                                        {Math.floor(timeLeft / 60000)}:{String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
+                                    </div>
+                                ) : (
+                                    <div className="text-green-600 font-bold text-sm">Time Complete! Try Login Now.</div>
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={checkLoginStatus}
+                                disabled={statusCheckLoading || timeLeft > 0}
+                                className={`w-full font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all ${timeLeft > 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-200'}`}
+                            >
+                                {statusCheckLoading ? 'Verifying...' : timeLeft > 0 ? 'Please Wait...' : <><RefreshCcw size={18} /> Login Now</>}
+                            </button>
                         </div>
                     )}
                     <button type="button" onClick={() => { setView('LOGIN'); setRequestSent(false); }} className="w-full text-slate-400 font-bold py-2 mt-2">Back to Password Login</button>

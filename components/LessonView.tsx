@@ -11,7 +11,6 @@ import { decodeHtml } from '../utils/htmlDecoder';
 import { storage } from '../utils/storage';
 import { getChapterData } from '../firebase';
 import { SpeakButton } from './SpeakButton';
-import { speakSequence } from '../utils/textToSpeech';
 
 interface Props {
   content: LessonContent | null;
@@ -598,22 +597,6 @@ export const LessonView: React.FC<Props> = ({
       }, 0);
       const canGoNext = currentBatchAttemptedCount >= Math.min(BATCH_SIZE, currentBatchData.length);
 
-      const constructMCQText = (q: MCQItem, includeExplanation: boolean = false) => {
-          let text = `Question. ${q.question}. `;
-          q.options.forEach((opt, i) => {
-              text += `Option ${String.fromCharCode(65 + i)}. ${opt}. `;
-          });
-          if (includeExplanation && q.explanation) {
-              text += `Explanation. ${q.explanation}`;
-          }
-          return text;
-      };
-
-      const handleReadAll = () => {
-          const texts = displayData.map(q => constructMCQText(q, showResults && analysisUnlocked));
-          speakSequence(texts);
-      };
-
       const handleSubmitRequest = () => {
           setShowSubmitModal(true);
       };
@@ -808,13 +791,6 @@ export const LessonView: React.FC<Props> = ({
                                <Globe size={14} /> {language === 'English' ? 'English' : 'हिंदी'}
                            </button>
                        )}
-                       <button
-                           onClick={handleReadAll}
-                           className="flex items-center gap-2 text-blue-600 font-bold text-xs bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors"
-                           title="Listen to All Questions"
-                       >
-                           <Volume2 size={14} /> Read Paper
-                       </button>
                        {!showResults && (
                            <button onClick={handleRecreate} className="flex items-center gap-2 text-purple-600 font-bold text-xs bg-purple-50 border border-purple-100 px-3 py-2 rounded-lg hover:bg-purple-100 transition-colors">
                                Re-create MCQ
@@ -854,7 +830,7 @@ export const LessonView: React.FC<Props> = ({
                                        <span className="bg-blue-100 text-blue-700 w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 font-bold mt-0.5">{idx + 1}</span>
                                        <div dangerouslySetInnerHTML={{ __html: q.question }} className="prose prose-sm max-w-none" />
                                    </div>
-                                   <SpeakButton text={constructMCQText(q, showResults && analysisUnlocked)} className="shrink-0" />
+                                   <SpeakButton text={q.question} className="shrink-0" />
                                </div>
                                <div className="space-y-2">
                                    {q.options.map((opt, oIdx) => {
@@ -889,6 +865,7 @@ export const LessonView: React.FC<Props> = ({
                                                <span className="relative z-10 flex justify-between items-center w-full gap-2">
                                                    <div dangerouslySetInnerHTML={{ __html: opt }} className="flex-1" />
                                                    <div className="flex items-center gap-2 shrink-0">
+                                                      <SpeakButton text={opt} className="p-1" iconSize={14} />
                                                       {showResults && analysisUnlocked && oIdx === q.correctAnswer && <CheckCircle size={16} className="text-green-600" />}
                                                       {showResults && analysisUnlocked && userAnswer === oIdx && userAnswer !== q.correctAnswer && <XCircle size={16} className="text-red-500" />}
                                                    </div>
@@ -904,6 +881,7 @@ export const LessonView: React.FC<Props> = ({
                                            <div className="flex items-center gap-2 text-blue-700 font-bold text-xs">
                                                <BookOpen size={14} /> Explanation
                                            </div>
+                                           <SpeakButton text={q.explanation} className="p-1 text-blue-400 hover:bg-blue-100" iconSize={14} />
                                        </div>
                                        <div
                                            className="text-slate-600 text-sm leading-relaxed prose prose-sm max-w-none"
