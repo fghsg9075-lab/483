@@ -905,7 +905,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <div className="p-4 space-y-4">
                             {/* Action Plan & Study Mode Removed as per "Next 2 Days Plan" request */}
 
-                            {/* TOPIC QUESTIONS SUMMARY (Badges Only) */}
+                            {/* TOPIC QUESTIONS LIST (Detailed) */}
                             {questions && questions.length > 0 && (() => {
                                 const topicQs = questions.filter((q: any) =>
                                     (q.topic && q.topic.toLowerCase().trim() === topic.name.toLowerCase().trim()) ||
@@ -918,9 +918,9 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                 return (
                                     <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
                                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
-                                            <ListChecks size={12} /> Question Status
+                                            <ListChecks size={12} /> Questions in this Topic
                                         </h4>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="space-y-2">
                                             {topicQs.map((q: any, i: number) => {
                                                 const qIndex = questions.indexOf(q);
                                                 const omr = result.omrData?.find(d => d.qIndex === qIndex);
@@ -928,9 +928,19 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                 const isSkipped = !omr || omr.selected === -1;
 
                                                 return (
-                                                    <div key={i} className={`px-2 py-1 rounded border text-[10px] font-bold flex items-center gap-1 ${isCorrect ? 'bg-green-50 border-green-100 text-green-700' : isSkipped ? 'bg-slate-50 border-slate-100 text-slate-500' : 'bg-red-50 border-red-100 text-red-700'}`}>
-                                                        <span>Q{qIndex + 1}</span>
-                                                        {isCorrect ? <CheckCircle size={10} /> : isSkipped ? <div className="w-2 h-2 rounded-full bg-slate-300" /> : <XCircle size={10} />}
+                                                    <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-100' : isSkipped ? 'bg-slate-50 border-slate-100' : 'bg-red-50 border-red-100'}`}>
+                                                        <div className={`w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold ${isCorrect ? 'bg-green-500 text-white' : isSkipped ? 'bg-slate-300 text-white' : 'bg-red-500 text-white'}`}>
+                                                            {qIndex + 1}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div
+                                                                className="text-[11px] font-medium text-slate-700 leading-snug line-clamp-2"
+                                                                dangerouslySetInnerHTML={{ __html: q.question }}
+                                                            />
+                                                        </div>
+                                                        <div className="text-[10px] font-bold">
+                                                            {isCorrect ? <span className="text-green-600">Correct</span> : isSkipped ? <span className="text-slate-400">Skipped</span> : <span className="text-red-500">Wrong</span>}
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
