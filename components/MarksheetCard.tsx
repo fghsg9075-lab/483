@@ -150,12 +150,14 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
       // Iterate Weak Topics to find matches for EACH
       weakTopics.forEach(wt => {
-          const wtLower = wt.trim().toLowerCase();
+          const normalize = (s: string) => s ? s.toLowerCase().trim().replace(/[^a-z0-9]/g, '') : '';
+          const wtNorm = normalize(wt);
+          const wtLower = wt.toLowerCase();
 
           // 1. Check Free Notes HTML Headers
           if (extractedTopics.length > 0) {
               const matchedHeader = extractedTopics.find(et =>
-                  et.toLowerCase().includes(wtLower) || wtLower.includes(et.toLowerCase())
+                  normalize(et).includes(wtNorm) || wtNorm.includes(normalize(et))
               );
               if (matchedHeader) {
                   recs.push({
@@ -171,11 +173,12 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
           // 2. Check Universal Notes
           if (universalData && universalData.notesPlaylist) {
-              const matches = universalData.notesPlaylist.filter((n: any) =>
-                  n.title.toLowerCase().includes(wtLower) ||
-                  (n.topic && n.topic.toLowerCase().includes(wtLower)) ||
-                  wtLower.includes(n.topic?.toLowerCase() || '')
-              );
+              const matches = universalData.notesPlaylist.filter((n: any) => {
+                  const titleNorm = normalize(n.title);
+                  const topicNorm = normalize(n.topic || '');
+                  return titleNorm.includes(wtNorm) || wtNorm.includes(titleNorm) ||
+                         (topicNorm && (topicNorm.includes(wtNorm) || wtNorm.includes(topicNorm)));
+              });
               recs.push(...matches.map((n: any) => ({
                   ...n,
                   topic: wt, // Map strictly
@@ -186,11 +189,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
           // 3. Check Chapter Topic Notes
           if (chapterData && chapterData.topicNotes) {
-              const matches = chapterData.topicNotes.filter((n: any) =>
-                  (n.topic && n.topic.toLowerCase().trim() === wtLower) ||
-                  (n.topic && n.topic.toLowerCase().includes(wtLower)) ||
-                  (n.topic && wtLower.includes(n.topic.toLowerCase()))
-              );
+              const matches = chapterData.topicNotes.filter((n: any) => {
+                  const titleNorm = normalize(n.title);
+                  const topicNorm = normalize(n.topic || '');
+                  // Loose matching: Title or Topic field matches Weak Topic
+                  return titleNorm.includes(wtNorm) || wtNorm.includes(titleNorm) ||
+                         (topicNorm && (topicNorm.includes(wtNorm) || wtNorm.includes(topicNorm)));
+              });
               recs.push(...matches.map((n: any) => ({
                   ...n,
                   topic: wt, // Map strictly
@@ -844,81 +849,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 </div>
             )}
 
-            {data.topics && data.topics.map((topic: any, idx: number) => {
-                let borderColor = "border-slate-200";
-                let bgColor = "bg-white";
-                let titleColor = "text-slate-800";
-                
-                if (topic.status === 'WEAK') {
-                    borderColor = "border-red-500";
-                    bgColor = "bg-red-50";
-                    titleColor = "text-red-700";
-                } else if (topic.status === 'STRONG') {
-                    borderColor = "border-green-500";
-                    bgColor = "bg-green-50";
-                    titleColor = "text-green-700";
-                } else {
-                    borderColor = "border-blue-500";
-                    bgColor = "bg-blue-50";
-                    titleColor = "text-blue-700";
-                }
-
-                return (
-                    <div key={idx} className={`rounded-xl border-2 ${borderColor} ${bgColor} overflow-hidden shadow-sm`}>
-                        <div className={`p-4 border-b ${borderColor} flex justify-between items-center`}>
-                            <h3 className={`font-black text-lg uppercase tracking-wide ${titleColor}`}>{topic.name}</h3>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full text-white ${topic.status === 'WEAK' ? 'bg-red-500' : topic.status === 'STRONG' ? 'bg-green-500' : 'bg-blue-500'}`}>
-                                {topic.status}
-                            </span>
-                        </div>
-
-                        <div className="p-4 space-y-4">
-                            {/* Action Plan & Study Mode Removed as per "Next 2 Days Plan" request */}
-
-                            {/* TOPIC QUESTIONS LIST */}
-                            {questions && questions.length > 0 && (() => {
-                                const topicQs = questions.filter((q: any) =>
-                                    (q.topic && q.topic.toLowerCase().trim() === topic.name.toLowerCase().trim()) ||
-                                    (q.topic && topic.name.toLowerCase().includes(q.topic.toLowerCase())) ||
-                                    (q.topic && q.topic.toLowerCase().includes(topic.name.toLowerCase()))
-                                );
-
-                                if (topicQs.length === 0) return null;
-
-                                return (
-                                    <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
-                                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
-                                            <ListChecks size={12} /> Questions in this Topic
-                                        </h4>
-                                        <div className="space-y-2">
-                                            {topicQs.map((q: any, i: number) => {
-                                                const qIndex = questions.indexOf(q);
-                                                const omr = result.omrData?.find(d => d.qIndex === qIndex);
-                                                const isCorrect = omr && omr.selected === q.correctAnswer;
-                                                const isSkipped = !omr || omr.selected === -1;
-
-                                                return (
-                                                    <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-100' : isSkipped ? 'bg-slate-50 border-slate-100' : 'bg-red-50 border-red-100'}`}>
-                                                        <div className={`w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold ${isCorrect ? 'bg-green-500 text-white' : isSkipped ? 'bg-slate-300 text-white' : 'bg-red-500 text-white'}`}>
-                                                            {qIndex + 1}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-[11px] font-medium text-slate-700 leading-snug line-clamp-2">{q.question}</p>
-                                                        </div>
-                                                        <div className="text-[10px] font-bold">
-                                                            {isCorrect ? <span className="text-green-600">Correct</span> : isSkipped ? <span className="text-slate-400">Skipped</span> : <span className="text-red-500">Wrong</span>}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                );
-            })}
+            {/* Topic Breakdown Removed as per request */}
 
 
         </div>
@@ -1126,15 +1057,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Separate Recommend Notes Button */}
-                    <button
-                        onClick={() => setActiveTab('RECOMMEND')}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-black hover:bg-yellow-200 transition-colors border border-yellow-200 shadow-sm"
-                    >
-                        <Lightbulb size={14} />
-                        <span>Notes</span>
-                    </button>
-
                     <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
                         <X size={20} />
                     </button>
@@ -1309,6 +1231,16 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
              <div className="text-center py-2 bg-slate-50 border-t border-slate-100">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Developed by Nadim Anwar</p>
              </div>
+
+            {/* FLOATING RECOMMENDED NOTES BUTTON (SIDE) */}
+            <button
+                onClick={() => setActiveTab('RECOMMEND')}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-50 flex items-center gap-2 px-3 py-4 bg-yellow-400 text-yellow-900 rounded-l-2xl font-black shadow-lg border-l-4 border-white hover:bg-yellow-300 transition-transform hover:-translate-x-1"
+                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+            >
+                <Lightbulb size={18} className="rotate-90 mb-2" />
+                <span className="tracking-widest text-xs uppercase">Notes</span>
+            </button>
         </div>
 
         {/* RECOMMENDATION MODAL (Fallback/Hidden usually) */}
