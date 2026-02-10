@@ -119,10 +119,11 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       setRecLoading(true);
       setShowRecModal(true);
 
+      // Identify weak topics (Percent < 60)
       const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 60);
 
-      // If no weak topics found (perfect score or no data), default to all topics for general recommendation
-      const searchTopics = weakTopics.length > 0 ? weakTopics : Object.keys(topicStats);
+      // Default to all topics if no specific weak areas found (e.g. 100% score) or if data is sparse
+      const searchTopics = (weakTopics.length > 0 ? weakTopics : Object.keys(topicStats)).map(t => t.trim().toLowerCase());
 
       const streamKey = (result.classLevel === '11' || result.classLevel === '12') && user.stream ? `-${user.stream}` : '';
       const key = `nst_content_${user.board || 'CBSE'}_${result.classLevel || '10'}${streamKey}_${result.subjectName}_${result.chapterId}`;
@@ -155,11 +156,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                });
            } catch(e) {}
 
-           // Filter extracted topics that match weak areas
+           // Filter extracted topics that match weak areas (Partial Match)
            const relevantExtracted = extractedTopics.filter(et =>
-               searchTopics.some(st => et.toLowerCase().includes(st.toLowerCase()))
+               searchTopics.some(st => et.toLowerCase().includes(st)) ||
+               searchTopics.some(st => st.includes(et.toLowerCase()))
            );
 
+           // If specific matches found, push them. Otherwise, push generic Chapter Notes.
            if (relevantExtracted.length > 0) {
                relevantExtracted.forEach(topicName => {
                    recs.push({
@@ -188,8 +191,9 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       if (universalData && universalData.notesPlaylist) {
           const universalMatches = universalData.notesPlaylist.filter((n: any) =>
               searchTopics.some(t =>
-                  n.title.toLowerCase().includes(t.toLowerCase()) ||
-                  (n.topic && n.topic.toLowerCase().includes(t.toLowerCase())) // MATCH TOPIC FIELD
+                  n.title.toLowerCase().includes(t) ||
+                  (n.topic && n.topic.toLowerCase().includes(t)) || // Partial Match
+                  t.includes(n.topic?.toLowerCase() || '') // Reverse Partial Match
               )
           );
           recs.push(...universalMatches.map((n: any) => ({
@@ -200,8 +204,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       }
 
       if (chapterData && chapterData.topicNotes) {
+          // Robust Topic Matching (Case Insensitive, Trimmed, Partial)
           const topicMatches = chapterData.topicNotes.filter((n: any) =>
-              searchTopics.some(wt => n.topic && n.topic.toLowerCase() === wt.toLowerCase())
+              searchTopics.some(wt =>
+                  (n.topic && n.topic.toLowerCase().trim() === wt) ||
+                  (n.topic && n.topic.toLowerCase().includes(wt)) ||
+                  (n.topic && wt.includes(n.topic.toLowerCase()))
+              )
           );
           recs.push(...topicMatches.map((n: any) => ({
               ...n,
@@ -592,6 +601,75 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
     return (
         <div className="space-y-6">
             
+            {/* PERFORMANCE OVERVIEW (From Stats) */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50"></div>
+                <div className="flex flex-col items-center text-center relative z-10">
+                    <h2 className="text-2xl font-black text-slate-800 capitalize mb-1">{user.name}</h2>
+                    <p className="text-xs font-bold text-slate-400 font-mono tracking-wider mb-6">UID: {user.displayId || user.id}</p>
+
+                    <div className="relative w-40 h-40 mb-6">
+                        <svg className="w-full h-full transform -rotate-90">
+                            <circle cx="80" cy="80" r="70" fill="none" stroke="#f1f5f9" strokeWidth="12" />
+                            <circle
+                                cx="80"
+                                cy="80"
+                                r="70"
+                                fill="none"
+                                stroke={percentage >= 80 ? "#22c55e" : percentage >= 50 ? "#3b82f6" : "#ef4444"}
+                                strokeWidth="12"
+                                strokeLinecap="round"
+                                strokeDasharray={`${(percentage / 100) * 440} 440`}
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-4xl font-black text-slate-800">{result.score}</span>
+                            <span className="text-sm font-bold text-slate-400">/{result.totalQuestions}</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 w-full">
+                        <div className="bg-green-50 p-3 rounded-2xl border border-green-100">
+                            <p className="text-xl font-black text-green-700">{result.correctCount}</p>
+                            <p className="text-[10px] font-bold text-green-600 uppercase">Correct</p>
+                        </div>
+                        <div className="bg-red-50 p-3 rounded-2xl border border-red-100">
+                            <p className="text-xl font-black text-red-700">{result.wrongCount}</p>
+                            <p className="text-[10px] font-bold text-red-600 uppercase">Wrong</p>
+                        </div>
+                        <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100">
+                            <p className="text-xl font-black text-blue-700">{Math.round((result.totalTimeSeconds || 0) / 60)}m</p>
+                            <p className="text-[10px] font-bold text-blue-600 uppercase">Time</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* TOPIC BREAKDOWN (From Topics) */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-6">
+                    <BarChart3 size={18} /> Topic Breakdown
+                </h3>
+                <div className="space-y-4">
+                    {Object.entries(topicStats).map(([topic, stat]) => (
+                        <div key={topic} className="space-y-1">
+                            <div className="flex justify-between text-xs font-bold text-slate-600">
+                                <span>{topic}</span>
+                                <span className={`${stat.percent < 60 ? 'text-red-500' : 'text-green-600'}`}>
+                                    {stat.correct}/{stat.total} ({stat.percent}%)
+                                </span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full ${stat.percent < 40 ? 'bg-red-500' : stat.percent < 75 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                    style={{ width: `${stat.percent}%` }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             {/* NEW: AI ROADMAP SECTION */}
             {data.nextSteps && (
                 <div className="bg-gradient-to-r from-violet-50 to-indigo-50 p-5 rounded-2xl border border-indigo-100 shadow-sm">
@@ -751,49 +829,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 );
             })}
 
-            {/* RECOMMENDED FREE NOTES */}
-            <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200 mt-6">
-                <h3 className="font-black text-orange-900 text-lg flex items-center gap-2 mb-4">
-                    <Lightbulb size={20} /> Recommended Free Notes
-                </h3>
-                {recommendations.filter(r => !r.isPremium).length === 0 ? (
-                    <p className="text-sm text-orange-800 opacity-70">No specific notes found for your weak topics.</p>
-                ) : (
-                    <div className="space-y-3">
-                        {recommendations.filter(r => !r.isPremium).map((rec, i) => (
-                            <div key={`free-${i}`} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm flex justify-between items-center hover:border-orange-300 transition-colors">
-                                <div>
-                                    <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold bg-slate-50 px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
-                                        <span className="text-[9px] text-white bg-orange-500 px-2 py-0.5 rounded font-bold">FREE</span>
-                                    </div>
-                                </div>
-                                <button
-                                    className="text-xs font-bold text-white bg-orange-500 px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md transition-all flex items-center gap-2"
-                                    onClick={() => {
-                                        if (rec.content) {
-                                            setViewingNote(rec);
-                                        } else if (onLaunchContent) {
-                                            onLaunchContent({
-                                                id: `REC_FREE_${i}`,
-                                                title: rec.title,
-                                                type: 'PDF',
-                                                directResource: { url: rec.url, access: rec.access }
-                                            });
-                                        } else {
-                                            // Fallback
-                                            setViewingNote(rec);
-                                        }
-                                    }}
-                                >
-                                    Read Note
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
 
             {/* PREMIUM PDF NOTES LIST */}
             <div className="bg-red-50 p-6 rounded-2xl border border-red-200 mt-6">
@@ -1116,10 +1151,10 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             {/* TAB HEADER */}
             <div className="px-4 pt-2 pb-0 bg-white border-b border-slate-100 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide items-center">
                 <button
-                    onClick={() => setActiveTab('STATS')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'STATS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                    onClick={() => setActiveTab('AI')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <BarChart3 size={14} className="inline mr-1 mb-0.5" /> Overview
+                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> Analysis
                 </button>
                 <button 
                     onClick={() => setActiveTab('OMR')}
@@ -1133,31 +1168,11 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 >
                     <XCircle size={14} className="inline mr-1 mb-0.5" /> Mistakes
                 </button>
-                <button 
-                    onClick={() => setActiveTab('TOPICS')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'TOPICS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <Target size={14} className="inline mr-1 mb-0.5" /> Topics
-                </button>
-                <button
-                    onClick={() => setActiveTab('AI')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> Analysis
-                </button>
                 <button
                     onClick={() => setActiveTab('MARKSHEET_1')}
                     className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'MARKSHEET_1' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
                     <FileText size={14} className="inline mr-1 mb-0.5" /> Official Marksheet
-                </button>
-
-                {/* ANALYSIS POPUP TRIGGER */}
-                <button
-                    onClick={() => setShowAnalysisSelection(true)}
-                    className={`ml-auto px-4 py-2 text-xs font-black rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-md flex items-center gap-2 transition-all active:scale-95`}
-                >
-                    <BrainCircuit size={14} /> Guided Analysis
                 </button>
             </div>
 
@@ -1171,59 +1186,22 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     </div>
                 )}
 
-                {/* 2. MISTAKES SECTION */}
+                {/* 2. MISTAKES SECTION (Free Analysis) */}
                 {activeTab === 'MISTAKES' && (
                     <div className="animate-in slide-in-from-bottom-4">
                         {renderMistakesSection()}
-                    </div>
-                )}
 
-                {/* 3. NORMAL ANALYSIS (STATS) SECTION */}
-                {activeTab === 'STATS' && (
-                    <div className="animate-in slide-in-from-bottom-4">
-                        {renderStatsSection()}
-                    </div>
-                )}
-                
-                {/* 3.5 TOPIC ANALYSIS (FREE) */}
-                {activeTab === 'TOPICS' && (
-                    <div className="space-y-6 animate-in slide-in-from-bottom-4">
-                        {/* Topic Breakdown */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-6">
-                                <BarChart3 size={18} /> Topic Breakdown
-                            </h3>
-                            <div className="space-y-4">
-                                {Object.entries(topicStats).map(([topic, stat]) => (
-                                    <div key={topic} className="space-y-1">
-                                        <div className="flex justify-between text-xs font-bold text-slate-600">
-                                            <span>{topic}</span>
-                                            <span className={`${stat.percent < 60 ? 'text-red-500' : 'text-green-600'}`}>
-                                                {stat.correct}/{stat.total} ({stat.percent}%)
-                                            </span>
-                                        </div>
-                                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full ${stat.percent < 40 ? 'bg-red-500' : stat.percent < 75 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                                style={{ width: `${stat.percent}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Free Recommendations List (Inlined) */}
-                        <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200">
+                        {/* FREE RECOMMENDED NOTES IN MISTAKES TAB */}
+                        <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200 mt-6">
                              <h3 className="font-black text-orange-900 text-lg flex items-center gap-2 mb-4">
                                 <Lightbulb size={20} /> Recommended Free Notes
                             </h3>
-                            {recommendations.length === 0 ? (
+                            {recommendations.filter(r => !r.isPremium).length === 0 ? (
                                 <p className="text-sm text-orange-800 opacity-70">No specific notes found for your weak topics.</p>
                             ) : (
                                 <div className="space-y-3">
                                     {recommendations.filter(r => !r.isPremium).map((rec, i) => (
-                                        <div key={i} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm flex justify-between items-center">
+                                        <div key={i} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm flex justify-between items-center hover:border-orange-300 transition-colors">
                                             <div>
                                                 <p className="font-bold text-slate-800 text-sm">{rec.title}</p>
                                                 <p className="text-[10px] text-slate-500 uppercase font-bold mt-1 bg-slate-50 px-2 py-0.5 rounded w-fit border">{rec.topic}</p>
@@ -1235,11 +1213,10 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                     if (rec.type === 'UNIVERSAL_NOTE' && rec.content) {
                                                         setViewingNote(rec);
                                                     } else if (onLaunchContent) {
-                                                         // Fallback to launch content if provided (Legacy)
                                                          onLaunchContent({
                                                              id: `REC_FREE_${i}`,
                                                              title: rec.title,
-                                                             type: 'PDF', // Assuming fallback
+                                                             type: 'PDF',
                                                              directResource: { url: rec.url, access: rec.access }
                                                          });
                                                     }
@@ -1249,14 +1226,12 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                             </button>
                                         </div>
                                     ))}
-                                    {recommendations.filter(r => !r.isPremium).length === 0 && (
-                                         <p className="text-sm text-orange-800 opacity-70">No free notes available for these topics.</p>
-                                    )}
                                 </div>
                             )}
                         </div>
                     </div>
                 )}
+
 
                 {/* 4. AI ANALYSIS SECTION */}
                 {activeTab === 'AI' && (
@@ -1351,8 +1326,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             {/* Footer Actions */}
             <div className="bg-white p-4 border-t border-slate-100 flex gap-2 justify-center z-10 shrink-0 flex-col sm:flex-row">
                 {onViewAnalysis && (
-                    <button onClick={() => onViewAnalysis(0)} className="flex-1 bg-blue-50 text-blue-600 px-4 py-3 rounded-xl font-bold text-xs shadow-sm border border-blue-100 hover:bg-blue-100 flex justify-center gap-2">
-                        <FileSearch size={16} /> Free Analysis
+                    <button onClick={() => setShowAnalysisSelection(true)} className="flex-1 bg-slate-900 text-white px-4 py-3 rounded-xl font-bold text-xs shadow-sm border border-slate-900 hover:bg-slate-800 flex justify-center gap-2">
+                        <BrainCircuit size={16} /> Analysis
                     </button>
                 )}
                 
