@@ -621,23 +621,80 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             <h3 className="font-black text-slate-800 text-lg">Mistakes Review</h3>
         </div>
         {result.wrongQuestions && result.wrongQuestions.length > 0 ? (
-            <div className="space-y-3">
-                {result.wrongQuestions.map((q, idx) => (
-                    <div key={idx} className="p-4 bg-white rounded-2xl border border-red-100 shadow-sm flex gap-3">
-                        <span className="w-6 h-6 flex-shrink-0 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
-                            {q.qIndex + 1}
-                        </span>
-                        <div className="flex-1">
-                            <p className="text-sm text-slate-700 font-medium leading-relaxed mb-1">
-                                {q.question}
-                            </p>
-                            <p className="text-xs text-green-600 font-bold">
-                                Correct Answer: <span className="text-slate-700">{q.correctAnswer}</span>
-                            </p>
-                            {q.explanation && <p className="text-xs text-slate-500 mt-1 italic">{q.explanation}</p>}
+            <div className="space-y-6">
+                {result.wrongQuestions.map((q, idx) => {
+                    // Try to get full question data for options
+                    const fullQuestion = questions ? questions[q.qIndex] : null;
+                    const omrEntry = result.omrData?.find(d => d.qIndex === q.qIndex);
+                    const userSelected = omrEntry ? omrEntry.selected : -1;
+                    const correctAnswerIndex = fullQuestion ? fullQuestion.correctAnswer : -1;
+
+                    return (
+                        <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            {/* Question Header */}
+                            <div className="p-4 bg-red-50 border-b border-red-100 flex gap-3">
+                                <span className="w-6 h-6 flex-shrink-0 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
+                                    {q.qIndex + 1}
+                                </span>
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-slate-800 leading-snug">
+                                        {fullQuestion ? fullQuestion.question : q.question}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Options List */}
+                            {fullQuestion && fullQuestion.options && (
+                                <div className="p-4 space-y-2">
+                                    {fullQuestion.options.map((opt: string, optIdx: number) => {
+                                        const isSelected = userSelected === optIdx;
+                                        const isCorrect = correctAnswerIndex === optIdx;
+
+                                        let optionClass = "border-slate-100 bg-white text-slate-600";
+                                        let icon = null;
+
+                                        if (isCorrect) {
+                                            optionClass = "border-green-200 bg-green-50 text-green-700 font-bold";
+                                            icon = <CheckCircle size={16} className="text-green-600" />;
+                                        } else if (isSelected) {
+                                            optionClass = "border-red-200 bg-red-50 text-red-700 font-bold";
+                                            icon = <XCircle size={16} className="text-red-500" />;
+                                        }
+
+                                        return (
+                                            <div key={optIdx} className={`p-3 rounded-xl border flex items-center gap-3 text-xs transition-colors ${optionClass}`}>
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] border ${isCorrect ? 'border-green-300 bg-green-100 text-green-700' : isSelected ? 'border-red-300 bg-red-100 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
+                                                    {String.fromCharCode(65 + optIdx)}
+                                                </div>
+                                                <div className="flex-1">{opt}</div>
+                                                {icon}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Fallback if no options data */}
+                            {!fullQuestion && (
+                                <div className="p-4 bg-slate-50 text-xs text-slate-500">
+                                    <p>Correct Answer: <span className="font-bold text-green-600">{q.correctAnswer}</span></p>
+                                </div>
+                            )}
+
+                            {/* Explanation Box */}
+                            {q.explanation && (
+                                <div className="p-4 bg-blue-50 border-t border-blue-100">
+                                    <p className="text-[10px] font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
+                                        <Lightbulb size={12} /> Explanation
+                                    </p>
+                                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                                        {q.explanation}
+                                    </p>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         ) : (
             <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-slate-200">
