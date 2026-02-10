@@ -461,7 +461,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                   <p className="text-xs font-bold text-slate-400">Personalized Study Plan for <span className="text-slate-900">{user.name}</span></p>
               </div>
 
-              <div className="px-4 space-y-6 pb-20">
+              <div className="px-4 space-y-8 pb-20">
                   {displayTopics.length === 0 ? (
                       <div className="text-center py-10 opacity-60">
                           <CheckCircle className="mx-auto mb-2 text-green-500" size={32} />
@@ -477,7 +477,22 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                           if (key) relevantRecs.push(...groupedRecs[key]);
                       }
 
-                      if (relevantRecs.length === 0) return null;
+                      // Find WRONG questions for this topic
+                      const topicWrongQs = questions?.filter(q => {
+                           const isTopicMatch = (q.topic && q.topic.toLowerCase().trim() === topicName.toLowerCase().trim()) ||
+                                                (q.topic && topicName.toLowerCase().includes(q.topic.toLowerCase())) ||
+                                                (q.topic && q.topic.toLowerCase().includes(topicName.toLowerCase()));
+
+                           if (!isTopicMatch) return false;
+
+                           // Check if it was answered wrong
+                           const omr = result.omrData?.find((d: any) => questions && d.qIndex === questions.indexOf(q));
+                           // Strict: Attempted AND Wrong
+                           return omr && omr.selected !== -1 && omr.selected !== q.correctAnswer;
+                      }) || [];
+
+                      // If no notes AND no wrong questions, skip
+                      if (relevantRecs.length === 0 && topicWrongQs.length === 0) return null;
 
                       const stats = topicStats[topicName];
 
@@ -496,53 +511,105 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                   <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-[10px] font-bold">FOCUS</span>
                               </div>
 
-                              <div className="p-2 space-y-2">
-                                  {relevantRecs.map((rec, rIdx) => (
-                                      <div key={rIdx} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors">
-                                          <div className="flex items-center gap-3">
-                                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${rec.isPremium ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
-                                                  {rec.isPremium ? <FileText size={14} /> : <Lightbulb size={14} />}
-                                              </div>
-                                              <div>
-                                                  <p className="font-bold text-slate-700 text-xs line-clamp-1">{rec.title}</p>
-                                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${rec.isPremium ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
-                                                      {rec.isPremium ? 'PREMIUM PDF' : 'FREE NOTE'}
-                                                  </span>
-                                              </div>
-                                          </div>
+                              <div className="p-4 space-y-4">
+                                  {/* 1. WRONG QUESTIONS FIRST */}
+                                  {topicWrongQs.length > 0 && (
+                                      <div className="space-y-3 mb-4">
+                                          <p className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1">
+                                              <XCircle size={12} /> Mistakes in this Topic
+                                          </p>
+                                          {topicWrongQs.map((q, qIdx) => {
+                                               const omr = result.omrData?.find((d: any) => questions && d.qIndex === questions.indexOf(q));
+                                               return (
+                                                  <div key={`wq-${qIdx}`} className="bg-red-50 rounded-xl p-3 border border-red-100">
+                                                      <div className="flex gap-2 mb-2">
+                                                          <span className="text-[10px] font-bold bg-red-200 text-red-700 px-1.5 py-0.5 rounded h-fit">Q</span>
+                                                          <p className="text-xs font-bold text-slate-800">{q.question}</p>
+                                                      </div>
+                                                      {/* Options - Show Correct Answer */}
+                                                      <div className="space-y-1 pl-6">
+                                                          {q.options.map((opt: string, oIdx: number) => {
+                                                              const isCorrect = oIdx === q.correctAnswer;
+                                                              const isSelected = omr?.selected === oIdx;
+                                                              if (!isCorrect && !isSelected) return null; // Only show relevant options
 
-                                          <button
-                                              onClick={() => {
-                                                  if (rec.isPremium) {
-                                                      if (onLaunchContent) {
-                                                          onLaunchContent({
-                                                              id: `REC_PREM_${idx}_${rIdx}`,
-                                                              title: rec.title,
-                                                              type: 'PDF',
-                                                              directResource: { url: rec.url, access: rec.access }
-                                                          });
-                                                      } else {
-                                                          window.open(rec.url, '_blank');
-                                                      }
-                                                  } else {
-                                                       if (rec.content) {
-                                                          setViewingNote(rec);
-                                                      } else if (onLaunchContent) {
-                                                          onLaunchContent({
-                                                              id: `REC_FREE_${idx}_${rIdx}`,
-                                                              title: rec.title,
-                                                              type: 'PDF',
-                                                              directResource: { url: rec.url, access: rec.access }
-                                                          });
-                                                      }
-                                                  }
-                                              }}
-                                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold text-white shadow-sm ${rec.isPremium ? 'bg-slate-900 hover:bg-slate-800' : 'bg-blue-600 hover:bg-blue-700'}`}
-                                          >
-                                              {rec.isPremium ? 'View PDF' : 'Read'}
-                                          </button>
+                                                              return (
+                                                                  <div key={oIdx} className={`text-[10px] px-2 py-1 rounded border flex items-center justify-between ${isCorrect ? 'bg-green-100 border-green-200 text-green-800 font-bold' : 'bg-red-100 border-red-200 text-red-800'}`}>
+                                                                      <span>{opt}</span>
+                                                                      {isCorrect && <CheckCircle size={10}/>}
+                                                                      {isSelected && !isCorrect && <XCircle size={10}/>}
+                                                                  </div>
+                                                              );
+                                                          })}
+                                                      </div>
+                                                      {/* Explanation */}
+                                                      {q.explanation && (
+                                                          <div className="mt-2 pt-2 border-t border-red-100">
+                                                              <p className="text-[10px] text-slate-600 italic">
+                                                                  <span className="font-bold text-slate-800">Exp:</span> {q.explanation}
+                                                              </p>
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                               );
+                                          })}
                                       </div>
-                                  ))}
+                                  )}
+
+                                  {/* 2. RECOMMENDED NOTES */}
+                                  {relevantRecs.length > 0 && (
+                                      <div className="space-y-2">
+                                          <p className="text-[10px] font-black text-blue-500 uppercase flex items-center gap-1">
+                                              <BookOpen size={12} /> Suggested Material
+                                          </p>
+                                          {relevantRecs.map((rec, rIdx) => (
+                                              <div key={rIdx} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+                                                  <div className="flex items-center gap-3">
+                                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${rec.isPremium ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                          {rec.isPremium ? <FileText size={14} /> : <Lightbulb size={14} />}
+                                                      </div>
+                                                      <div>
+                                                          <p className="font-bold text-slate-700 text-xs line-clamp-1">{rec.title}</p>
+                                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${rec.isPremium ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                              {rec.isPremium ? 'PREMIUM PDF' : 'FREE NOTE'}
+                                                          </span>
+                                                      </div>
+                                                  </div>
+
+                                                  <button
+                                                      onClick={() => {
+                                                          if (rec.isPremium) {
+                                                              if (onLaunchContent) {
+                                                                  onLaunchContent({
+                                                                      id: `REC_PREM_${idx}_${rIdx}`,
+                                                                      title: rec.title,
+                                                                      type: 'PDF',
+                                                                      directResource: { url: rec.url, access: rec.access }
+                                                                  });
+                                                              } else {
+                                                                  window.open(rec.url, '_blank');
+                                                              }
+                                                          } else {
+                                                              if (rec.content) {
+                                                                  setViewingNote(rec);
+                                                              } else if (onLaunchContent) {
+                                                                  onLaunchContent({
+                                                                      id: `REC_FREE_${idx}_${rIdx}`,
+                                                                      title: rec.title,
+                                                                      type: 'PDF',
+                                                                      directResource: { url: rec.url, access: rec.access }
+                                                                  });
+                                                              }
+                                                          }
+                                                      }}
+                                                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold text-white shadow-sm ${rec.isPremium ? 'bg-slate-900 hover:bg-slate-800' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                                  >
+                                                      {rec.isPremium ? 'View PDF' : 'Read'}
+                                                  </button>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  )}
                               </div>
                           </div>
                       );
@@ -769,62 +836,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             </div>
 
 
-            {/* PERFORMANCE CHART (CSS) */}
-            {totalTopics > 0 && (
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
-                        <BarChart3 size={14} /> Topic Performance
-                    </h4>
-                    <div className="flex h-4 w-full rounded-full overflow-hidden">
-                        <div style={{ width: `${(topicStats.strong / totalTopics) * 100}%` }} className="bg-green-500 h-full" title="Strong Topics" />
-                        <div style={{ width: `${(topicStats.avg / totalTopics) * 100}%` }} className="bg-blue-400 h-full" title="Average Topics" />
-                        <div style={{ width: `${(topicStats.weak / totalTopics) * 100}%` }} className="bg-red-500 h-full" title="Weak Topics" />
-                    </div>
-                    <div className="flex justify-between mt-2 text-[10px] font-bold text-slate-500">
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 bg-green-500 rounded-full"/> Strong ({topicStats.strong})</div>
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 bg-blue-400 rounded-full"/> Average ({topicStats.avg})</div>
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 bg-red-500 rounded-full"/> Weak ({topicStats.weak})</div>
-                    </div>
-                </div>
-            )}
-
-            {/* NEW: VISUAL MIND MAP */}
-            {data.topics && (
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide mb-6 flex items-center gap-2">
-                        <BrainCircuit size={16} className="text-purple-600" /> Topic Mind Map
-                    </h3>
-                    
-                    <div className="min-w-[300px] flex flex-col items-center">
-                        {/* Central Node */}
-                        <div className="bg-slate-900 text-white px-6 py-3 rounded-full font-black text-sm shadow-lg mb-8 relative z-10 border-4 border-slate-100 text-center">
-                            {data.chapter || result.chapterTitle || 'Chapter'}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-8 bg-slate-300"></div>
-                        </div>
-
-                        {/* Branches */}
-                        <div className="flex justify-center gap-4 flex-wrap relative">
-                            {data.topics.map((topic: any, i: number) => {
-                                let colorClass = "bg-blue-100 text-blue-800 border-blue-200";
-                                if (topic.status === 'WEAK') colorClass = "bg-red-100 text-red-800 border-red-200";
-                                if (topic.status === 'STRONG') colorClass = "bg-green-100 text-green-800 border-green-200";
-
-                                return (
-                                    <div key={i} className="flex flex-col items-center relative group">
-                                        {/* Connector to parent */}
-                                        <div className="w-0.5 h-8 bg-slate-300 -mt-8 mb-2"></div>
-                                        
-                                        <div className={`px-4 py-2 rounded-xl border-2 text-xs font-bold shadow-sm ${colorClass} max-w-[120px] text-center`}>
-                                            {topic.name}
-                                            <span className="block text-[8px] opacity-70 mt-1 uppercase">{topic.status}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* TOPIC BREAKDOWN & CHARTS REMOVED AS PER REQUEST */}
 
             {data.motivation && (
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-xl text-white shadow-lg text-center italic font-medium">
@@ -861,23 +873,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         </div>
 
                         <div className="p-4 space-y-4">
-                            {/* Action Plan */}
-                            <div className="bg-white p-3 rounded-xl border border-dashed border-slate-300">
-                                <h4 className="text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
-                                    <Target size={12} /> How to Work
-                                </h4>
-                                <p className="text-sm text-slate-700 font-medium leading-relaxed">{topic.actionPlan}</p>
-                            </div>
-
-                            {/* Study Mode */}
-                            <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                                    <BookOpen size={12} /> Recommendation:
-                                </h4>
-                                <span className={`text-xs font-black px-3 py-1 rounded-full ${topic.studyMode === 'DEEP_STUDY' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>
-                                    {topic.studyMode === 'DEEP_STUDY' ? 'DEEP STUDY REQUIRED' : 'QUICK REVISION'}
-                                </span>
-                            </div>
+                            {/* Action Plan & Study Mode Removed as per "Next 2 Days Plan" request */}
 
                             {/* TOPIC QUESTIONS LIST */}
                             {questions && questions.length > 0 && (() => {
@@ -1129,9 +1125,20 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <p className="text-[10px] font-bold text-slate-400">Official Marksheet</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
-                    <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Separate Recommend Notes Button */}
+                    <button
+                        onClick={() => setActiveTab('RECOMMEND')}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-black hover:bg-yellow-200 transition-colors border border-yellow-200 shadow-sm"
+                    >
+                        <Lightbulb size={14} />
+                        <span>Notes</span>
+                    </button>
+
+                    <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
             </div>
 
             {/* TAB HEADER */}
