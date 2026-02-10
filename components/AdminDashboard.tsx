@@ -81,7 +81,8 @@ type AdminTab =
   | 'AI_STUDIO'
   | 'AI_NOTES_MANAGER'
   | 'BLOGGER_HUB'
-  | 'CONFIG_GATING';
+  | 'CONFIG_GATING'
+  | 'WHATSAPP_CONNECT';
 
 interface ContentConfig {
     freeLink?: string;
@@ -515,6 +516,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [syllabusMode, setSyllabusMode] = useState<'SCHOOL' | 'COMPETITION'>('SCHOOL');
   const [managerMode, setManagerMode] = useState<'SCHOOL' | 'COMPETITION'>('SCHOOL'); // New State for AI Notes Manager
+  const [whatsappStatus, setWhatsappStatus] = useState<'CONNECTED' | 'DISCONNECTED' | 'SCAN_QR'>('DISCONNECTED');
+  const [whatsappQr, setWhatsappQr] = useState('');
   const [notesStatusMap, setNotesStatusMap] = useState<Record<string, any>>({});
   const [isSyncingNotes, setIsSyncingNotes] = useState(false);
 
@@ -5686,9 +5689,8 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                   <label className="text-xs font-bold uppercase text-slate-500">Chat Edit Time (Mins)</label>
                                   <input type="number" value={localSettings.chatEditTimeLimit ?? 15} onChange={e => setLocalSettings({...localSettings, chatEditTimeLimit: Number(e.target.value)})} className="w-full p-3 border rounded-xl" />
                               </div>
- feature-notes-analysis-upgrade-7255104201917027923
                           </div>
-                        main
+
                           {/* SYLLABUS TYPE SELECTOR */}
                           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-4">
                               <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Syllabus Mode</label>

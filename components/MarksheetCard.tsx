@@ -17,7 +17,7 @@ interface Props {
   onPublish?: () => void;
   questions?: any[]; 
   onUpdateUser?: (user: User) => void;
-  initialView?: 'ANALYSIS';
+  initialView?: 'ANALYSIS' | 'RECOMMEND';
   onLaunchContent?: (content: any) => void;
 }
 
@@ -187,7 +187,10 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       // B) Recommendations (Universal List)
       if (universalData && universalData.notesPlaylist) {
           const universalMatches = universalData.notesPlaylist.filter((n: any) =>
-              searchTopics.some(t => n.title.toLowerCase().includes(t.toLowerCase()))
+              searchTopics.some(t =>
+                  n.title.toLowerCase().includes(t.toLowerCase()) ||
+                  (n.topic && n.topic.toLowerCase().includes(t.toLowerCase())) // MATCH TOPIC FIELD
+              )
           );
           recs.push(...universalMatches.map((n: any) => ({
               ...n,
@@ -1000,19 +1003,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <button
                             onClick={() => {
                                 setShowAnalysisSelection(false);
-                            // Auto-open first free HTML note
-                            const freeRecs = recommendations.filter(r => !r.isPremium);
-                            if (freeRecs.length > 0 && freeRecs[0].content) {
-                                setViewingNote(freeRecs[0]);
-                            } else {
-                                alert("No free HTML notes available. Check 'Performance & Notes' tab.");
-                            }
+                                setActiveTab('MISTAKES');
                             }}
                         className="w-full bg-white hover:bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between transition-all group"
                         >
                             <div className="text-left">
                             <p className="font-black text-slate-800 text-lg group-hover:scale-105 transition-transform">Free Notes</p>
-                            <p className="text-xs text-slate-500 font-bold mt-1">View Topic Summary (HTML)</p>
+                            <p className="text-xs text-slate-500 font-bold mt-1">Review Answers & Topic Summary</p>
                             </div>
                         <div className="w-8 h-8 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
                                 <ChevronRight size={20} />
@@ -1022,21 +1019,9 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         {/* PREMIUM OPTION */}
                         <button
                             onClick={() => {
-                            const cost = settings?.mcqAnalysisCostUltra ?? 20;
-                            if (user.credits < cost) {
-                                alert(`Insufficient Credits! Need ${cost}.`);
-                                return;
-                            }
-                            if (confirm(`Unlock Premium PDF Notes for ${cost} Credits?`)) {
-                                if (onUpdateUser) onUpdateUser({...user, credits: user.credits - cost});
-                                setPremiumUnlocked(true);
                                 setShowAnalysisSelection(false);
-                                // Scroll to bottom of TOPICS tab where Premium content appears
-                                setTimeout(() => {
-                                    const el = document.getElementById('marksheet-content');
-                                    if(el) el.scrollTop = el.scrollHeight;
-                                }, 100);
-                            }
+                                handleUltraAnalysis();
+                                setActiveTab('AI');
                             }}
                             className="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-2xl flex items-center justify-between transition-all shadow-xl shadow-slate-200 group relative overflow-hidden"
                         >
@@ -1045,7 +1030,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                 <p className="font-black text-white text-lg group-hover:scale-105 transition-transform flex items-center gap-2">
                                 Premium Notes
                                 </p>
-                            <p className="text-xs text-slate-400 font-bold mt-1">Unlock PDF Downloads</p>
+                            <p className="text-xs text-slate-400 font-bold mt-1">Unlock AI Analysis & PDF Downloads</p>
                             </div>
                             <div className="text-right relative z-10">
                                 <span className="block text-xl font-black text-yellow-400">{settings?.mcqAnalysisCostUltra ?? 20} CR</span>
