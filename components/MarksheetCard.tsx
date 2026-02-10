@@ -110,14 +110,15 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
   // Auto-Load Recommendations on Tab Change
   useEffect(() => {
+      // Only fetch if data is missing. Do NOT open modal automatically.
       if ((activeTab === 'RECOMMEND' || activeTab === 'AI') && questions && questions.length > 0 && recommendations.length === 0) {
-          handleRecommend();
+          handleRecommend(false); // Pass false to suppress modal
       }
   }, [activeTab, questions]);
 
-  const handleRecommend = async () => {
+  const handleRecommend = async (openModal: boolean = true) => {
       setRecLoading(true);
-      setShowRecModal(true);
+      if(openModal) setShowRecModal(true);
 
       // Identify weak topics (Percent < 60)
       const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 60);
@@ -773,18 +774,26 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 </h3>
                 <div className="space-y-4">
                     {Object.entries(topicStats).map(([topic, stat]) => (
-                        <div key={topic} className="space-y-1">
-                            <div className="flex justify-between text-xs font-bold text-slate-600">
-                                <span>{topic}</span>
-                                <span className={`${stat.percent < 60 ? 'text-red-500' : 'text-green-600'}`}>
-                                    {stat.correct}/{stat.total} ({stat.percent}%)
+                        <div key={topic} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="font-bold text-slate-700 text-sm uppercase">{topic}</span>
+                                <span className={`text-xs font-black ${stat.percent < 60 ? 'text-red-500' : 'text-green-600'}`}>
+                                    {stat.percent}%
                                 </span>
                             </div>
-                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full ${stat.percent < 40 ? 'bg-red-500' : stat.percent < 75 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                    style={{ width: `${stat.percent}%` }}
-                                />
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="bg-white p-1 rounded border border-slate-200">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase">Total</p>
+                                    <p className="text-xs font-black text-slate-800">{stat.total}</p>
+                                </div>
+                                <div className="bg-green-50 p-1 rounded border border-green-200">
+                                    <p className="text-[9px] font-bold text-green-600 uppercase">Right</p>
+                                    <p className="text-xs font-black text-green-700">{stat.correct}</p>
+                                </div>
+                                <div className="bg-red-50 p-1 rounded border border-red-200">
+                                    <p className="text-[9px] font-bold text-red-600 uppercase">Wrong</p>
+                                    <p className="text-xs font-black text-red-700">{stat.total - stat.correct}</p>
+                                </div>
                             </div>
                         </div>
                     ))}
