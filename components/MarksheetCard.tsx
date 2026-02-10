@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+// Sync check
 import { MCQResult, User, SystemSettings } from '../types';
 import { X, Share2, ChevronLeft, ChevronRight, Download, FileSearch, Grid, CheckCircle, XCircle, Clock, Award, BrainCircuit, Play, StopCircle, BookOpen, Target, Zap, BarChart3, ListChecks, FileText, LayoutTemplate, TrendingUp, Lightbulb, ExternalLink } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { generateUltraAnalysis } from '../services/groq';
 import { saveUniversalAnalysis, saveUserToLive, saveAiInteraction, getChapterData } from '../firebase';
 import ReactMarkdown from 'react-markdown';
-import { speakText, stopSpeech, getCategorizedVoices } from '../utils/textToSpeech';
+import { speakText, stopSpeech, getCategorizedVoices, stripHtml } from '../utils/textToSpeech';
 import { CustomConfirm } from './CustomDialogs'; // Import CustomConfirm
 import { SpeakButton } from './SpeakButton';
 
@@ -64,6 +65,42 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [speechRate, setSpeechRate] = useState(1.0);
   
+  // TTS Playlist State
+  const [playlist, setPlaylist] = useState<string[]>([]);
+  const [currentTrack, setCurrentTrack] = useState(0);
+  const [isPlayingAll, setIsPlayingAll] = useState(false);
+
+  const stopPlaylist = () => {
+      setIsPlayingAll(false);
+      setCurrentTrack(0);
+      stopSpeech();
+  };
+
+  useEffect(() => {
+    if (isPlayingAll && currentTrack < playlist.length) {
+        speakText(
+            playlist[currentTrack],
+            selectedVoice,
+            speechRate,
+            'hi-IN',
+            undefined, // onStart
+            () => { // onEnd
+                if (isPlayingAll) {
+                    setCurrentTrack(prev => prev + 1);
+                }
+            }
+        ).catch(() => setIsPlayingAll(false));
+    } else if (currentTrack >= playlist.length && isPlayingAll) {
+        setIsPlayingAll(false);
+        setCurrentTrack(0);
+    }
+  }, [currentTrack, isPlayingAll, playlist, selectedVoice, speechRate]);
+
+  // Stop Playlist on Tab Change
+  useEffect(() => {
+      stopPlaylist();
+  }, [activeTab]);
+
   // Dialog State
   const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
@@ -438,6 +475,36 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       setIsSpeaking(true);
   };
 
+  const generateQuestionText = (q: any, includeExplanation: boolean, index: number) => {
+      let text = `Question ${index + 1}. ${stripHtml(q.question)}. `;
+
+      if (q.options && q.options.length > 0) {
+          text += "Options: ";
+          q.options.forEach((opt: string, i: number) => {
+              text += `${String.fromCharCode(65 + i)}. ${stripHtml(opt)}. `;
+          });
+      }
+
+      if (includeExplanation && q.explanation) {
+          text += `Correct Answer: Option ${String.fromCharCode(65 + q.correctAnswer)}. `;
+          text += `Explanation: ${stripHtml(q.explanation)}.`;
+      }
+
+      return text;
+  };
+
+  const handlePlayAll = (questionsToPlay: any[], includeExplanation: boolean) => {
+      if (isPlayingAll) {
+          stopPlaylist();
+          return;
+      }
+
+      const newPlaylist = questionsToPlay.map((q, i) => generateQuestionText(q, includeExplanation, i));
+      setPlaylist(newPlaylist);
+      setCurrentTrack(0);
+      setIsPlayingAll(true);
+  };
+
   // --- SECTION RENDERERS ---
 
   // NEW: Recommended Notes Section (Premium Style)
@@ -629,13 +696,23 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
   const renderSolutionSection = () => (
         <>
-        <div className="flex items-center gap-2 mb-3 px-2">
-            <FileSearch className="text-blue-600" size={20} />
-            <h3 className="font-black text-slate-800 text-lg">Detailed Analysis</h3>
+        <div className="flex items-center justify-between mb-3 px-2">
+            <div className="flex items-center gap-2">
+                <FileSearch className="text-blue-600" size={20} />
+                <h3 className="font-black text-slate-800 text-lg">Detailed Analysis</h3>
+            </div>
+            <button
+                onClick={() => handlePlayAll(questions || [], true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-colors ${isPlayingAll ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-700'}`}
+            >
+                {isPlayingAll ? <StopCircle size={16} /> : <Play size={16} />}
+                {isPlayingAll ? 'Stop Listening' : 'Listen All'}
+            </button>
         </div>
         {questions && questions.length > 0 ? (
             <div className="space-y-6">
                 {questions.map((q, idx) => {
+                    const fullText = generateQuestionText(q, true, idx);
                     const omrEntry = result.omrData?.find(d => d.qIndex === idx);
                     const userSelected = omrEntry ? omrEntry.selected : -1;
                     const correctAnswerIndex = q.correctAnswer;
@@ -656,7 +733,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                             className="text-sm font-bold text-slate-800 leading-snug prose prose-sm max-w-none"
                                             dangerouslySetInnerHTML={{ __html: q.question }}
                                         />
-                                        <SpeakButton text={q.question} className="shrink-0" />
+                                        <SpeakButton text={fullText} className="shrink-0" />
                                     </div>
                                 </div>
                             </div>
@@ -686,7 +763,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                 </div>
                                                 <div className="flex-1 flex items-center justify-between gap-2">
                                                     <div dangerouslySetInnerHTML={{ __html: opt }} />
-                                                    <SpeakButton text={opt} className="shrink-0 p-1" iconSize={14} />
                                                 </div>
                                                 {icon}
                                             </div>
@@ -702,7 +778,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                         <p className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1">
                                             <Lightbulb size={12} /> Explanation
                                         </p>
-                                        <SpeakButton text={q.explanation} className="p-1 text-blue-400 hover:bg-blue-100" iconSize={14} />
                                     </div>
                                     <div
                                         className="text-xs text-slate-700 leading-relaxed font-medium prose prose-sm max-w-none"
@@ -799,8 +874,30 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
     const totalTopics = (data.topics || []).length;
 
     // Professional Box Layout
+    // Gather all questions for playlist (Premium View - No Explanation)
+    const allTopicQuestions: any[] = [];
+    if (questions && data.topics) {
+        data.topics.forEach((topic: any) => {
+             const topicQs = questions.filter((q: any) =>
+                (q.topic && q.topic.toLowerCase().trim() === topic.name.toLowerCase().trim()) ||
+                (q.topic && topic.name.toLowerCase().includes(q.topic.toLowerCase())) ||
+                (q.topic && q.topic.toLowerCase().includes(topic.name.toLowerCase()))
+            );
+            allTopicQuestions.push(...topicQs);
+        });
+    }
+
     return (
         <div className="space-y-6">
+            <div className="flex justify-end">
+                <button
+                    onClick={() => handlePlayAll(allTopicQuestions, false)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-colors ${isPlayingAll ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-900 text-white shadow-lg hover:bg-slate-800'}`}
+                >
+                    {isPlayingAll ? <StopCircle size={16} /> : <Play size={16} />}
+                    {isPlayingAll ? 'Stop Listening' : 'Listen All Questions'}
+                </button>
+            </div>
             
             {/* PERFORMANCE OVERVIEW (From Stats) */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative overflow-hidden">
@@ -905,7 +1002,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <div className="p-4 space-y-4">
                             {/* Action Plan & Study Mode Removed as per "Next 2 Days Plan" request */}
 
-                            {/* TOPIC QUESTIONS SUMMARY (Badges Only) */}
+                            {/* TOPIC QUESTIONS SUMMARY (Full Cards) */}
                             {questions && questions.length > 0 && (() => {
                                 const topicQs = questions.filter((q: any) =>
                                     (q.topic && q.topic.toLowerCase().trim() === topic.name.toLowerCase().trim()) ||
@@ -918,19 +1015,42 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                 return (
                                     <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
                                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
-                                            <ListChecks size={12} /> Question Status
+                                            <ListChecks size={12} /> Topic Questions
                                         </h4>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="space-y-3">
                                             {topicQs.map((q: any, i: number) => {
                                                 const qIndex = questions.indexOf(q);
+                                                const fullText = generateQuestionText(q, false, qIndex); // No Explanation
                                                 const omr = result.omrData?.find(d => d.qIndex === qIndex);
+                                                const selected = omr ? omr.selected : -1;
                                                 const isCorrect = omr && omr.selected === q.correctAnswer;
-                                                const isSkipped = !omr || omr.selected === -1;
 
                                                 return (
-                                                    <div key={i} className={`px-2 py-1 rounded border text-[10px] font-bold flex items-center gap-1 ${isCorrect ? 'bg-green-50 border-green-100 text-green-700' : isSkipped ? 'bg-slate-50 border-slate-100 text-slate-500' : 'bg-red-50 border-red-100 text-red-700'}`}>
-                                                        <span>Q{qIndex + 1}</span>
-                                                        {isCorrect ? <CheckCircle size={10} /> : isSkipped ? <div className="w-2 h-2 rounded-full bg-slate-300" /> : <XCircle size={10} />}
+                                                    <div key={i} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                        <div className="flex justify-between items-start gap-2 mb-2">
+                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isCorrect ? 'bg-green-100 text-green-700' : selected === -1 ? 'bg-slate-200 text-slate-600' : 'bg-red-100 text-red-700'}`}>
+                                                                Q{qIndex + 1}
+                                                            </span>
+                                                            <SpeakButton text={fullText} className="p-1" iconSize={14} />
+                                                        </div>
+                                                        <div className="text-xs font-bold text-slate-700 mb-2" dangerouslySetInnerHTML={{__html: q.question}} />
+                                                        <div className="space-y-1">
+                                                            {q.options && q.options.map((opt: string, optIdx: number) => {
+                                                                const isSelected = selected === optIdx;
+                                                                const isTheCorrect = q.correctAnswer === optIdx;
+                                                                let bg = "bg-white border-slate-200 text-slate-500";
+
+                                                                if(isTheCorrect) bg = "bg-green-50 border-green-200 text-green-700 font-bold";
+                                                                else if(isSelected) bg = "bg-red-50 border-red-200 text-red-700 font-bold";
+
+                                                                return (
+                                                                    <div key={optIdx} className={`px-2 py-1.5 rounded-lg border text-[10px] flex items-center gap-2 ${bg}`}>
+                                                                        <span className="w-4 h-4 flex items-center justify-center rounded-full bg-black/5 text-[8px] font-bold">{String.fromCharCode(65+optIdx)}</span>
+                                                                        <div dangerouslySetInnerHTML={{__html: opt}} />
+                                                                    </div>
+                                                                )
+                                                            })}
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
