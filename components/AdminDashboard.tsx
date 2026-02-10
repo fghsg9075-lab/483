@@ -2194,26 +2194,16 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           };
                       }).filter(q => q !== null) as MCQItem[];
                   }
-                  // MODE B: Smart Vertical Parser (Heuristic-based)
+                  // MODE B: Vertical Block (Improved Robustness)
                   else {
                       const lines = textForMcq.split('\n').map(l => l.trim()).filter(l => l);
                       let i = 0;
                       let currentGlobalTopic = '';
 
-                      // Regex for Markers
-                      // Question: "1.", "Q1.", "Question 1:", "(1)", "1)", "Q.1"
-                      const questionStartRegex = /^((Q|Question)?\s*\d+[\.\)\:]|\(\d+\))\s+/i;
-                      // Options: "a)", "A.", "(a)", "[A]", "a."
-                      const optionStartRegex = /^(\(?[a-dA-D][\.\)\:]|\[[a-dA-D]\])\s+/i;
-                      // Answer: "Ans:", "Answer:", "Correct:"
-                      const answerStartRegex = /^(Answer|Ans|Correct)\s*[:\s-]/i;
-                      // Topic: "<TOPIC:", "Topic:"
-                      const topicStartRegex = /^(<TOPIC:|Topic:)/i;
-
                       while (i < lines.length) {
                           const line = lines[i];
 
-                          // 1. TOPIC TAG CHECK
+                          // 1. CHECK FOR TOPIC TAG
                           const topicTagMatch = line.match(/^<TOPIC:\s*(.*?)>/i);
                           if (topicTagMatch) {
                               currentGlobalTopic = topicTagMatch[1].trim();
@@ -2221,110 +2211,58 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               continue;
                           }
 
-feature-notes-analysis-upgrade-7255104201917027923
-                          // 2. QUESTION START CHECK
-                          if (questionStartRegex.test(line)) {
-
                           // 2. CHECK FOR QUESTION START
                           // Matches: "Q1.", "1.", "Q1", "(1)", "Question 1:" etc.
                           // OR simply starts with typical question words if numbered list fails,
                           // but strict numbering is safer for bulk.
                           // Let's assume standard format: Q1. or 1.
                           const isQuestionStart = QUESTION_START_REGEX.test(line);
-main
 
-                              // A. COLLECT QUESTION TEXT (Support Multi-line)
-                              let qText = line;
-                              let j = i + 1;
+                          if (isQuestionStart) {
+                              // We found a question start. Now try to extract the block.
+                              // Needs at least Q + 4 Options + Ans = 6 lines remaining
+                              if (i + 5 >= lines.length) break;
 
-                              // Read ahead until we see an Option, Answer, Next Q, or Topic
-                              while (j < lines.length) {
-                                  const nextLine = lines[j];
-                                  if (optionStartRegex.test(nextLine) || answerStartRegex.test(nextLine) || questionStartRegex.test(nextLine) || topicStartRegex.test(nextLine)) {
-                                      break;
-                                  }
-                                  qText += "\n" + nextLine;
-                                  j++;
+                              const q = line;
+                              const opts = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
+
+                              let ansRaw = lines[i+5].replace(/^(Answer|Ans|Correct)\s*[:\s-]*\s*/i, '').trim();
+
+                              // Flexible Answer Parsing
+                              let ansIdx = -1;
+                              if (/^\d+$/.test(ansRaw)) {
+                                  ansIdx = parseInt(ansRaw) - 1;
+                              } else {
+                                  // Extract first letter (A, B, C, D)
+                                  const firstChar = ansRaw.charAt(0).toUpperCase();
+                                  const map: any = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                                  if (map[firstChar] !== undefined) ansIdx = map[firstChar];
                               }
+                              // Default to 0 (A) if parsing fails, but warn?
+                              if (ansIdx < 0 || ansIdx > 3) ansIdx = 0;
 
-                              // B. COLLECT OPTIONS
-                              const options: string[] = [];
-                              // Collect up to 4 lines as options (or more if marked?)
-                              // We stop if we hit Answer, Next Q, or Topic
-                              while (j < lines.length && options.length < 4) {
-                                  const nextLine = lines[j];
-                                  if (answerStartRegex.test(nextLine) || questionStartRegex.test(nextLine) || topicStartRegex.test(nextLine)) {
-                                      break;
-                                  }
+                              // Parse Explanation (Optional lines until next Q/Topic)
+                              let expLines = [];
+                              let nextIndex = i + 6;
 
-                                  // Clean the option marker if present (e.g. "a) Apple" -> "Apple")
-                                  // Only clean if it actually matches the regex, otherwise take whole line
-                                  const cleanOpt = nextLine.replace(optionStartRegex, '').trim();
-                                  options.push(cleanOpt);
-                                  j++;
-                              }
-
-feature-notes-analysis-upgrade-7255104201917027923
-                              // B2. RETROACTIVE OPTION RECOVERY (If no markers found)
-                              // If options are empty but we have collected a lot of text, maybe options were unmarked?
-                              if (options.length === 0) {
-                                  const qLines = qText.split('\n');
-                                  // Heuristic: If we have at least 5 lines (1 Q + 4 Opts), assume last 4 are options
-                                  if (qLines.length >= 5) {
-                                      const potentialOptions = qLines.slice(-4);
-                                      // Update Question Text (remove options)
-                                      qText = qLines.slice(0, -4).join('\n');
-                                      options.push(...potentialOptions);
-                                  }
-                            
                               while (nextIndex < lines.length) {
                                   const nextLine = lines[nextIndex];
                                   const isNextTopic = /^<TOPIC:\s*(.*?)>/i.test(nextLine);
-fix-mcq-import-regex-14226477407922991705
-                                  // Explicitly check for question start to avoid parsing errors
+                                  // Check if line is a new question start (e.g. "Q1." or "1.")
                                   const isNextQ = QUESTION_START_REGEX.test(nextLine);
 
                                   // Stop if next line looks like a new item
                                   if (isNextQ || isNextTopic) break;
 
-                                  const isNextQ = QUESTION_START_REGEX.test(nextLine) main
-
-                              // Fill empty options if < 4
-                              while (options.length < 4) options.push("");
-
-                              // C. COLLECT ANSWER
-                              let ansIdx = 0;
-                              if (j < lines.length) {
-                                  const nextLine = lines[j];
-                                  if (answerStartRegex.test(nextLine)) {
-                                      const ansMatch = nextLine.match(/^(Answer|Ans|Correct)\s*[:\s-]*\s*([a-dA-D0-4]+)/i);
-                                      if (ansMatch) {
-                                           const ansRaw = ansMatch[2].trim();
-                                           if (/^\d+$/.test(ansRaw)) {
-                                               ansIdx = Math.max(0, parseInt(ansRaw) - 1);
-                                           } else {
-                                               const map: any = { 'A':0, 'B':1, 'C':2, 'D':3 };
-                                               ansIdx = map[ansRaw.charAt(0).toUpperCase()] || 0;
-                                           }
-                                      }
-                                      j++; // Consume Answer Line
-                                  }
-                              }
- main
-
-                              // D. COLLECT EXPLANATION (Everything until next Q or Topic)
-                              let expLines: string[] = [];
-                              while (j < lines.length) {
-                                  const nextLine = lines[j];
-                                  if (questionStartRegex.test(nextLine) || topicStartRegex.test(nextLine)) break;
                                   expLines.push(nextLine);
-                                  j++;
+                                  nextIndex++;
                               }
 
                               let explanation = expLines.join('\n');
-                              explanation = explanation.replace(/^(Explanation|Exp)\s*[:\s-]*\s*/i, ''); // Clean prefix
+                              // Remove "Explanation:" prefix if it exists in the joined text (or first line)
+                              explanation = explanation.replace(/^(Explanation|Exp)\s*[:\s-]*\s*/i, '');
 
-                              // Parse Inline Topic (if any)
+                              // Parse Inline Topic (if any) overrides global
                               let topic = '';
                               const inlineTopicMatch = explanation.match(/Topic:\s*(.*)/i);
                               if (inlineTopicMatch) {
@@ -2333,16 +2271,16 @@ fix-mcq-import-regex-14226477407922991705
                               }
 
                               newQuestions.push({
-                                  question: qText,
-                                  options: options,
+                                  question: q,
+                                  options: opts,
                                   correctAnswer: ansIdx,
                                   explanation: explanation,
                                   topic: topic || currentGlobalTopic
                               });
 
-                              i = j;
+                              i = nextIndex;
                           } else {
-                              // Skip garbage lines
+                              // If line doesn't look like Q start or Topic, skip it (maybe garbage or header)
                               i++;
                           }
                       }
