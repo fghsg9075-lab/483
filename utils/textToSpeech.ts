@@ -44,16 +44,32 @@ export const getPreferredVoice = async (): Promise<SpeechSynthesisVoice | undefi
     return voices.find(v => v.voiceURI === uri);
 };
 
-export const speakText = async (text: string, voice?: SpeechSynthesisVoice | null, rate: number = 1.0, lang: string = 'en-US') => {
+export const stripHtml = (html: string): string => {
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || "";
+};
+
+export const speakText = async (
+    text: string,
+    voice?: SpeechSynthesisVoice | null,
+    rate: number = 1.0,
+    lang: string = 'en-US',
+    onStart?: () => void,
+    onEnd?: () => void
+): Promise<SpeechSynthesisUtterance | null> => {
     if (!('speechSynthesis' in window)) {
         console.warn('Text-to-speech not supported.');
-        return;
+        return null;
     }
 
     // Cancel any existing speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Strip HTML if present (simple check, but utility ensures clean text)
+    const cleanText = stripHtml(text);
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     
     // Priority: Explicit Voice -> User Preferred Voice -> Auto-Detect -> Default
     let selectedVoice = voice;
@@ -72,7 +88,17 @@ export const speakText = async (text: string, voice?: SpeechSynthesisVoice | nul
     utterance.rate = rate;
     utterance.pitch = 1.0;
 
+    if (onStart) utterance.onstart = onStart;
+    if (onEnd) utterance.onend = onEnd;
+
+    // Error handling
+    utterance.onerror = (e) => {
+        console.error("Speech Error:", e);
+        if(onEnd) onEnd();
+    };
+
     window.speechSynthesis.speak(utterance);
+    return utterance;
 };
 
 export const stopSpeech = () => {

@@ -10,6 +10,7 @@ import rehypeKatex from 'rehype-katex';
 import { decodeHtml } from '../utils/htmlDecoder';
 import { storage } from '../utils/storage';
 import { getChapterData } from '../firebase';
+import { SpeakButton } from './SpeakButton';
 
 interface Props {
   content: LessonContent | null;
@@ -825,16 +826,11 @@ export const LessonView: React.FC<Props> = ({
                        return (
                            <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
                                <div className="flex justify-between items-start mb-4 gap-3">
-                                   <h4 className="font-bold text-slate-800 flex gap-3 leading-relaxed flex-1">
+                                   <div className="font-bold text-slate-800 flex gap-3 leading-relaxed flex-1">
                                        <span className="bg-blue-100 text-blue-700 w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 font-bold mt-0.5">{idx + 1}</span>
-                                       {q.question}
-                                   </h4>
-                                   <button 
-                                      onClick={(e) => { e.stopPropagation(); handleSpeak(q.question); }} 
-                                      className={`p-2 rounded-full transition-colors shrink-0 ${isSpeaking && currentTextRef.current === q.question ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                                   >
-                                      {isSpeaking && currentTextRef.current === q.question ? <StopCircle size={18} /> : <Volume2 size={18} />}
-                                   </button>
+                                       <div dangerouslySetInnerHTML={{ __html: q.question }} className="prose prose-sm max-w-none" />
+                                   </div>
+                                   <SpeakButton text={q.question} className="shrink-0" />
                                </div>
                                <div className="space-y-2">
                                    {q.options.map((opt, oIdx) => {
@@ -866,10 +862,13 @@ export const LessonView: React.FC<Props> = ({
                                                onClick={() => setMcqState(prev => ({ ...prev, [idx]: oIdx }))}
                                                className={btnClass}
                                            >
-                                               <span className="relative z-10 flex justify-between items-center">
-                                                   {opt}
-                                                   {showResults && analysisUnlocked && oIdx === q.correctAnswer && <CheckCircle size={16} className="text-green-600" />}
-                                                   {showResults && analysisUnlocked && userAnswer === oIdx && userAnswer !== q.correctAnswer && <XCircle size={16} className="text-red-500" />}
+                                               <span className="relative z-10 flex justify-between items-center w-full gap-2">
+                                                   <div dangerouslySetInnerHTML={{ __html: opt }} className="flex-1" />
+                                                   <div className="flex items-center gap-2 shrink-0">
+                                                      <SpeakButton text={opt} className="p-1" iconSize={14} />
+                                                      {showResults && analysisUnlocked && oIdx === q.correctAnswer && <CheckCircle size={16} className="text-green-600" />}
+                                                      {showResults && analysisUnlocked && userAnswer === oIdx && userAnswer !== q.correctAnswer && <XCircle size={16} className="text-red-500" />}
+                                                   </div>
                                                </span>
                                            </button>
                                        );
@@ -882,16 +881,12 @@ export const LessonView: React.FC<Props> = ({
                                            <div className="flex items-center gap-2 text-blue-700 font-bold text-xs">
                                                <BookOpen size={14} /> Explanation
                                            </div>
-                                           <button 
-                                              onClick={(e) => { e.stopPropagation(); handleSpeak(q.explanation || ''); }} 
-                                              className={`p-1.5 rounded-full transition-colors ${isSpeaking && currentTextRef.current === q.explanation ? 'bg-red-50 text-red-500' : 'bg-white text-slate-400 hover:text-blue-600'}`}
-                                           >
-                                              {isSpeaking && currentTextRef.current === q.explanation ? <StopCircle size={14} /> : <Volume2 size={14} />}
-                                           </button>
+                                           <SpeakButton text={q.explanation} className="p-1 text-blue-400 hover:bg-blue-100" iconSize={14} />
                                        </div>
-                                       <p className="text-slate-600 text-sm leading-relaxed">
-                                           {q.explanation}
-                                       </p>
+                                       <div
+                                           className="text-slate-600 text-sm leading-relaxed prose prose-sm max-w-none"
+                                           dangerouslySetInnerHTML={{ __html: q.explanation }}
+                                       />
                                    </div>
                                )}
                            </div>

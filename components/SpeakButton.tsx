@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
-import { Volume2, StopCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Volume2, StopCircle, Square } from 'lucide-react';
 import { speakText, stopSpeech } from '../utils/textToSpeech';
 
 interface Props {
     text: string;
     className?: string;
     iconSize?: number;
+    color?: string;
 }
 
-export const SpeakButton: React.FC<Props> = ({ text, className, iconSize = 18 }) => {
+export const SpeakButton: React.FC<Props> = ({ text, className, iconSize = 18, color = 'text-slate-400' }) => {
     const [isSpeaking, setIsSpeaking] = useState(false);
+
+    // Clean up on unmount
+    useEffect(() => {
+        return () => {
+            if (isSpeaking) stopSpeech();
+        };
+    }, [isSpeaking]);
 
     const handleSpeak = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -17,23 +25,25 @@ export const SpeakButton: React.FC<Props> = ({ text, className, iconSize = 18 })
             stopSpeech();
             setIsSpeaking(false);
         } else {
-            speakText(text);
             setIsSpeaking(true);
-            // Auto reset state after estimate (rough heuristic or we need a callback from speakText)
-            // For now, simple toggle UI is fine, user can stop manually.
-            // Ideally speakText should return an object to listen to 'end' event.
-            // But let's keep it simple for now.
-            setTimeout(() => setIsSpeaking(false), 5000); 
+            speakText(
+                text,
+                null,
+                1.0,
+                'en-US',
+                () => setIsSpeaking(true),
+                () => setIsSpeaking(false)
+            ).catch(() => setIsSpeaking(false));
         }
     };
 
     return (
         <button 
             onClick={handleSpeak}
-            className={`p-2 rounded-full hover:bg-slate-100 transition-colors ${className} ${isSpeaking ? 'text-blue-600 animate-pulse' : 'text-slate-400'}`}
+            className={`p-2 rounded-full hover:bg-slate-100 transition-colors ${className} ${isSpeaking ? 'text-blue-600 animate-pulse' : color}`}
             title={isSpeaking ? "Stop Speaking" : "Read Aloud"}
         >
-            {isSpeaking ? <StopCircle size={iconSize} /> : <Volume2 size={iconSize} />}
+            {isSpeaking ? <Square size={iconSize} fill="currentColor" className="opacity-80"/> : <Volume2 size={iconSize} />}
         </button>
     );
 };
