@@ -23,8 +23,7 @@ interface Props {
 
 export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose, onViewAnalysis, onPublish, questions, onUpdateUser, initialView, onLaunchContent }) => {
   const [page, setPage] = useState(1);
-  // Replaced showOMR with activeTab logic
-  const [activeTab, setActiveTab] = useState<'OMR' | 'MISTAKES' | 'AI' | 'RECOMMEND' | 'MARKSHEET_1' | 'MARKSHEET_2'>('MARKSHEET_1');
+  const [activeTab, setActiveTab] = useState<'OFFICIAL_MARKSHEET' | 'SOLUTION' | 'OMR' | 'PREMIUM_ANALYSIS' | 'RECOMMEND'>('OFFICIAL_MARKSHEET');
   
   // ULTRA ANALYSIS STATE
   const [ultraAnalysisResult, setUltraAnalysisResult] = useState('');
@@ -55,11 +54,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       return JSON.stringify({
           motivation: percentage > 80 ? "Excellent Performance! You are on track." : "Keep working hard. You can improve!",
           topics: topics,
-          nextSteps: {
-              focusTopics: weakTopics.slice(0, 3),
-              action: weakTopics.length > 0 ? "Review the recommended notes for these topics immediately." : "Take a mock test to challenge yourself."
-          },
-          weakToStrongPath: weakTopics.map((t, i) => ({ step: i+1, action: `Read ${t} Notes` }))
+          // Removed nextSteps and weakToStrongPath as per previous request
       });
   };
   
@@ -111,7 +106,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
   // Auto-Load Recommendations on Tab Change
   useEffect(() => {
       // Only fetch if data is missing. Do NOT open modal automatically.
-      if ((activeTab === 'RECOMMEND' || activeTab === 'AI') && questions && questions.length > 0 && recommendations.length === 0) {
+      if ((activeTab === 'RECOMMEND' || activeTab === 'PREMIUM_ANALYSIS') && questions && questions.length > 0 && recommendations.length === 0) {
           handleRecommend(false); // Pass false to suppress modal
       }
   }, [activeTab, questions]);
@@ -120,11 +115,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       setRecLoading(true);
       if(openModal) setShowRecModal(true);
 
-      // Identify weak topics (Percent < 60)
-      const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 60);
-
-      // Strictly only weak topics
-      const searchTopics = weakTopics.map(t => t.trim().toLowerCase());
+      // Identify weak topics (Percent < 70)
+      const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 70);
 
       const streamKey = (result.classLevel === '11' || result.classLevel === '12') && user.stream ? `-${user.stream}` : '';
       const key = `nst_content_${user.board || 'CBSE'}_${result.classLevel || '10'}${streamKey}_${result.subjectName}_${result.chapterId}`;
@@ -145,10 +137,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
       // A) Free Recommendations (From Chapter HTML)
       const freeHtml = chapterData?.freeNotesHtml || chapterData?.schoolFreeNotesHtml;
-
+      const extractedTopics: string[] = [];
       if (freeHtml) {
-           // EXTRACT TOPIC NAMES FROM HTML HEADERS
-           const extractedTopics: string[] = [];
            try {
                const doc = new DOMParser().parseFromString(freeHtml, 'text/html');
                const headers = doc.querySelectorAll('h1, h2, h3, h4');
@@ -156,72 +146,65 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                    if(h.textContent && h.textContent.length > 3) extractedTopics.push(h.textContent.trim());
                });
            } catch(e) {}
+      }
 
-           // Filter extracted topics that match weak areas (Partial Match)
-           const relevantExtracted = extractedTopics.filter(et =>
-               searchTopics.some(st => et.toLowerCase().includes(st)) ||
-               searchTopics.some(st => st.includes(et.toLowerCase()))
-           );
+      // Iterate Weak Topics to find matches for EACH
+      weakTopics.forEach(wt => {
+          const wtLower = wt.trim().toLowerCase();
 
-           // If specific matches found, push them. Otherwise, push generic Chapter Notes.
-           if (relevantExtracted.length > 0) {
-               relevantExtracted.forEach(topicName => {
-                   recs.push({
-                       title: topicName,
-                       topic: 'FREE NOTES TOPIC',
+          // 1. Check Free Notes HTML Headers
+          if (extractedTopics.length > 0) {
+              const matchedHeader = extractedTopics.find(et =>
+                  et.toLowerCase().includes(wtLower) || wtLower.includes(et.toLowerCase())
+              );
+              if (matchedHeader) {
+                  recs.push({
+                       title: matchedHeader,
+                       topic: wt, // Map strictly to Weak Topic Name
                        type: 'FREE_NOTES_LINK',
                        isPremium: false,
                        url: 'FREE_CHAPTER_NOTES',
                        access: 'FREE'
-                   });
-               });
-           } else {
-               // Fallback if no specific headers found or matched
-               recs.push({
-                   title: `Review Chapter: ${result.chapterTitle}`,
-                   topic: 'FREE REVISION',
-                   type: 'FREE_NOTES_LINK', // Special type to handle click
-                   isPremium: false,
-                   url: 'FREE_CHAPTER_NOTES', // Flag
-                   access: 'FREE'
-               });
-           }
-      }
+                  });
+              }
+          }
 
-      // B) Recommendations (Universal List)
-      if (universalData && universalData.notesPlaylist) {
-          const universalMatches = universalData.notesPlaylist.filter((n: any) =>
-              searchTopics.some(t =>
-                  n.title.toLowerCase().includes(t) ||
-                  (n.topic && n.topic.toLowerCase().includes(t)) || // Partial Match
-                  t.includes(n.topic?.toLowerCase() || '') // Reverse Partial Match
-              )
-          );
-          recs.push(...universalMatches.map((n: any) => ({
-              ...n,
-              type: 'UNIVERSAL_NOTE',
-              isPremium: n.access === 'PREMIUM' || n.type === 'PDF'
-          })));
-      }
+          // 2. Check Universal Notes
+          if (universalData && universalData.notesPlaylist) {
+              const matches = universalData.notesPlaylist.filter((n: any) =>
+                  n.title.toLowerCase().includes(wtLower) ||
+                  (n.topic && n.topic.toLowerCase().includes(wtLower)) ||
+                  wtLower.includes(n.topic?.toLowerCase() || '')
+              );
+              recs.push(...matches.map((n: any) => ({
+                  ...n,
+                  topic: wt, // Map strictly
+                  type: 'UNIVERSAL_NOTE',
+                  isPremium: n.access === 'PREMIUM' || n.type === 'PDF'
+              })));
+          }
 
-      if (chapterData && chapterData.topicNotes) {
-          // Robust Topic Matching (Case Insensitive, Trimmed, Partial)
-          const topicMatches = chapterData.topicNotes.filter((n: any) =>
-              searchTopics.some(wt =>
-                  (n.topic && n.topic.toLowerCase().trim() === wt) ||
-                  (n.topic && n.topic.toLowerCase().includes(wt)) ||
-                  (n.topic && wt.includes(n.topic.toLowerCase()))
-              )
-          );
-          recs.push(...topicMatches.map((n: any) => ({
-              ...n,
-              type: 'TOPIC_NOTE',
-              access: n.isPremium ? 'PREMIUM' : 'FREE',
-              isPremium: n.isPremium
-          })));
-      }
+          // 3. Check Chapter Topic Notes
+          if (chapterData && chapterData.topicNotes) {
+              const matches = chapterData.topicNotes.filter((n: any) =>
+                  (n.topic && n.topic.toLowerCase().trim() === wtLower) ||
+                  (n.topic && n.topic.toLowerCase().includes(wtLower)) ||
+                  (n.topic && wtLower.includes(n.topic.toLowerCase()))
+              );
+              recs.push(...matches.map((n: any) => ({
+                  ...n,
+                  topic: wt, // Map strictly
+                  type: 'TOPIC_NOTE',
+                  access: n.isPremium ? 'PREMIUM' : 'FREE',
+                  isPremium: n.isPremium
+              })));
+          }
+      });
 
-      setRecommendations(recs);
+      // Deduplicate by title
+      const uniqueRecs = recs.filter((v,i,a)=>a.findIndex(v2=>(v2.title===v.title && v2.topic === v.topic))===i);
+
+      setRecommendations(uniqueRecs);
       setRecLoading(false);
   };
 
@@ -244,9 +227,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
   useEffect(() => {
     if (initialView === 'ANALYSIS' || result.ultraAnalysisReport) {
-        // If initial view was analysis, we might want to default to AI tab or load it
-        // But per request "1st omr sheet", we default to OMR.
-        // We still load data if needed.
         if (result.ultraAnalysisReport) {
              setUltraAnalysisResult(result.ultraAnalysisReport);
         }
@@ -256,17 +236,14 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
   useEffect(() => {
       getCategorizedVoices().then(v => {
           setVoices(v);
-          // Prioritize Hindi or Indian English
           const preferred = v.hindi[0] || v.indianEnglish[0] || v.others[0];
           if (preferred) setSelectedVoice(preferred);
       });
   }, []);
 
   const handleDownload = async () => {
-      // Logic for downloading current view
       let elementId = 'marksheet-content'; 
-      if (activeTab === 'MARKSHEET_1') elementId = 'marksheet-style-1';
-      if (activeTab === 'MARKSHEET_2') elementId = 'marksheet-style-2';
+      if (activeTab === 'OFFICIAL_MARKSHEET') elementId = 'marksheet-style-1';
       
       const element = document.getElementById(elementId);
       if (!element) return;
@@ -283,7 +260,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
   const handleDownloadAll = async () => {
       setIsDownloadingAll(true);
-      // Allow time for render
       setTimeout(async () => {
           const element = document.getElementById('full-analysis-report');
           if (element) {
@@ -312,7 +288,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
   };
 
   const handleUltraAnalysis = async (skipCost: boolean = false) => {
-      // 1. CHECK EXISTING REPORT (No Cost)
       if (result.ultraAnalysisReport) {
           setUltraAnalysisResult(result.ultraAnalysisReport);
           return;
@@ -338,7 +313,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       setIsLoadingUltra(true);
       
       try {
-          // Prepare Data
           const userAnswers: Record<number, number> = {};
           if (result.omrData) {
               result.omrData.forEach(d => {
@@ -346,15 +320,12 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
               });
           }
 
-          // Generate Analysis LOCALLY (No API)
-          await new Promise(resolve => setTimeout(resolve, 1500)); // Fake delay for effect
+          await new Promise(resolve => setTimeout(resolve, 1500));
           const analysisText = generateLocalAnalysis();
           setUltraAnalysisResult(analysisText);
 
-          // 2. DEDUCT CREDITS & SAVE REPORT (Only if not skipping cost or if it was free, but logic implies we save if generated)
           const updatedResult = { ...result, ultraAnalysisReport: analysisText };
           
-          // Update History (Find and replace the result in history)
           const updatedHistory = (user.mcqHistory || []).map(r => r.id === result.id ? updatedResult : r);
           
           const updatedUser = { 
@@ -367,7 +338,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
           await saveUserToLive(updatedUser);
           if (onUpdateUser) onUpdateUser(updatedUser);
 
-          // Log to Universal Analysis
           await saveUniversalAnalysis({
               id: `analysis-${Date.now()}`,
               userId: user.id,
@@ -382,7 +352,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
               cost: skipCost ? 0 : cost
           });
           
-          // Also Log to AI History
           await saveAiInteraction({
               id: `ai-ultra-${Date.now()}`,
               userId: user.id,
@@ -480,10 +449,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
           groupedRecs[topic].push(rec);
       });
 
-      // Filter for Weak/Average Topics based on topicStats
-      const weakAvgTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 80);
-
-      const displayTopics = weakAvgTopics;
+      // Filter for Weak Topics based on topicStats (< 70%)
+      const displayTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 70);
 
       return (
           <div className="bg-slate-50 min-h-full">
@@ -494,7 +461,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                   <p className="text-xs font-bold text-slate-400">Personalized Study Plan for <span className="text-slate-900">{user.name}</span></p>
               </div>
 
-              <div className="px-4 space-y-6 pb-20">
+              <div className="px-4 space-y-8 pb-20">
                   {displayTopics.length === 0 ? (
                       <div className="text-center py-10 opacity-60">
                           <CheckCircle className="mx-auto mb-2 text-green-500" size={32} />
@@ -502,10 +469,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                           <p className="text-xs font-bold text-slate-400">Keep up the great work.</p>
                       </div>
                   ) : displayTopics.map((topicName, idx) => {
-                      // Find matching notes (partial match logic from handleRecommend needs to be consistent here,
-                      // but since we group by 'topic' field in recs, we rely on that.
-                      // However, handleRecommend puts correct 'topic' field in recs.
-                      // Let's filter groupedRecs keys that match this topicName
                       const relevantRecs = groupedRecs[topicName] || [];
 
                       // Also check case-insensitive match if direct match fails
@@ -514,7 +477,22 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                           if (key) relevantRecs.push(...groupedRecs[key]);
                       }
 
-                      if (relevantRecs.length === 0) return null;
+                      // Find WRONG questions for this topic
+                      const topicWrongQs = questions?.filter(q => {
+                           const isTopicMatch = (q.topic && q.topic.toLowerCase().trim() === topicName.toLowerCase().trim()) ||
+                                                (q.topic && topicName.toLowerCase().includes(q.topic.toLowerCase())) ||
+                                                (q.topic && q.topic.toLowerCase().includes(topicName.toLowerCase()));
+
+                           if (!isTopicMatch) return false;
+
+                           // Check if it was answered wrong
+                           const omr = result.omrData?.find((d: any) => questions && d.qIndex === questions.indexOf(q));
+                           // Strict: Attempted AND Wrong
+                           return omr && omr.selected !== -1 && omr.selected !== q.correctAnswer;
+                      }) || [];
+
+                      // If no notes AND no wrong questions, skip
+                      if (relevantRecs.length === 0 && topicWrongQs.length === 0) return null;
 
                       const stats = topicStats[topicName];
 
@@ -533,55 +511,105 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                   <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-[10px] font-bold">FOCUS</span>
                               </div>
 
-                              <div className="p-2 space-y-2">
-                                  {relevantRecs.map((rec, rIdx) => (
-                                      <div key={rIdx} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors">
-                                          <div className="flex items-center gap-3">
-                                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${rec.isPremium ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
-                                                  {rec.isPremium ? <FileText size={14} /> : <Lightbulb size={14} />}
-                                              </div>
-                                              <div>
-                                                  <p className="font-bold text-slate-700 text-xs line-clamp-1">{rec.title}</p>
-                                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${rec.isPremium ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
-                                                      {rec.isPremium ? 'PREMIUM PDF' : 'FREE NOTE'}
-                                                  </span>
-                                              </div>
-                                          </div>
+                              <div className="p-4 space-y-4">
+                                  {/* 1. WRONG QUESTIONS FIRST */}
+                                  {topicWrongQs.length > 0 && (
+                                      <div className="space-y-3 mb-4">
+                                          <p className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1">
+                                              <XCircle size={12} /> Mistakes in this Topic
+                                          </p>
+                                          {topicWrongQs.map((q, qIdx) => {
+                                               const omr = result.omrData?.find((d: any) => questions && d.qIndex === questions.indexOf(q));
+                                               return (
+                                                  <div key={`wq-${qIdx}`} className="bg-red-50 rounded-xl p-3 border border-red-100">
+                                                      <div className="flex gap-2 mb-2">
+                                                          <span className="text-[10px] font-bold bg-red-200 text-red-700 px-1.5 py-0.5 rounded h-fit">Q</span>
+                                                          <p className="text-xs font-bold text-slate-800">{q.question}</p>
+                                                      </div>
+                                                      {/* Options - Show Correct Answer */}
+                                                      <div className="space-y-1 pl-6">
+                                                          {q.options.map((opt: string, oIdx: number) => {
+                                                              const isCorrect = oIdx === q.correctAnswer;
+                                                              const isSelected = omr?.selected === oIdx;
+                                                              if (!isCorrect && !isSelected) return null; // Only show relevant options
 
-                                          <button
-                                              onClick={() => {
-                                                  if (rec.isPremium) {
-                                                      // Premium Flow
-                                                      if (onLaunchContent) {
-                                                          onLaunchContent({
-                                                              id: `REC_PREM_${idx}_${rIdx}`,
-                                                              title: rec.title,
-                                                              type: 'PDF',
-                                                              directResource: { url: rec.url, access: rec.access }
-                                                          });
-                                                      } else {
-                                                          window.open(rec.url, '_blank');
-                                                      }
-                                                  } else {
-                                                      // Free Flow
-                                                       if (rec.content) {
-                                                          setViewingNote(rec);
-                                                      } else if (onLaunchContent) {
-                                                          onLaunchContent({
-                                                              id: `REC_FREE_${idx}_${rIdx}`,
-                                                              title: rec.title,
-                                                              type: 'PDF',
-                                                              directResource: { url: rec.url, access: rec.access }
-                                                          });
-                                                      }
-                                                  }
-                                              }}
-                                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold text-white shadow-sm ${rec.isPremium ? 'bg-slate-900 hover:bg-slate-800' : 'bg-blue-600 hover:bg-blue-700'}`}
-                                          >
-                                              {rec.isPremium ? 'View PDF' : 'Read'}
-                                          </button>
+                                                              return (
+                                                                  <div key={oIdx} className={`text-[10px] px-2 py-1 rounded border flex items-center justify-between ${isCorrect ? 'bg-green-100 border-green-200 text-green-800 font-bold' : 'bg-red-100 border-red-200 text-red-800'}`}>
+                                                                      <span>{opt}</span>
+                                                                      {isCorrect && <CheckCircle size={10}/>}
+                                                                      {isSelected && !isCorrect && <XCircle size={10}/>}
+                                                                  </div>
+                                                              );
+                                                          })}
+                                                      </div>
+                                                      {/* Explanation */}
+                                                      {q.explanation && (
+                                                          <div className="mt-2 pt-2 border-t border-red-100">
+                                                              <p className="text-[10px] text-slate-600 italic">
+                                                                  <span className="font-bold text-slate-800">Exp:</span> {q.explanation}
+                                                              </p>
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                               );
+                                          })}
                                       </div>
-                                  ))}
+                                  )}
+
+                                  {/* 2. RECOMMENDED NOTES */}
+                                  {relevantRecs.length > 0 && (
+                                      <div className="space-y-2">
+                                          <p className="text-[10px] font-black text-blue-500 uppercase flex items-center gap-1">
+                                              <BookOpen size={12} /> Suggested Material
+                                          </p>
+                                          {relevantRecs.map((rec, rIdx) => (
+                                              <div key={rIdx} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+                                                  <div className="flex items-center gap-3">
+                                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${rec.isPremium ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                          {rec.isPremium ? <FileText size={14} /> : <Lightbulb size={14} />}
+                                                      </div>
+                                                      <div>
+                                                          <p className="font-bold text-slate-700 text-xs line-clamp-1">{rec.title}</p>
+                                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${rec.isPremium ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                              {rec.isPremium ? 'PREMIUM PDF' : 'FREE NOTE'}
+                                                          </span>
+                                                      </div>
+                                                  </div>
+
+                                                  <button
+                                                      onClick={() => {
+                                                          if (rec.isPremium) {
+                                                              if (onLaunchContent) {
+                                                                  onLaunchContent({
+                                                                      id: `REC_PREM_${idx}_${rIdx}`,
+                                                                      title: rec.title,
+                                                                      type: 'PDF',
+                                                                      directResource: { url: rec.url, access: rec.access }
+                                                                  });
+                                                              } else {
+                                                                  window.open(rec.url, '_blank');
+                                                              }
+                                                          } else {
+                                                              if (rec.content) {
+                                                                  setViewingNote(rec);
+                                                              } else if (onLaunchContent) {
+                                                                  onLaunchContent({
+                                                                      id: `REC_FREE_${idx}_${rIdx}`,
+                                                                      title: rec.title,
+                                                                      type: 'PDF',
+                                                                      directResource: { url: rec.url, access: rec.access }
+                                                                  });
+                                                              }
+                                                          }
+                                                      }}
+                                                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold text-white shadow-sm ${rec.isPremium ? 'bg-slate-900 hover:bg-slate-800' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                                  >
+                                                      {rec.isPremium ? 'View PDF' : 'Read'}
+                                                  </button>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  )}
                               </div>
                           </div>
                       );
@@ -614,56 +642,57 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
         </div>
   );
 
-  const renderMistakesSection = () => (
+  const renderSolutionSection = () => (
         <>
         <div className="flex items-center gap-2 mb-3 px-2">
-            <XCircle className="text-red-500" size={20} />
-            <h3 className="font-black text-slate-800 text-lg">Mistakes Review</h3>
+            <FileSearch className="text-blue-600" size={20} />
+            <h3 className="font-black text-slate-800 text-lg">Detailed Analysis</h3>
         </div>
-        {result.wrongQuestions && result.wrongQuestions.length > 0 ? (
+        {questions && questions.length > 0 ? (
             <div className="space-y-6">
-                {result.wrongQuestions.map((q, idx) => {
-                    // Try to get full question data for options
-                    const fullQuestion = questions ? questions[q.qIndex] : null;
-                    const omrEntry = result.omrData?.find(d => d.qIndex === q.qIndex);
+                {questions.map((q, idx) => {
+                    const omrEntry = result.omrData?.find(d => d.qIndex === idx);
                     const userSelected = omrEntry ? omrEntry.selected : -1;
-                    const correctAnswerIndex = fullQuestion ? fullQuestion.correctAnswer : -1;
+                    const correctAnswerIndex = q.correctAnswer;
+
+                    const isCorrect = userSelected === correctAnswerIndex;
+                    const isSkipped = userSelected === -1;
 
                     return (
-                        <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div key={idx} className={`bg-white rounded-2xl border ${isCorrect ? 'border-green-200' : isSkipped ? 'border-slate-200' : 'border-red-200'} shadow-sm overflow-hidden`}>
                             {/* Question Header */}
-                            <div className="p-4 bg-red-50 border-b border-red-100 flex gap-3">
-                                <span className="w-6 h-6 flex-shrink-0 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
-                                    {q.qIndex + 1}
+                            <div className={`p-4 ${isCorrect ? 'bg-green-50' : isSkipped ? 'bg-slate-50' : 'bg-red-50'} border-b ${isCorrect ? 'border-green-100' : isSkipped ? 'border-slate-100' : 'border-red-100'} flex gap-3`}>
+                                <span className={`w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 ${isCorrect ? 'bg-green-100 text-green-700' : isSkipped ? 'bg-slate-200 text-slate-600' : 'bg-red-100 text-red-600'}`}>
+                                    {idx + 1}
                                 </span>
                                 <div className="flex-1">
                                     <p className="text-sm font-bold text-slate-800 leading-snug">
-                                        {fullQuestion ? fullQuestion.question : q.question}
+                                        {q.question}
                                     </p>
                                 </div>
                             </div>
 
                             {/* Options List */}
-                            {fullQuestion && fullQuestion.options && (
+                            {q.options && (
                                 <div className="p-4 space-y-2">
-                                    {fullQuestion.options.map((opt: string, optIdx: number) => {
-                                        const isSelected = userSelected === optIdx;
-                                        const isCorrect = correctAnswerIndex === optIdx;
+                                    {q.options.map((opt: string, optIdx: number) => {
+                                        const isSelectedByUser = userSelected === optIdx;
+                                        const isTheCorrectAnswer = correctAnswerIndex === optIdx;
 
                                         let optionClass = "border-slate-100 bg-white text-slate-600";
                                         let icon = null;
 
-                                        if (isCorrect) {
-                                            optionClass = "border-green-200 bg-green-50 text-green-700 font-bold";
+                                        if (isTheCorrectAnswer) {
+                                            optionClass = "border-green-300 bg-green-50 text-green-800 font-bold";
                                             icon = <CheckCircle size={16} className="text-green-600" />;
-                                        } else if (isSelected) {
-                                            optionClass = "border-red-200 bg-red-50 text-red-700 font-bold";
+                                        } else if (isSelectedByUser) {
+                                            optionClass = "border-red-300 bg-red-50 text-red-800 font-bold";
                                             icon = <XCircle size={16} className="text-red-500" />;
                                         }
 
                                         return (
                                             <div key={optIdx} className={`p-3 rounded-xl border flex items-center gap-3 text-xs transition-colors ${optionClass}`}>
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] border ${isCorrect ? 'border-green-300 bg-green-100 text-green-700' : isSelected ? 'border-red-300 bg-red-100 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] border ${isTheCorrectAnswer ? 'border-green-400 bg-green-100 text-green-700' : isSelectedByUser ? 'border-red-400 bg-red-100 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
                                                     {String.fromCharCode(65 + optIdx)}
                                                 </div>
                                                 <div className="flex-1">{opt}</div>
@@ -674,15 +703,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                 </div>
                             )}
 
-                            {/* Fallback if no options data */}
-                            {!fullQuestion && (
-                                <div className="p-4 bg-slate-50 text-xs text-slate-500">
-                                    <p>Correct Answer: <span className="font-bold text-green-600">{q.correctAnswer}</span></p>
-                                </div>
-                            )}
-
                             {/* Explanation Box */}
-                            {q.explanation && (
+                            {(q.explanation) && (
                                 <div className="p-4 bg-blue-50 border-t border-blue-100">
                                     <p className="text-[10px] font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
                                         <Lightbulb size={12} /> Explanation
@@ -698,8 +720,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
             </div>
         ) : (
             <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-slate-200">
-                <CheckCircle className="mx-auto text-green-500 mb-2" size={32} />
-                <p className="text-slate-500 font-bold">No mistakes found! Perfect Score! 🎉</p>
+                <p className="text-slate-500 font-bold">No questions found.</p>
             </div>
         )}
         </>
@@ -811,147 +832,11 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                             <span className="text-sm font-bold text-slate-400">/{result.totalQuestions}</span>
                         </div>
                     </div>
-
-                    {/* REMOVED STATS BOXES AS PER USER REQUEST */}
                 </div>
             </div>
 
-            {/* TOPIC BREAKDOWN (From Topics) */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-6">
-                    <BarChart3 size={18} /> Topic Breakdown
-                </h3>
-                <div className="space-y-4">
-                    {Object.entries(topicStats).map(([topic, stat]) => (
-                        <div key={topic} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="font-bold text-slate-700 text-sm uppercase">{topic}</span>
-                                <span className={`text-xs font-black ${stat.percent < 60 ? 'text-red-500' : 'text-green-600'}`}>
-                                    {stat.percent}%
-                                </span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 text-center mb-3">
-                                <div className="bg-white p-1 rounded border border-slate-200">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase">Total</p>
-                                    <p className="text-xs font-black text-slate-800">{stat.total}</p>
-                                </div>
-                                <div className="bg-green-50 p-1 rounded border border-green-200">
-                                    <p className="text-[9px] font-bold text-green-600 uppercase">Right</p>
-                                    <p className="text-xs font-black text-green-700">{stat.correct}</p>
-                                </div>
-                                <div className="bg-red-50 p-1 rounded border border-red-200">
-                                    <p className="text-[9px] font-bold text-red-600 uppercase">Wrong</p>
-                                    <p className="text-xs font-black text-red-700">{stat.total - stat.correct}</p>
-                                </div>
-                            </div>
 
-                            {/* REMOVED INLINE NOTE BUTTONS AS PER USER REQUEST */}
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* NEW: AI ROADMAP SECTION */}
-            {data.nextSteps && (
-                <div className="bg-gradient-to-r from-violet-50 to-indigo-50 p-5 rounded-2xl border border-indigo-100 shadow-sm">
-                    <h3 className="text-sm font-black text-indigo-800 uppercase tracking-wide mb-3 flex items-center gap-2">
-                        <Target size={16} /> Next 2 Days Plan
-                    </h3>
-                    <div className="bg-white p-4 rounded-xl border border-indigo-100">
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Focus Topics</p>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                            {data.nextSteps.focusTopics?.map((t: string, i: number) => (
-                                <span key={i} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold border border-indigo-200">
-                                    {t}
-                                </span>
-                            ))}
-                        </div>
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Action</p>
-                        <p className="text-sm text-slate-700 font-medium">{data.nextSteps.action}</p>
-                    </div>
-                </div>
-            )}
-
-            {/* NEW: WEAK TO STRONG PATH */}
-            {data.weakToStrongPath && data.weakToStrongPath.length > 0 && (
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide mb-4 flex items-center gap-2">
-                        <TrendingUp size={16} className="text-green-600" /> Weak to Strong Path
-                    </h3>
-                    <div className="space-y-4">
-                        {data.weakToStrongPath.map((step: any, i: number) => (
-                            <div key={i} className="flex gap-4">
-                                <div className="flex flex-col items-center">
-                                    <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs shadow-md z-10">
-                                        {step.step || i + 1}
-                                    </div>
-                                    {i < data.weakToStrongPath.length - 1 && <div className="w-0.5 h-full bg-slate-200 -my-2"></div>}
-                                </div>
-                                <div className="pb-4">
-                                    <p className="text-sm font-bold text-slate-800">{step.action}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* PERFORMANCE CHART (CSS) */}
-            {totalTopics > 0 && (
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
-                        <BarChart3 size={14} /> Topic Performance
-                    </h4>
-                    <div className="flex h-4 w-full rounded-full overflow-hidden">
-                        <div style={{ width: `${(topicStats.strong / totalTopics) * 100}%` }} className="bg-green-500 h-full" title="Strong Topics" />
-                        <div style={{ width: `${(topicStats.avg / totalTopics) * 100}%` }} className="bg-blue-400 h-full" title="Average Topics" />
-                        <div style={{ width: `${(topicStats.weak / totalTopics) * 100}%` }} className="bg-red-500 h-full" title="Weak Topics" />
-                    </div>
-                    <div className="flex justify-between mt-2 text-[10px] font-bold text-slate-500">
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 bg-green-500 rounded-full"/> Strong ({topicStats.strong})</div>
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 bg-blue-400 rounded-full"/> Average ({topicStats.avg})</div>
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 bg-red-500 rounded-full"/> Weak ({topicStats.weak})</div>
-                    </div>
-                </div>
-            )}
-
-            {/* NEW: VISUAL MIND MAP */}
-            {data.topics && (
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide mb-6 flex items-center gap-2">
-                        <BrainCircuit size={16} className="text-purple-600" /> Topic Mind Map
-                    </h3>
-                    
-                    <div className="min-w-[300px] flex flex-col items-center">
-                        {/* Central Node */}
-                        <div className="bg-slate-900 text-white px-6 py-3 rounded-full font-black text-sm shadow-lg mb-8 relative z-10 border-4 border-slate-100 text-center">
-                            {data.chapter || result.chapterTitle || 'Chapter'}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-8 bg-slate-300"></div>
-                        </div>
-
-                        {/* Branches */}
-                        <div className="flex justify-center gap-4 flex-wrap relative">
-                            {data.topics.map((topic: any, i: number) => {
-                                let colorClass = "bg-blue-100 text-blue-800 border-blue-200";
-                                if (topic.status === 'WEAK') colorClass = "bg-red-100 text-red-800 border-red-200";
-                                if (topic.status === 'STRONG') colorClass = "bg-green-100 text-green-800 border-green-200";
-
-                                return (
-                                    <div key={i} className="flex flex-col items-center relative group">
-                                        {/* Connector to parent */}
-                                        <div className="w-0.5 h-8 bg-slate-300 -mt-8 mb-2"></div>
-                                        
-                                        <div className={`px-4 py-2 rounded-xl border-2 text-xs font-bold shadow-sm ${colorClass} max-w-[120px] text-center`}>
-                                            {topic.name}
-                                            <span className="block text-[8px] opacity-70 mt-1 uppercase">{topic.status}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* TOPIC BREAKDOWN & CHARTS REMOVED AS PER REQUEST */}
 
             {data.motivation && (
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-xl text-white shadow-lg text-center italic font-medium">
@@ -988,23 +873,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         </div>
 
                         <div className="p-4 space-y-4">
-                            {/* Action Plan */}
-                            <div className="bg-white p-3 rounded-xl border border-dashed border-slate-300">
-                                <h4 className="text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
-                                    <Target size={12} /> How to Work
-                                </h4>
-                                <p className="text-sm text-slate-700 font-medium leading-relaxed">{topic.actionPlan}</p>
-                            </div>
-
-                            {/* Study Mode */}
-                            <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                                    <BookOpen size={12} /> Recommendation:
-                                </h4>
-                                <span className={`text-xs font-black px-3 py-1 rounded-full ${topic.studyMode === 'DEEP_STUDY' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>
-                                    {topic.studyMode === 'DEEP_STUDY' ? 'DEEP STUDY REQUIRED' : 'QUICK REVISION'}
-                                </span>
-                            </div>
+                            {/* Action Plan & Study Mode Removed as per "Next 2 Days Plan" request */}
 
                             {/* TOPIC QUESTIONS LIST */}
                             {questions && questions.length > 0 && (() => {
@@ -1137,105 +1006,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       </div>
   );
 
-  // MARKSHET STYLE 2: Side Logo
-  const renderMarksheetStyle2 = () => (
-      <div id="marksheet-style-2" className="bg-white p-8 max-w-2xl mx-auto border border-slate-300 relative">
-          
-          {/* Header */}
-          <div className="flex items-center gap-6 mb-8 border-b-2 border-slate-900 pb-6">
-              {settings?.appLogo ? (
-                  <img src={settings.appLogo} alt="Logo" className="w-20 h-20 object-contain" />
-              ) : (
-                  <div className="w-20 h-20 bg-slate-900 flex items-center justify-center text-white font-black text-2xl">A</div>
-              )}
-              <div>
-                  <h1 className="text-4xl font-black text-slate-900 uppercase leading-none mb-1">{settings?.appName || 'INSTITUTE NAME'}</h1>
-                  <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{settings?.aiName || 'AI Assessment Center'}</p>
-              </div>
-          </div>
-
-          {/* User Info */}
-          <div className="mb-8">
-              <table className="w-full text-left">
-                  <tbody>
-                      <tr className="border-b border-slate-100">
-                          <td className="py-2 text-sm font-bold text-slate-500 uppercase w-32">Candidate</td>
-                          <td className="py-2 text-lg font-black text-slate-900 uppercase">{user.name}</td>
-                      </tr>
-                      <tr className="border-b border-slate-100">
-                          <td className="py-2 text-sm font-bold text-slate-500 uppercase">ID No.</td>
-                          <td className="py-2 text-lg font-mono font-bold text-slate-700">{user.displayId || user.id}</td>
-                      </tr>
-                      <tr className="border-b border-slate-100">
-                          <td className="py-2 text-sm font-bold text-slate-500 uppercase">Test Date</td>
-                          <td className="py-2 text-lg font-bold text-slate-700">{new Date(result.date).toLocaleDateString()}</td>
-                      </tr>
-                      <tr>
-                          <td className="py-2 text-sm font-bold text-slate-500 uppercase">Subject</td>
-                          <td className="py-2 text-lg font-bold text-slate-700">{result.subjectName}</td>
-                      </tr>
-                  </tbody>
-              </table>
-          </div>
-
-          {/* Score Big */}
-          <div className="flex items-center gap-4 mb-8">
-              <div className="flex-1 bg-slate-100 p-6 rounded-lg text-center">
-                  <p className="text-xs font-bold text-slate-500 uppercase">Total Marks</p>
-                  <p className="text-3xl font-black text-slate-900">{result.score}</p>
-              </div>
-              <div className="flex-1 bg-slate-900 text-white p-6 rounded-lg text-center">
-                  <p className="text-xs font-bold opacity-60 uppercase">Percentage</p>
-                  <p className="text-3xl font-black text-yellow-400">{percentage}%</p>
-              </div>
-          </div>
-
-          {/* Detailed Grid */}
-          <div className="grid grid-cols-4 gap-2 mb-12 text-center text-xs">
-              <div className="bg-slate-50 p-2 border">
-                  <span className="block font-bold text-slate-400 uppercase">Total Qs</span>
-                  <span className="font-black text-lg">{result.totalQuestions}</span>
-              </div>
-              <div className="bg-slate-50 p-2 border">
-                  <span className="block font-bold text-slate-400 uppercase">Attempted</span>
-                  <span className="font-black text-lg">{result.correctCount + result.wrongCount}</span>
-              </div>
-              <div className="bg-green-50 p-2 border border-green-200">
-                  <span className="block font-bold text-green-600 uppercase">Correct</span>
-                  <span className="font-black text-lg text-green-700">{result.correctCount}</span>
-              </div>
-              <div className="bg-red-50 p-2 border border-red-200">
-                  <span className="block font-bold text-red-600 uppercase">Wrong</span>
-                  <span className="font-black text-lg text-red-700">{result.wrongCount}</span>
-              </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-between items-end border-t-2 border-slate-900 pt-4">
-               <div>
-                   {settings?.appLogo && <img src={settings.appLogo} className="w-8 h-8 opacity-50 grayscale" />}
-                   <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Generated By {settings?.aiName || 'AI'}</p>
-               </div>
-               <div className="text-right">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase">Developed By</p>
-                   <p className="text-xs font-black uppercase text-slate-900">{devName}</p>
-               </div>
-          </div>
-      </div>
-  );
-
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
-
-        {/* SIDE BUTTON FOR RECOMMENDATIONS */}
-        <button
-            onClick={() => setActiveTab('RECOMMEND')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-[250] bg-yellow-400 text-slate-900 font-black text-xs py-4 px-1 rounded-l-xl shadow-lg border-y border-l border-yellow-500 hover:bg-yellow-300 transition-transform hover:-translate-x-1 flex flex-col items-center gap-2"
-            title="Recommended Notes"
-        >
-            <Lightbulb size={16} />
-            <span className="vertical-text" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>NOTES</span>
-        </button>
 
         {/* FREE HTML NOTE MODAL */}
         {viewingNote && (
@@ -1275,7 +1047,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <button
                             onClick={() => {
                                 setShowAnalysisSelection(false);
-                                setActiveTab('MISTAKES');
+                                setActiveTab('SOLUTION');
                             }}
                         className="w-full bg-white hover:bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between transition-all group"
                         >
@@ -1310,7 +1082,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                             onClick={() => {
                                 setShowAnalysisSelection(false);
                                 handleUltraAnalysis();
-                                setActiveTab('AI');
+                                setActiveTab('PREMIUM_ANALYSIS');
                             }}
                             className="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-2xl flex items-center justify-between transition-all shadow-xl shadow-slate-200 group relative overflow-hidden"
                         >
@@ -1353,18 +1125,35 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         <p className="text-[10px] font-bold text-slate-400">Official Marksheet</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
-                    <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Separate Recommend Notes Button */}
+                    <button
+                        onClick={() => setActiveTab('RECOMMEND')}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-black hover:bg-yellow-200 transition-colors border border-yellow-200 shadow-sm"
+                    >
+                        <Lightbulb size={14} />
+                        <span>Notes</span>
+                    </button>
+
+                    <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
             </div>
 
             {/* TAB HEADER */}
             <div className="px-4 pt-2 pb-0 bg-white border-b border-slate-100 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide items-center">
                 <button
-                    onClick={() => setActiveTab('AI')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'AI' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                    onClick={() => setActiveTab('OFFICIAL_MARKSHEET')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'OFFICIAL_MARKSHEET' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> Analysis
+                    <FileText size={14} className="inline mr-1 mb-0.5" /> Official Marksheet
+                </button>
+                <button
+                    onClick={() => setActiveTab('SOLUTION')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'SOLUTION' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <FileSearch size={14} className="inline mr-1 mb-0.5" /> Analysis
                 </button>
                 <button 
                     onClick={() => setActiveTab('OMR')}
@@ -1372,52 +1161,47 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 >
                     <Grid size={14} className="inline mr-1 mb-0.5" /> OMR
                 </button>
-                <button 
-                    onClick={() => setActiveTab('MISTAKES')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'MISTAKES' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                <button
+                    onClick={() => setActiveTab('PREMIUM_ANALYSIS')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'PREMIUM_ANALYSIS' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <XCircle size={14} className="inline mr-1 mb-0.5" /> Mistakes
+                    <BrainCircuit size={14} className="inline mr-1 mb-0.5" /> Premium Analysis
                 </button>
                 <button
-                    onClick={() => setActiveTab('MARKSHEET_1')}
-                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'MARKSHEET_1' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                    onClick={() => setActiveTab('RECOMMEND')}
+                    className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${activeTab === 'RECOMMEND' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
                 >
-                    <FileText size={14} className="inline mr-1 mb-0.5" /> Official Marksheet
+                    <Lightbulb size={14} className="inline mr-1 mb-0.5" /> Recommend Notes
                 </button>
             </div>
 
             {/* SCROLLABLE CONTENT */}
             <div id="marksheet-content" className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50">
                 
-                {/* 1. OMR SECTION */}
+                {/* 1. MARKSHEET SECTION */}
+                {activeTab === 'OFFICIAL_MARKSHEET' && renderMarksheetStyle1()}
+
+                {/* 2. SOLUTION SECTION (New Analysis) */}
+                {activeTab === 'SOLUTION' && (
+                    <div className="animate-in slide-in-from-bottom-4">
+                        {renderSolutionSection()}
+                    </div>
+                )}
+
+                {/* 3. OMR SECTION */}
                 {activeTab === 'OMR' && (
                     <div className="animate-in slide-in-from-bottom-4">
                          {renderOMRSection()}
                     </div>
                 )}
 
-                {/* 2. MISTAKES SECTION (Free Analysis) */}
-                {activeTab === 'MISTAKES' && (
-                    <div className="animate-in slide-in-from-bottom-4">
-                        {renderMistakesSection()}
-                    </div>
-                )}
-
-                {/* 3. RECOMMENDED NOTES PAGE (Premium Style) */}
-                {activeTab === 'RECOMMEND' && (
-                    <div className="animate-in slide-in-from-bottom-4 h-full">
-                        {renderRecommendationsSection()}
-                    </div>
-                )}
-
-
-                {/* 4. AI ANALYSIS SECTION */}
-                {activeTab === 'AI' && (
+                {/* 4. PREMIUM ANALYSIS SECTION (Old AI) */}
+                {activeTab === 'PREMIUM_ANALYSIS' && (
                     <div className="animate-in slide-in-from-bottom-4">
                         <div className="flex justify-between items-center mb-3 px-2">
                             <div className="flex items-center gap-2">
                                 <BrainCircuit className="text-violet-600" size={20} />
-                                <h3 className="font-black text-slate-800 text-lg">Analysis & Recommendations</h3>
+                                <h3 className="font-black text-slate-800 text-lg">AI Insight & Roadmap</h3>
                             </div>
                             {ultraAnalysisResult && (
                                 <div className="flex items-center gap-2">
@@ -1461,14 +1245,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                     >
                                         {isSpeaking ? <StopCircle size={18} /> : <Play size={18} />}
                                     </button>
-                                    {/* DOWNLOAD AUDIO PLACEHOLDER */}
-                                    <button 
-                                        onClick={() => alert("Audio Download is currently disabled on Web. Use App for offline listening.")}
-                                        className="p-2 rounded-full bg-white text-slate-600 shadow-sm border hover:bg-slate-50 transition-colors opacity-50"
-                                        title="Download Audio (App Only)"
-                                    >
-                                        <Download size={18} />
-                                    </button>
                                 </div>
                             )}
                         </div>
@@ -1476,9 +1252,9 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         {!ultraAnalysisResult ? (
                             <div className="bg-gradient-to-br from-violet-600 to-indigo-700 rounded-3xl p-6 text-center text-white shadow-lg">
                                 <BrainCircuit size={48} className="mx-auto mb-4 opacity-80" />
-                                <h4 className="text-xl font-black mb-2">Unlock Topic Breakdown</h4>
+                                <h4 className="text-xl font-black mb-2">Unlock Premium AI Analysis</h4>
                                 <p className="text-indigo-100 text-sm mb-6 max-w-xs mx-auto">
-                                    Get AI-powered insights on your weak areas, study plan, and topic-wise performance graph.
+                                    Get deep insights on your weak areas, personalized study plan, and topic-wise performance graph.
                                 </p>
                                 <button 
                                     onClick={() => handleUltraAnalysis()} 
@@ -1495,9 +1271,12 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                     </div>
                 )}
 
-                {/* MARKSHEET STYLES */}
-                {activeTab === 'MARKSHEET_1' && renderMarksheetStyle1()}
-                {activeTab === 'MARKSHEET_2' && renderMarksheetStyle2()}
+                {/* 5. RECOMMENDED NOTES PAGE (Premium Style) */}
+                {activeTab === 'RECOMMEND' && (
+                    <div className="animate-in slide-in-from-bottom-4 h-full">
+                        {renderRecommendationsSection()}
+                    </div>
+                )}
 
             </div>
 
@@ -1515,10 +1294,10 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 
                 <div className="flex gap-2 flex-1">
                      <button onClick={() => handleDownload()} className="bg-slate-100 text-slate-600 px-4 py-3 rounded-xl font-bold text-xs hover:bg-slate-200 flex-1 flex justify-center items-center gap-2">
-                        <Download size={16} /> {['MARKSHEET_1','MARKSHEET_2'].includes(activeTab) ? 'Download Marksheet' : 'Download Page'}
+                        <Download size={16} /> {activeTab === 'OFFICIAL_MARKSHEET' ? 'Download Marksheet' : 'Download Page'}
                     </button>
                     {/* DOWNLOAD ALL BUTTON */}
-                    {!['MARKSHEET_1','MARKSHEET_2'].includes(activeTab) && (
+                    {activeTab !== 'OFFICIAL_MARKSHEET' && (
                          <button onClick={handleDownloadAll} className="bg-slate-900 text-white px-4 py-3 rounded-xl font-bold text-xs hover:bg-slate-800 flex-1 flex justify-center items-center gap-2">
                              <Download size={16} /> Download Full Analysis
                          </button>
@@ -1532,7 +1311,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
              </div>
         </div>
 
-        {/* RECOMMENDATION MODAL */}
+        {/* RECOMMENDATION MODAL (Fallback/Hidden usually) */}
         {showRecModal && (
             <div className="fixed inset-0 z-[250] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
                 <div className="bg-white rounded-3xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl">
@@ -1647,7 +1426,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 {result.wrongQuestions && result.wrongQuestions.length > 0 && (
                     <div>
                         <h2 className="text-2xl font-black text-slate-800 mb-4 border-l-8 border-red-600 pl-3 uppercase">2. Mistakes Review</h2>
-                        {renderMistakesSection()}
+                        {renderSolutionSection()}
                     </div>
                 )}
 

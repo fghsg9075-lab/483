@@ -221,7 +221,8 @@ export const McqView: React.FC<Props> = ({
             if (selected !== -1 && selected !== q.correctAnswer) {
                 return {
                     question: q.question,
-                    qIndex: idx
+                    qIndex: idx,
+                    explanation: q.explanation
                 };
             }
             return null;
