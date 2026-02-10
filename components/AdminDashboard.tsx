@@ -26,6 +26,8 @@ import QRCode from "react-qr-code";
 // Configure PDF Worker (CDN for stability)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
+const QUESTION_START_REGEX = /^(Q\s*\d+[\.:]?|\d+[\.:)]|Question\s*\d+[\.:]?)\s/i;
+
 interface Props {
   onNavigate: (view: ViewState) => void;
   settings?: SystemSettings;
@@ -2069,7 +2071,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                       
                       while (nextIndex < lines.length) {
                           const line = lines[nextIndex];
-                          const isNewQuestion = /^(Q\d+|Question|\d+[\.)])\s/.test(line);
+                          const isNewQuestion = QUESTION_START_REGEX.test(line);
                           if (isNewQuestion) break; 
                           expLines.push(line);
                           nextIndex++;
@@ -2214,7 +2216,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           // OR simply starts with typical question words if numbered list fails,
                           // but strict numbering is safer for bulk.
                           // Let's assume standard format: Q1. or 1.
-                          const isQuestionStart = /^(Q\d+|Question\s*\d+|\d+[\.)])\s/.test(line);
+                          const isQuestionStart = QUESTION_START_REGEX.test(line);
 
                           if (isQuestionStart) {
                               // We found a question start. Now try to extract the block.
@@ -2246,7 +2248,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               while (nextIndex < lines.length) {
                                   const nextLine = lines[nextIndex];
                                   const isNextTopic = /^<TOPIC:\s*(.*?)>/i.test(nextLine);
-                                  const isNextQ = /^(Q\d+|Question\s*\d+|\d+[\.)])\s/.test(nextLine);
+                                  const isNextQ = QUESTION_START_REGEX.test(nextLine);
 
                                   // Stop if next line looks like a new item
                                   if (isNextQ || isNextTopic) break;
