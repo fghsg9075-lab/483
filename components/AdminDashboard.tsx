@@ -26,7 +26,7 @@ import QRCode from "react-qr-code";
 // Configure PDF Worker (CDN for stability)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-const QUESTION_START_REGEX = /^(Q\s*\d+[\.:]?|\d+[\.:)]|Question\s*\d+[\.:]?)\s/i;
+const QUESTION_START_REGEX = /^(Q\s*\d+[.:)]?|\d+[.:)]|Question\s*\d+[.:)]?)\s*/i;
 
 interface Props {
   onNavigate: (view: ViewState) => void;
