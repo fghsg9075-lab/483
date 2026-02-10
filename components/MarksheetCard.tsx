@@ -123,8 +123,8 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       // Identify weak topics (Percent < 60)
       const weakTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 60);
 
-      // Default to all topics if no specific weak areas found (e.g. 100% score) or if data is sparse
-      const searchTopics = (weakTopics.length > 0 ? weakTopics : Object.keys(topicStats)).map(t => t.trim().toLowerCase());
+      // Strictly only weak topics
+      const searchTopics = weakTopics.map(t => t.trim().toLowerCase());
 
       const streamKey = (result.classLevel === '11' || result.classLevel === '12') && user.stream ? `-${user.stream}` : '';
       const key = `nst_content_${user.board || 'CBSE'}_${result.classLevel || '10'}${streamKey}_${result.subjectName}_${result.chapterId}`;
@@ -483,8 +483,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       // Filter for Weak/Average Topics based on topicStats
       const weakAvgTopics = Object.keys(topicStats).filter(t => topicStats[t].percent < 80);
 
-      // If no specific weak topics, show all
-      const displayTopics = weakAvgTopics.length > 0 ? weakAvgTopics : Object.keys(groupedRecs);
+      const displayTopics = weakAvgTopics;
 
       return (
           <div className="bg-slate-50 min-h-full">
@@ -496,7 +495,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
               </div>
 
               <div className="px-4 space-y-6 pb-20">
-                  {displayTopics.map((topicName, idx) => {
+                  {displayTopics.length === 0 ? (
+                      <div className="text-center py-10 opacity-60">
+                          <CheckCircle className="mx-auto mb-2 text-green-500" size={32} />
+                          <p className="font-black text-slate-800">No Weak Topics!</p>
+                          <p className="text-xs font-bold text-slate-400">Keep up the great work.</p>
+                      </div>
+                  ) : displayTopics.map((topicName, idx) => {
                       // Find matching notes (partial match logic from handleRecommend needs to be consistent here,
                       // but since we group by 'topic' field in recs, we rely on that.
                       // However, handleRecommend puts correct 'topic' field in recs.
@@ -750,20 +755,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 w-full">
-                        <div className="bg-green-50 p-3 rounded-2xl border border-green-100">
-                            <p className="text-xl font-black text-green-700">{result.correctCount}</p>
-                            <p className="text-[10px] font-bold text-green-600 uppercase">Correct</p>
-                        </div>
-                        <div className="bg-red-50 p-3 rounded-2xl border border-red-100">
-                            <p className="text-xl font-black text-red-700">{result.wrongCount}</p>
-                            <p className="text-[10px] font-bold text-red-600 uppercase">Wrong</p>
-                        </div>
-                        <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100">
-                            <p className="text-xl font-black text-blue-700">{Math.round((result.totalTimeSeconds || 0) / 60)}m</p>
-                            <p className="text-[10px] font-bold text-blue-600 uppercase">Time</p>
-                        </div>
-                    </div>
+                    {/* REMOVED STATS BOXES AS PER USER REQUEST */}
                 </div>
             </div>
 
@@ -796,53 +788,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                 </div>
                             </div>
 
-                            {/* NOTE BUTTONS FOR THIS TOPIC */}
-                            {(() => {
-                                // Match Logic (Same as handleRecommend)
-                                const topicRecs = recommendations.filter(rec =>
-                                    (rec.topic && rec.topic.toLowerCase().trim() === topic.toLowerCase().trim()) ||
-                                    (rec.topic && topic.toLowerCase().includes(rec.topic.toLowerCase())) ||
-                                    (rec.topic && rec.topic.toLowerCase().includes(topic.toLowerCase()))
-                                );
-
-                                if (topicRecs.length === 0) return null;
-
-                                const hasFree = topicRecs.some(r => !r.isPremium);
-                                const hasPremium = topicRecs.some(r => r.isPremium);
-
-                                return (
-                                    <div className="flex gap-2 border-t border-slate-100 pt-2">
-                                        {hasFree && (
-                                            <button
-                                                onClick={() => {
-                                                    const note = topicRecs.find(r => !r.isPremium);
-                                                    if(note) {
-                                                        if(note.content) setViewingNote(note);
-                                                        else if(onLaunchContent) onLaunchContent({id: `REC_FREE_T_${topic}`, title: note.title, type: 'PDF', directResource: {url: note.url, access: 'FREE'}});
-                                                    }
-                                                }}
-                                                className="flex-1 py-1.5 rounded-lg bg-orange-100 text-orange-700 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-orange-200 transition-colors"
-                                            >
-                                                <Lightbulb size={10} /> Free Note
-                                            </button>
-                                        )}
-                                        {hasPremium && (
-                                            <button
-                                                onClick={() => {
-                                                    const note = topicRecs.find(r => r.isPremium);
-                                                    if(note) {
-                                                        if(onLaunchContent) onLaunchContent({id: `REC_PREM_T_${topic}`, title: note.title, type: 'PDF', directResource: {url: note.url, access: 'PREMIUM'}});
-                                                        else window.open(note.url, '_blank');
-                                                    }
-                                                }}
-                                                className="flex-1 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-slate-800 transition-colors"
-                                            >
-                                                <FileText size={10} /> Premium PDF
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            })()}
+                            {/* REMOVED INLINE NOTE BUTTONS AS PER USER REQUEST */}
                         </div>
                     ))}
                 </div>
@@ -1223,6 +1169,17 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
+
+        {/* SIDE BUTTON FOR RECOMMENDATIONS */}
+        <button
+            onClick={() => setActiveTab('RECOMMEND')}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-[250] bg-yellow-400 text-slate-900 font-black text-xs py-4 px-1 rounded-l-xl shadow-lg border-y border-l border-yellow-500 hover:bg-yellow-300 transition-transform hover:-translate-x-1 flex flex-col items-center gap-2"
+            title="Recommended Notes"
+        >
+            <Lightbulb size={16} />
+            <span className="vertical-text" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>NOTES</span>
+        </button>
+
         {/* FREE HTML NOTE MODAL */}
         {viewingNote && (
             <div className="fixed inset-0 z-[300] bg-white flex flex-col animate-in fade-in">
