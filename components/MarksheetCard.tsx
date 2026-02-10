@@ -5,7 +5,7 @@ import html2canvas from 'html2canvas';
 import { generateUltraAnalysis } from '../services/groq';
 import { saveUniversalAnalysis, saveUserToLive, saveAiInteraction, getChapterData } from '../firebase';
 import ReactMarkdown from 'react-markdown';
-import { speakText, stopSpeech, getCategorizedVoices } from '../utils/textToSpeech';
+import { speakText, stopSpeech, getCategorizedVoices, speakSequence } from '../utils/textToSpeech';
 import { CustomConfirm } from './CustomDialogs'; // Import CustomConfirm
 import { SpeakButton } from './SpeakButton';
 
@@ -627,11 +627,39 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
         </div>
   );
 
-  const renderSolutionSection = () => (
+  const renderSolutionSection = () => {
+      const constructAnalysisText = (q: any) => {
+          let text = `Question. ${q.question}. `;
+          if(q.options) {
+              q.options.forEach((opt: string, i: number) => {
+                  text += `Option ${String.fromCharCode(65 + i)}. ${opt}. `;
+              });
+          }
+          const correctAnswerIndex = q.correctAnswer;
+          if(correctAnswerIndex !== undefined && q.options) {
+               text += `Correct Answer is Option ${String.fromCharCode(65 + correctAnswerIndex)}. ${q.options[correctAnswerIndex]}. `;
+          }
+          if (q.explanation) {
+              text += `Explanation. ${q.explanation}`;
+          }
+          return text;
+      };
+
+      return (
         <>
-        <div className="flex items-center gap-2 mb-3 px-2">
-            <FileSearch className="text-blue-600" size={20} />
-            <h3 className="font-black text-slate-800 text-lg">Detailed Analysis</h3>
+        <div className="flex items-center justify-between mb-3 px-2">
+            <div className="flex items-center gap-2">
+                <FileSearch className="text-blue-600" size={20} />
+                <h3 className="font-black text-slate-800 text-lg">Detailed Analysis</h3>
+            </div>
+            {questions && questions.length > 0 && (
+                <button
+                    onClick={() => speakSequence(questions.map(q => constructAnalysisText(q)))}
+                    className="flex items-center gap-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100"
+                >
+                    <Play size={12} /> Listen Full Analysis
+                </button>
+            )}
         </div>
         {questions && questions.length > 0 ? (
             <div className="space-y-6">
@@ -656,7 +684,7 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                             className="text-sm font-bold text-slate-800 leading-snug prose prose-sm max-w-none"
                                             dangerouslySetInnerHTML={{ __html: q.question }}
                                         />
-                                        <SpeakButton text={q.question} className="shrink-0" />
+                                        <SpeakButton text={constructAnalysisText(q)} className="shrink-0" />
                                     </div>
                                 </div>
                             </div>
@@ -686,7 +714,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                                 </div>
                                                 <div className="flex-1 flex items-center justify-between gap-2">
                                                     <div dangerouslySetInnerHTML={{ __html: opt }} />
-                                                    <SpeakButton text={opt} className="shrink-0 p-1" iconSize={14} />
                                                 </div>
                                                 {icon}
                                             </div>
@@ -702,7 +729,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                                         <p className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1">
                                             <Lightbulb size={12} /> Explanation
                                         </p>
-                                        <SpeakButton text={q.explanation} className="p-1 text-blue-400 hover:bg-blue-100" iconSize={14} />
                                     </div>
                                     <div
                                         className="text-xs text-slate-700 leading-relaxed font-medium prose prose-sm max-w-none"
