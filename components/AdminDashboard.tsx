@@ -2192,64 +2192,94 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           };
                       }).filter(q => q !== null) as MCQItem[];
                   }
-                  // MODE B: Vertical Block
+                  // MODE B: Vertical Block (Improved Robustness)
                   else {
                       const lines = textForMcq.split('\n').map(l => l.trim()).filter(l => l);
                       let i = 0;
-                      let currentGlobalTopic = ''; // NEW: Track global topic context
+                      let currentGlobalTopic = '';
 
-                      while (i + 5 < lines.length) {
-                          // CHECK FOR TOPIC TAG FIRST
-                          const topicTagMatch = lines[i].match(/^<TOPIC:\s*(.*?)>/i);
+                      while (i < lines.length) {
+                          const line = lines[i];
+
+                          // 1. CHECK FOR TOPIC TAG
+                          const topicTagMatch = line.match(/^<TOPIC:\s*(.*?)>/i);
                           if (topicTagMatch) {
                               currentGlobalTopic = topicTagMatch[1].trim();
-                              i++; // Skip the topic tag line
+                              i++;
                               continue;
                           }
 
-                          const q = lines[i];
-                          // Simple check: Question usually doesn't start with Option pattern or Answer pattern
-                          // This helps skip garbage or unfinished lines
+                          // 2. CHECK FOR QUESTION START
+                          // Matches: "Q1.", "1.", "Q1", "(1)", "Question 1:" etc.
+                          // OR simply starts with typical question words if numbered list fails,
+                          // but strict numbering is safer for bulk.
+                          // Let's assume standard format: Q1. or 1.
+                          const isQuestionStart = /^(Q\d+|Question\s*\d+|\d+[\.)])\s/.test(line);
 
-                          const opts = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
+                          if (isQuestionStart) {
+                              // We found a question start. Now try to extract the block.
+                              // Needs at least Q + 4 Options + Ans = 6 lines remaining
+                              if (i + 5 >= lines.length) break;
 
-                          let ansRaw = lines[i+5].replace(/^(Answer|Ans|Correct)[:\s-]*/i, '').trim();
-                          let ansIdx = parseInt(ansRaw) - 1;
-                          if (isNaN(ansIdx)) {
-                              const firstChar = ansRaw.charAt(0).toUpperCase();
-                              const map: any = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-                              if (map[firstChar] !== undefined) ansIdx = map[firstChar];
+                              const q = line;
+                              const opts = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
+
+                              let ansRaw = lines[i+5].replace(/^(Answer|Ans|Correct)\s*[:\s-]*\s*/i, '').trim();
+
+                              // Flexible Answer Parsing
+                              let ansIdx = -1;
+                              if (/^\d+$/.test(ansRaw)) {
+                                  ansIdx = parseInt(ansRaw) - 1;
+                              } else {
+                                  // Extract first letter (A, B, C, D)
+                                  const firstChar = ansRaw.charAt(0).toUpperCase();
+                                  const map: any = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                                  if (map[firstChar] !== undefined) ansIdx = map[firstChar];
+                              }
+                              // Default to 0 (A) if parsing fails, but warn?
+                              if (ansIdx < 0 || ansIdx > 3) ansIdx = 0;
+
+                              // Parse Explanation (Optional lines until next Q/Topic)
+                              let expLines = [];
+                              let nextIndex = i + 6;
+
+                              while (nextIndex < lines.length) {
+                                  const nextLine = lines[nextIndex];
+                                  const isNextTopic = /^<TOPIC:\s*(.*?)>/i.test(nextLine);
+                                  const isNextQ = /^(Q\d+|Question\s*\d+|\d+[\.)])\s/.test(nextLine);
+
+                                  // Stop if next line looks like a new item
+                                  if (isNextQ || isNextTopic) break;
+
+                                  expLines.push(nextLine);
+                                  nextIndex++;
+                              }
+
+                              let explanation = expLines.join('\n');
+                              // Remove "Explanation:" prefix if it exists in the joined text (or first line)
+                              explanation = explanation.replace(/^(Explanation|Exp)\s*[:\s-]*\s*/i, '');
+
+                              // Parse Inline Topic (if any) overrides global
+                              let topic = '';
+                              const inlineTopicMatch = explanation.match(/Topic:\s*(.*)/i);
+                              if (inlineTopicMatch) {
+                                  topic = inlineTopicMatch[1].trim();
+                                  explanation = explanation.replace(/Topic:\s*.*$/im, '').trim();
+                              }
+
+                              newQuestions.push({
+                                  question: q,
+                                  options: opts,
+                                  correctAnswer: ansIdx,
+                                  explanation: explanation,
+                                  topic: topic || currentGlobalTopic
+                              });
+
+                              i = nextIndex;
+                          } else {
+                              // If line doesn't look like Q start or Topic, skip it (maybe garbage or header)
+                              i++;
                           }
-
-                          let expLines = [];
-                          let nextIndex = i + 6;
-                          while (nextIndex < lines.length) {
-                              const line = lines[nextIndex];
-                              // Also check if next line is a Topic Tag
-                              const isNextTopicTag = /^<TOPIC:\s*(.*?)>/i.test(line);
-                              const isNewQuestion = /^(Q\d+|Question|\d+[\.)])\s/.test(line);
-                              if (isNewQuestion || isNextTopicTag) break;
-                              expLines.push(line);
-                              nextIndex++;
-                          }
-
-                          let explanation = expLines.join('\n');
-                          let topic = '';
-                          const topicMatch = explanation.match(/Topic:\s*(.*)/i);
-                          if (topicMatch) {
-                              topic = topicMatch[1].trim();
-                              explanation = explanation.replace(/Topic:\s*.*$/im, '').trim();
-                          }
-
-                          newQuestions.push({
-                              question: q,
-                              options: opts,
-                              correctAnswer: (ansIdx >= 0 && ansIdx <= 3) ? ansIdx : 0,
-                              explanation: explanation,
-                              topic: topic || currentGlobalTopic // Use specific topic or fallback to global context
-                          });
-
-                          i = nextIndex;
                       }
                   }
               }
