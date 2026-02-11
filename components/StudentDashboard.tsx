@@ -11,26 +11,25 @@ import { generateMorningInsight } from '../services/morningInsight';
 import { RedeemSection } from './RedeemSection';
 import { PrizeList } from './PrizeList';
 import { Store } from './Store';
-import { Layout, Gift, Sparkles, Megaphone, Lock, BookOpen, AlertCircle, Edit, Settings, Play, Pause, RotateCcw, MessageCircle, MessageSquare, Gamepad2, Timer, CreditCard, Send, CheckCircle, Mail, X, Ban, Smartphone, Trophy, ShoppingBag, ArrowRight, Video, Youtube, Home, User as UserIcon, Book, BookOpenText, List, BarChart3, Award, Bell, Headphones, LifeBuoy, WifiOff, Zap, Star, Crown, History, ListChecks, Rocket, Ticket, TrendingUp, BrainCircuit, FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline } from 'lucide-react';
+import { Layout, Gift, Sparkles, Megaphone, Lock, BookOpen, AlertCircle, Edit, Settings, Play, Pause, RotateCcw, MessageCircle, MessageSquare, Gamepad2, Timer, CreditCard, Send, CheckCircle, Mail, X, Ban, Smartphone, Trophy, ShoppingBag, ArrowRight, Video, Youtube, Home, User as UserIcon, Book, BookOpenText, List, BarChart3, Award, Bell, Headphones, LifeBuoy, WifiOff, Zap, Star, Crown, History, ListChecks, Rocket, Ticket, TrendingUp, BrainCircuit, FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline, Bot } from 'lucide-react';
 import { SubjectSelection } from './SubjectSelection';
 import { BannerCarousel } from './BannerCarousel';
-import { ChapterSelection } from './ChapterSelection'; // Imported for Video Flow
-import { VideoPlaylistView } from './VideoPlaylistView'; // Imported for Video Flow
-import { AudioPlaylistView } from './AudioPlaylistView'; // Imported for Audio Flow
-import { PdfView } from './PdfView'; // Imported for PDF Flow
-import { McqView } from './McqView'; // Imported for MCQ Flow
-import { MiniPlayer } from './MiniPlayer'; // Imported for Audio Flow
+import { ChapterSelection } from './ChapterSelection';
+import { VideoPlaylistView } from './VideoPlaylistView';
+import { AudioPlaylistView } from './AudioPlaylistView';
+import { PdfView } from './PdfView';
+import { McqView } from './McqView';
+import { MiniPlayer } from './MiniPlayer';
 import { HistoryPage } from './HistoryPage';
 import { Leaderboard } from './Leaderboard';
 import { SpinWheel } from './SpinWheel';
-import { fetchChapters, generateCustomNotes } from '../services/groq'; // Needed for Video Flow
+import { fetchChapters, generateCustomNotes } from '../services/groq';
 import { LoadingOverlay } from './LoadingOverlay';
 import { CreditConfirmationModal } from './CreditConfirmationModal';
 import { UserGuide } from './UserGuide';
 import { CustomAlert } from './CustomDialogs';
 import { AnalyticsPage } from './AnalyticsPage';
 import { LiveResultsFeed } from './LiveResultsFeed';
-// import { ChatHub } from './ChatHub';
 import { UniversalInfoPage } from './UniversalInfoPage';
 import { UniversalChat } from './UniversalChat';
 import { AiHistoryPage } from './AiHistoryPage';
@@ -50,55 +49,40 @@ import { ExplorePage } from './ExplorePage';
 
 interface Props {
   user: User;
-  dailyStudySeconds: number; // Received from Global App
+  dailyStudySeconds: number;
   onSubjectSelect: (subject: Subject) => void;
   onRedeemSuccess: (user: User) => void;
-  settings?: SystemSettings; // New prop
+  settings?: SystemSettings;
   onStartWeeklyTest?: (test: WeeklyTest) => void;
   activeTab: StudentTab;
   onTabChange: (tab: StudentTab) => void;
-  setFullScreen: (full: boolean) => void; // Passed from App
-  onNavigate?: (view: 'ADMIN_DASHBOARD') => void; // Added for Admin Switch
+  setFullScreen: (full: boolean) => void;
+  onNavigate?: (view: 'ADMIN_DASHBOARD') => void;
   isImpersonating?: boolean;
   onNavigateToChapter?: (chapterId: string, chapterTitle: string, subjectName: string, classLevel?: string) => void;
   isDarkMode?: boolean;
   onToggleDarkMode?: (v: boolean) => void;
 }
 
-const DEFAULT_PACKAGES: CreditPackage[] = [
-    { id: 'pkg-1', name: 'Starter Pack', price: 100, credits: 150 },
-    { id: 'pkg-2', name: 'Value Pack', price: 200, credits: 350 },
-    { id: 'pkg-3', name: 'Pro Pack', price: 500, credits: 1500 },
-    { id: 'pkg-4', name: 'Ultra Pack', price: 1000, credits: 3000 },
-    { id: 'pkg-5', name: 'Mega Pack', price: 2000, credits: 7000 },
-    { id: 'pkg-6', name: 'Giga Pack', price: 3000, credits: 12000 },
-    { id: 'pkg-7', name: 'Ultimate Pack', price: 5000, credits: 20000 }
-];
-
 export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onSubjectSelect, onRedeemSuccess, settings, onStartWeeklyTest, activeTab, onTabChange, setFullScreen, onNavigate, isImpersonating, onNavigateToChapter, isDarkMode, onToggleDarkMode }) => {
   
-  // --- PERMISSION HELPER ---
   const hasPermission = (featureId: string) => {
       if (user.role === 'ADMIN') return true;
-      if (!settings?.tierPermissions) return true; // Default allow if not configured
-
+      if (!settings?.tierPermissions) return true;
       let tier: 'FREE' | 'BASIC' | 'ULTRA' = 'FREE';
       if (user.isPremium) {
           if (user.subscriptionLevel === 'ULTRA') tier = 'ULTRA';
           else tier = 'BASIC';
       }
-
       const allowed = settings.tierPermissions[tier] || [];
       return allowed.includes(featureId);
   };
 
-  // CUSTOM ALERT STATE (Moved up to be available for early hooks)
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, type: 'SUCCESS'|'ERROR'|'INFO', title?: string, message: string}>({isOpen: false, type: 'INFO', message: ''});
   const showAlert = (msg: string, type: 'SUCCESS'|'ERROR'|'INFO' = 'INFO', title?: string) => {
       setAlertConfig({ isOpen: true, type, title, message: msg });
   };
 
-  // NEW NOTIFICATION LOGIC
   const [hasNewUpdate, setHasNewUpdate] = useState(false);
   useEffect(() => {
       const q = query(ref(rtdb, 'universal_updates'), limitToLast(1));
@@ -109,12 +93,11 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
               const lastRead = localStorage.getItem('nst_last_read_update') || '0';
               if (new Date(latest.timestamp).getTime() > Number(lastRead)) {
                   setHasNewUpdate(true);
-                      // IMMEDIATE ALERT FOR NEW UPDATE (FIX: Show once per update ID)
-                      const alertKey = `nst_update_alert_shown_${latest.id}`;
-                      if (!localStorage.getItem(alertKey)) {
-                          showAlert(`New Content Available: ${latest.text}`, 'INFO', 'New Update');
-                          localStorage.setItem(alertKey, 'true');
-                      }
+                  const alertKey = `nst_update_alert_shown_${latest.id}`;
+                  if (!localStorage.getItem(alertKey)) {
+                      showAlert(`New Content Available: ${latest.text}`, 'INFO', 'New Update');
+                      localStorage.setItem(alertKey, 'true');
+                  }
               } else {
                   setHasNewUpdate(false);
               }
@@ -123,12 +106,9 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       return () => unsub();
   }, []);
 
-  // const [activeTab, setActiveTab] = useState<StudentTab>('VIDEO'); // REMOVED LOCAL STATE
   const [testAttempts, setTestAttempts] = useState<Record<string, any>>(JSON.parse(localStorage.getItem(`nst_test_attempts_${user.id}`) || '{}'));
-  const globalMessage = localStorage.getItem('nst_global_message');
   const [activeExternalApp, setActiveExternalApp] = useState<string | null>(null);
   const [pendingApp, setPendingApp] = useState<{app: any, cost: number} | null>(null);
-  // GENERIC CONTENT FLOW STATE (Used for Video, PDF, MCQ)
   const [contentViewStep, setContentViewStep] = useState<'SUBJECTS' | 'CHAPTERS' | 'PLAYER'>('SUBJECTS');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
@@ -144,58 +124,41 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       });
   }, []);
   
-  // LOADING STATE FOR 10S RULE
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
-
   const [editMode, setEditMode] = useState(false);
   const [profileData, setProfileData] = useState({
       classLevel: user.classLevel || '10',
       board: user.board || 'CBSE',
       stream: user.stream || 'Science',
       newPassword: '',
-      dailyGoalHours: 3 // Default
+      dailyGoalHours: 3
   });
 
   const [canClaimReward, setCanClaimReward] = useState(false);
-  const [selectedPhoneId, setSelectedPhoneId] = useState<string>('');
-  const [showUserGuide, setShowUserGuide] = useState(false);
   const [showNameChangeModal, setShowNameChangeModal] = useState(false);
   const [newNameInput, setNewNameInput] = useState('');
-  
-  // REPLACED CHAT WITH SUPPORT MODAL
-  const [showSupportModal, setShowSupportModal] = useState(false); // Keep for legacy/direct email if needed
-  const [showChat, setShowChat] = useState(false); // New Universal Chat
-  
-  // ADMIN LAYOUT EDITING STATE
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [isLayoutEditing, setIsLayoutEditing] = useState(false);
-  
-  // Expiry Logic
   const [showExpiryPopup, setShowExpiryPopup] = useState(false);
-  
-  // Monthly Report
   const [showMonthlyReport, setShowMonthlyReport] = useState(false);
   const [showReferralPopup, setShowReferralPopup] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // --- HEADER CONTROL ---
   useEffect(() => {
-    // Force Full Screen for Home/Explore/Profile to use Custom Header
     if (activeTab === 'HOME' || activeTab === 'EXPLORE' || activeTab === 'PROFILE') {
         setFullScreen(true);
     } else {
-        // For other tabs (content), let the content decide or default to normal
         if (activeTab !== 'VIDEO' && activeTab !== 'PDF' && activeTab !== 'MCQ' && activeTab !== 'AUDIO') {
              setFullScreen(false);
         }
     }
   }, [activeTab]);
 
-  // --- REFERRAL POPUP CHECK ---
   useEffect(() => {
-      const isNew = (Date.now() - new Date(user.createdAt).getTime()) < 10 * 60 * 1000; // 10 mins window
+      const isNew = (Date.now() - new Date(user.createdAt).getTime()) < 10 * 60 * 1000;
       if (isNew && !user.redeemedReferralCode && !localStorage.getItem(`referral_shown_${user.id}`)) {
           setShowReferralPopup(true);
           localStorage.setItem(`referral_shown_${user.id}`, 'true');
@@ -209,213 +172,26 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
     window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
   };
   
-  // Request Content Modal State
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestData, setRequestData] = useState({ subject: '', topic: '', type: 'PDF' });
-
-  const [showAllTopics, setShowAllTopics] = useState(false);
-
-  // AI Modal State
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
-
-  // Custom Daily Target Logic
   const [dailyTargetSeconds, setDailyTargetSeconds] = useState(3 * 3600);
-  const REWARD_AMOUNT = settings?.dailyReward || 3;
   
-  // Phone setup
   const adminPhones = settings?.adminPhones || [{id: 'default', number: '8227070298', name: 'Admin'}];
-  const defaultPhoneId = adminPhones.find(p => p.isDefault)?.id || adminPhones[0]?.id || 'default';
   
-  if (!selectedPhoneId && adminPhones.length > 0) {
-    setSelectedPhoneId(defaultPhoneId);
-  }
-
-  // --- CHALLENGE 2.0 LOGIC ---
-  const [challenges20, setChallenges20] = useState<Challenge20[]>([]);
-  useEffect(() => {
-      const loadChallenges = async () => {
-          if (user.classLevel) {
-              const active = await getActiveChallenges(user.classLevel);
-              setChallenges20(active);
-          }
-      };
-      loadChallenges();
-      // Poll every minute
-      const interval = setInterval(loadChallenges, 60000);
-      return () => clearInterval(interval);
-  }, [user.classLevel]);
-
-  const startChallenge20 = (challenge: Challenge20) => {
-      // Map Challenge20 to WeeklyTest structure
-      const safeQuestions = Array.isArray(challenge.questions) ? challenge.questions : [];
-      
-      const mappedTest: WeeklyTest = {
-          id: challenge.id,
-          name: challenge.title,
-          description: challenge.description || '2.0 Challenge',
-          isActive: true,
-          classLevel: challenge.classLevel,
-          questions: safeQuestions,
-          totalQuestions: safeQuestions.length,
-          passingScore: Math.ceil(safeQuestions.length * 0.5), // 50% Passing Default
-          createdAt: challenge.createdAt,
-          durationMinutes: challenge.durationMinutes || (challenge.type === 'DAILY_CHALLENGE' ? 15 : 60),
-          autoSubmitEnabled: true
-      };
-      
-      if (onStartWeeklyTest) onStartWeeklyTest(mappedTest);
-  };
-
-  // --- SELF-REPAIR SYNC (Fix for "New User Not Showing") ---
   useEffect(() => {
       if (user && user.id) {
           saveUserToLive(user);
       }
   }, [user.id]);
 
-  // --- DISCOUNT TIMER STATE ---
   const [discountTimer, setDiscountTimer] = useState<string | null>(null);
   const [discountStatus, setDiscountStatus] = useState<'WAITING' | 'ACTIVE' | 'NONE'>('NONE');
   const [showDiscountBanner, setShowDiscountBanner] = useState(false);
-  const [morningBanner, setMorningBanner] = useState<any>(null); // NEW: Morning Banner
 
-  // --- MORNING INSIGHT LOADER & AUTO-GENERATOR ---
-  useEffect(() => {
-      const loadMorningInsight = async () => {
-          const now = new Date();
-          // Check if time is past 10 AM (Hour 10)
-          if (now.getHours() >= 10) {
-              const today = now.toDateString();
-              const savedBanner = localStorage.getItem('nst_morning_banner');
-              
-              if (savedBanner) {
-                  const parsed = JSON.parse(savedBanner);
-                  if (parsed.date === today) {
-                      setMorningBanner(parsed);
-                      return;
-                  }
-              }
-
-              // IF MISSING: Auto-Generate (Client-side automation)
-              // We allow any user to trigger this to ensure it happens
-              // Logic: Fetch logs -> Generate -> Save -> Display
-              // We check a 'generating' flag to prevent double hits
-              const isGen = localStorage.getItem(`nst_insight_gen_${today}`);
-              if (!isGen) {
-                  localStorage.setItem(`nst_insight_gen_${today}`, 'true'); // Lock
-                  try {
-                      console.log("Generating Morning Insight...");
-                      // Mock Logs if Universal Logs unavailable locally
-                      const logs = JSON.parse(localStorage.getItem('nst_universal_analysis_logs') || '[]');
-                      
-                      if (logs.length === 0) {
-                          // Skip generation if no data
-                          console.log("No logs for insight.");
-                          return;
-                      }
-
-                      await generateMorningInsight(
-                          logs, 
-                          settings, 
-                          (banner) => {
-                              localStorage.setItem('nst_morning_banner', JSON.stringify(banner));
-                              setMorningBanner(banner);
-                              // Sync to Firebase if Admin
-                              if (user.role === 'ADMIN') {
-                                  // Implementation details for firebase sync omitted for safety
-                              }
-                          }
-                      );
-                  } catch (e) {
-                      console.error("Insight Gen Failed", e);
-                      localStorage.removeItem(`nst_insight_gen_${today}`); // Unlock
-                  }
-              }
-          }
-      };
-      loadMorningInsight();
-  }, [user.role, settings]);
-
-  // --- DAILY/WEEKLY CHALLENGE AUTO-GENERATOR ---
-  useEffect(() => {
-      const checkAndGenerateChallenges = async () => {
-          const today = new Date();
-          const dateStr = today.toDateString();
-          
-          // 1. DAILY CHALLENGE (Reset every day)
-          const lastDaily = localStorage.getItem(`daily_challenge_gen_${dateStr}`);
-          if (!lastDaily) {
-              // Generate Logic
-              if (user && user.classLevel && settings) {
-                  try {
-                      const challenge = await generateDailyChallengeQuestions(
-                          user.classLevel, 
-                          user.board || 'CBSE', 
-                          user.stream || null, 
-                          settings, 
-                          user.id, 
-                          'DAILY'
-                      );
-                      // Save to LocalStorage to prevent re-gen today
-                      localStorage.setItem(`daily_challenge_data`, JSON.stringify(challenge));
-                      localStorage.setItem(`daily_challenge_gen_${dateStr}`, 'true');
-                  } catch (e) { console.error("Daily Challenge Gen Error", e); }
-              }
-          }
-
-          // 2. WEEKLY CHALLENGE (Reset every Sunday)
-          // Check if today is Sunday (0) and not generated
-          if (today.getDay() === 0) {
-              const lastWeekly = localStorage.getItem(`weekly_challenge_gen_${dateStr}`);
-              if (!lastWeekly) {
-                  if (user && user.classLevel && settings) {
-                      try {
-                          const challenge = await generateDailyChallengeQuestions(
-                              user.classLevel, 
-                              user.board || 'CBSE', 
-                              user.stream || null, 
-                              settings, 
-                              user.id, 
-                              'WEEKLY'
-                          );
-                          localStorage.setItem(`weekly_challenge_data`, JSON.stringify(challenge));
-                          localStorage.setItem(`weekly_challenge_gen_${dateStr}`, 'true');
-                      } catch (e) { console.error("Weekly Challenge Gen Error", e); }
-                  }
-              }
-          }
-      };
-      
-      checkAndGenerateChallenges();
-  }, [user.classLevel, user.board, settings]); // Re-run if user profile changes
-
-  const startAutoChallenge = (type: 'DAILY' | 'WEEKLY') => {
-      const key = type === 'DAILY' ? 'daily_challenge_data' : 'weekly_challenge_data';
-      const stored = localStorage.getItem(key);
-      if (stored) {
-          const challenge = JSON.parse(stored);
-          const mappedTest: WeeklyTest = {
-              id: challenge.id,
-              name: challenge.name,
-              description: type === 'DAILY' ? 'Daily Mixed Practice' : 'Weekly Mega Test',
-              isActive: true,
-              classLevel: user.classLevel || '10',
-              questions: challenge.questions,
-              totalQuestions: challenge.questions.length,
-              passingScore: Math.ceil(challenge.questions.length * 0.5),
-              createdAt: new Date().toISOString(),
-              durationMinutes: challenge.durationMinutes,
-              autoSubmitEnabled: true
-          };
-          if (onStartWeeklyTest) onStartWeeklyTest(mappedTest);
-      } else {
-          showAlert("Challenge not ready yet. Please try again later.", "INFO");
-      }
-  };
-  
   useEffect(() => {
      const evt = settings?.specialDiscountEvent;
      
@@ -424,98 +200,57 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
         const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const s = Math.floor((diff % (1000 * 60)) / 1000);
-        
-        const parts = [];
-        if(d > 0) parts.push(`${d}d`);
-        parts.push(`${h.toString().padStart(2, '0')}h`);
-        parts.push(`${m.toString().padStart(2, '0')}m`);
-        parts.push(`${s.toString().padStart(2, '0')}s`);
-        return parts.join(' ');
+        return `${d}d ${h}h ${m}m ${s}s`;
      };
 
      const checkStatus = () => {
          if (!evt?.enabled) {
              setShowDiscountBanner(false);
              setDiscountStatus('NONE');
-             setDiscountTimer(null);
              return;
          }
-
          const now = Date.now();
          const startsAt = evt.startsAt ? new Date(evt.startsAt).getTime() : now;
          const endsAt = evt.endsAt ? new Date(evt.endsAt).getTime() : now;
          
          if (now < startsAt) {
-             // WAITING (Cooldown)
              setDiscountStatus('WAITING');
              setShowDiscountBanner(true);
-             const diff = startsAt - now;
-             setDiscountTimer(formatDiff(diff));
+             setDiscountTimer(formatDiff(startsAt - now));
          } else if (now < endsAt) {
-             // ACTIVE
              setDiscountStatus('ACTIVE');
              setShowDiscountBanner(true);
-             const diff = endsAt - now;
-             setDiscountTimer(formatDiff(diff));
+             setDiscountTimer(formatDiff(endsAt - now));
          } else {
-             // EXPIRED
              setDiscountStatus('NONE');
              setShowDiscountBanner(false);
-             setDiscountTimer(null);
          }
      };
-
-     // Initial Check (Immediate)
      checkStatus();
-
-     // Interval Check
      if (evt?.enabled) {
          const interval = setInterval(checkStatus, 1000);
          return () => clearInterval(interval);
-     } else {
-         // Reset if disabled
-         setShowDiscountBanner(false);
-         setDiscountStatus('NONE');
      }
   }, [settings?.specialDiscountEvent]);
 
-  // --- HERO SLIDER STATE ---
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const slides = [
-      { id: 1, title: "Ultra Subscription", subtitle: "Unlock Everything: Videos, PDFs & Tests", icon: <Crown className="text-yellow-400" size={40} />, btnText: "Get Access" },
-      { id: 3, title: "Smart Notes & PDFs", subtitle: "High Quality Digital Material", icon: <FileText className="text-white" size={40} />, btnText: "Read Notes" },
-      { id: 4, title: "MCQ & Tests", subtitle: "Compete & View Ranks", icon: <Trophy className="text-yellow-400" size={40} />, btnText: "Start Test" },
-    ];
-
   const handleAiNotesGeneration = async () => {
-      if (!aiTopic.trim()) {
-          showAlert("Please enter a topic!", "ERROR");
-          return;
-      }
-
-      // Check Limits
+      if (!aiTopic.trim()) { showAlert("Please enter a topic!", "ERROR"); return; }
       const today = new Date().toDateString();
       const usageKey = `nst_ai_usage_${user.id}_${today}`;
       const currentUsage = parseInt(localStorage.getItem(usageKey) || '0');
-      
-      let limit = settings?.aiLimits?.free || 0; // Default Free Limit
+      let limit = settings?.aiLimits?.free || 0;
       if (user.subscriptionLevel === 'BASIC' && user.isPremium) limit = settings?.aiLimits?.basic || 0;
       if (user.subscriptionLevel === 'ULTRA' && user.isPremium) limit = settings?.aiLimits?.ultra || 0;
 
       if (currentUsage >= limit) {
-          showAlert(`Daily Limit Reached! You have used ${currentUsage}/${limit} AI generations today.`, "ERROR", "Limit Exceeded");
+          showAlert(`Daily Limit Reached! ${currentUsage}/${limit}`, "ERROR");
           return;
       }
-
       setAiGenerating(true);
       try {
           const notes = await generateCustomNotes(aiTopic, settings?.aiNotesPrompt || '', settings?.aiModel);
           setAiResult(notes);
-          
-          // Increment Usage
           localStorage.setItem(usageKey, (currentUsage + 1).toString());
-
-          // SAVE TO HISTORY
           saveAiInteraction({
               id: `ai-note-${Date.now()}`,
               userId: user.id,
@@ -525,86 +260,35 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
               response: notes,
               timestamp: new Date().toISOString()
           });
-
-          showAlert("Notes Generated Successfully!", "SUCCESS");
+          showAlert("Notes Generated!", "SUCCESS");
       } catch (e) {
-          console.error(e);
-          showAlert("Failed to generate notes. Please try again.", "ERROR");
+          showAlert("Failed to generate notes.", "ERROR");
       } finally {
           setAiGenerating(false);
       }
   };
 
-  useEffect(() => {
-      const timer = setInterval(() => {
-          setCurrentSlide((prev) => (prev + 1) % slides.length);
-      }, 5000); // 5s Interval as requested
-      return () => clearInterval(timer);
-  }, []);
+  const handleSwitchToAdmin = () => { if (onNavigate) onNavigate('ADMIN_DASHBOARD'); };
 
-  // --- ADMIN SWITCH HANDLER ---
-  const handleSwitchToAdmin = () => {
-    if (onNavigate) {
-       onNavigate('ADMIN_DASHBOARD');
-    }
-  };
-
-  const toggleLayoutVisibility = (sectionId: string) => {
-      if (!settings) return;
-      const currentLayout = settings.dashboardLayout || {};
-      const currentConfig = currentLayout[sectionId] || { id: sectionId, visible: true };
-      
-      const newLayout = {
-          ...currentLayout,
-          [sectionId]: { ...currentConfig, visible: !currentConfig.visible }
-      };
-      
-      // Save locally and trigger update (assuming parent handles persistence via settings prop updates or we need a way to save)
-      // Since settings is a prop, we can't mutate it directly. We need to save to localStorage 'nst_system_settings' and trigger reload or use a callback if available.
-      // But StudentDashboard props doesn't have onUpdateSettings. 
-      // We will write to localStorage directly as a quick fix for Admin convenience, ensuring AdminDashboard picks it up or we reload.
-      const newSettings = { ...settings, dashboardLayout: newLayout };
-      localStorage.setItem('nst_system_settings', JSON.stringify(newSettings));
-      
-      // Also update Firebase if connected (best effort)
-      saveUserToLive(user); // This saves USER, not settings. 
-      // We need to use saveSystemSettings from firebase.ts but it's not imported.
-      // Let's just rely on LocalStorage for immediate effect and force a reload or assume AdminDashboard syncs it.
-      // Actually, we can just force a reload to see changes if we can't update props.
-      window.location.reload(); 
-  };
-  
-  const getPhoneNumber = (phoneId?: string) => {
-    const phone = adminPhones.find(p => p.id === (phoneId || selectedPhoneId));
-    return phone ? phone.number : '8227070298';
-  };
-
-  // --- STRICT COMPETITION MODE SUBSCRIPTION CHECK ---
   useEffect(() => {
       const checkCompetitionAccess = () => {
           if (syllabusMode === 'COMPETITION') {
               const now = new Date();
               const isSubscribed = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > now;
-              // Competition Mode requires ULTRA subscription
               const hasAccess = isSubscribed && (user.subscriptionLevel === 'ULTRA' || user.subscriptionTier === 'YEARLY' || user.subscriptionTier === 'LIFETIME');
               
               if (!hasAccess) {
                   setSyllabusMode('SCHOOL');
-                  document.documentElement.style.setProperty('--primary', settings?.themeColor || '#3b82f6');
-                  showAlert("⚠️ Competition Mode is locked! Please upgrade to an Ultra subscription to access competition content.", 'ERROR', 'Locked Feature');
+                  showAlert("⚠️ Competition Mode is locked! Upgrade to Ultra.", 'ERROR');
               }
           }
       };
-
       checkCompetitionAccess();
-      
-      // Auto-lock if subscription expires while using the app
-      const interval = setInterval(checkCompetitionAccess, 60000); // Check every minute
+      const interval = setInterval(checkCompetitionAccess, 60000);
       return () => clearInterval(interval);
-  }, [syllabusMode, user.isPremium, user.subscriptionEndDate, user.subscriptionTier, user.subscriptionLevel, settings?.themeColor]);
+  }, [syllabusMode, user.isPremium, user.subscriptionEndDate]);
 
   useEffect(() => {
-      // Load user's custom goal
       const storedGoal = localStorage.getItem(`nst_goal_${user.id}`);
       if (storedGoal) {
           const hours = parseInt(storedGoal);
@@ -613,86 +297,6 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       }
   }, [user.id]);
 
-  // ... (Existing Reward Logic - Keep as is) ...
-  // --- CHECK YESTERDAY'S REWARD ON LOAD ---
-  useEffect(() => {
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yDateStr = yesterday.toDateString();
-      
-      const yActivity = parseInt(localStorage.getItem(`activity_${user.id}_${yDateStr}`) || '0');
-      const yClaimed = localStorage.getItem(`reward_claimed_${user.id}_${yDateStr}`);
-      
-      if (!yClaimed && (!user.subscriptionTier || user.subscriptionTier === 'FREE')) {
-          let reward = null;
-          if (yActivity >= 10800) reward = { tier: 'MONTHLY', level: 'ULTRA', hours: 4 }; // 3 Hrs -> Ultra
-          else if (yActivity >= 3600) reward = { tier: 'WEEKLY', level: 'BASIC', hours: 4 }; // 1 Hr -> Basic
-
-          if (reward) {
-              const expiresAt = new Date(new Date().setHours(new Date().getHours() + 24)).toISOString();
-              const newMsg: any = {
-                  id: `reward-${Date.now()}`,
-                  text: `🎁 Daily Reward! You studied enough yesterday. Claim your ${reward.hours} hours of ${reward.level} access now!`,
-                  date: new Date().toISOString(),
-                  read: false,
-                  type: 'REWARD',
-                  reward: { tier: reward.tier as any, level: reward.level as any, durationHours: reward.hours },
-                  expiresAt: expiresAt,
-                  isClaimed: false
-              };
-              
-              const updatedUser = { 
-                  ...user, 
-                  inbox: [newMsg, ...(user.inbox || [])] 
-              };
-              
-              handleUserUpdate(updatedUser);
-              localStorage.setItem(`reward_claimed_${user.id}_${yDateStr}`, 'true');
-          }
-      }
-  }, [user.id]);
-
-  const claimRewardMessage = (msgId: string, reward: any, gift?: any) => {
-      const updatedInbox = user.inbox?.map(m => m.id === msgId ? { ...m, isClaimed: true, read: true } : m);
-      let updatedUser: User = { ...user, inbox: updatedInbox };
-      let successMsg = '';
-
-      if (gift) {
-          // HANDLE ADMIN GIFT
-          if (gift.type === 'CREDITS') {
-              updatedUser.credits = (user.credits || 0) + Number(gift.value);
-              successMsg = `🎁 Gift Claimed! Added ${gift.value} Credits.`;
-          } else if (gift.type === 'SUBSCRIPTION') {
-              const [tier, level] = (gift.value as string).split('_');
-              const duration = gift.durationHours || 24;
-              const endDate = new Date(Date.now() + duration * 60 * 60 * 1000).toISOString();
-              
-              updatedUser.subscriptionTier = tier as any;
-              updatedUser.subscriptionLevel = level as any;
-              updatedUser.subscriptionEndDate = endDate;
-              updatedUser.isPremium = true;
-              
-              successMsg = `🎁 Gift Claimed! ${tier} ${level} unlocked for ${duration} hours.`;
-          }
-      } else if (reward) {
-          // HANDLE AUTO REWARD
-          const duration = reward.durationHours || 4;
-          const endDate = new Date(Date.now() + duration * 60 * 60 * 1000).toISOString();
-          
-          updatedUser.subscriptionTier = reward.tier;
-          updatedUser.subscriptionLevel = reward.level;
-          updatedUser.subscriptionEndDate = endDate;
-          updatedUser.isPremium = true;
-          
-          successMsg = `✅ Reward Claimed! Enjoy ${duration} hours of ${reward.level} access.`;
-      }
-      
-      handleUserUpdate(updatedUser);
-      showAlert(successMsg, 'SUCCESS', 'Rewards Claimed');
-  };
-
-  // --- TRACK TODAY'S ACTIVITY & FIRST DAY BONUSES ---
   useEffect(() => {
     if (!user.id) return;
     const unsub = onSnapshot(doc(db, "users", user.id), (doc) => {
@@ -700,8 +304,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
             const cloudData = doc.data() as User;
             if (cloudData.credits !== user.credits || 
                 cloudData.subscriptionTier !== user.subscriptionTier ||
-                cloudData.isPremium !== user.isPremium ||
-                cloudData.isGameBanned !== user.isGameBanned) {
+                cloudData.isPremium !== user.isPremium) {
                 const updated = { ...user, ...cloudData };
                 onRedeemSuccess(updated); 
             }
@@ -715,35 +318,10 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
           updateUserStatus(user.id, dailyStudySeconds);
           const todayStr = new Date().toDateString();
           localStorage.setItem(`activity_${user.id}_${todayStr}`, dailyStudySeconds.toString());
-          
-          const accountAgeHours = (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60);
-          const firstDayBonusClaimed = localStorage.getItem(`first_day_ultra_${user.id}`);
-          
-          if (accountAgeHours < 24 && dailyStudySeconds >= 3600 && !firstDayBonusClaimed) {
-              const endDate = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 Hour
-              const updatedUser: User = { 
-                  ...user, 
-                  subscriptionTier: 'MONTHLY', // Ultra
-                  subscriptionEndDate: endDate,
-                  isPremium: true
-              };
-              const storedUsers = JSON.parse(localStorage.getItem('nst_users') || '[]');
-              const idx = storedUsers.findIndex((u:User) => u.id === user.id);
-              if (idx !== -1) storedUsers[idx] = updatedUser;
-              
-              localStorage.setItem('nst_users', JSON.stringify(storedUsers));
-              localStorage.setItem('nst_current_user', JSON.stringify(updatedUser));
-              localStorage.setItem(`first_day_ultra_${user.id}`, 'true');
-              
-              onRedeemSuccess(updatedUser);
-              showAlert("🎉 FIRST DAY BONUS: You unlocked 1 Hour Free ULTRA Subscription!", 'SUCCESS');
-          }
-          
       }, 60000); 
       return () => clearInterval(interval);
-  }, [dailyStudySeconds, user.id, user.createdAt]);
+  }, [dailyStudySeconds, user.id]);
 
-  // Inbox
   const [showInbox, setShowInbox] = useState(false);
   const unreadCount = user.inbox?.filter(m => !m.read).length || 0;
 
@@ -755,19 +333,11 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
 
   const claimDailyReward = () => {
       if (!canClaimReward) return;
-      
-      // DYNAMIC REWARD LOGIC (ADMIN CONTROLLED)
       let finalReward = settings?.loginBonusConfig?.freeBonus ?? 3;
       if (user.subscriptionTier !== 'FREE') {
           if (user.subscriptionLevel === 'BASIC') finalReward = settings?.loginBonusConfig?.basicBonus ?? 5;
           if (user.subscriptionLevel === 'ULTRA') finalReward = settings?.loginBonusConfig?.ultraBonus ?? 10;
       }
-
-      // STRICT STREAK LOGIC
-      // If Strict Mode is ON and User missed yesterday, they might get reduced reward or no reward next time
-      // Here we just grant the reward for hitting the goal TODAY.
-      // But we update streak logic elsewhere.
-
       const updatedUser = {
           ...user,
           credits: (user.credits || 0) + finalReward,
@@ -775,13 +345,13 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       };
       handleUserUpdate(updatedUser);
       setCanClaimReward(false);
-      showAlert(`Received: ${finalReward} Free Credits!`, 'SUCCESS', 'Daily Goal Met');
+      showAlert(`Received: ${finalReward} Free Credits!`, 'SUCCESS');
   };
 
   const handleExternalAppClick = (app: any) => {
-      if (app.isLocked) { showAlert("This app is currently locked by Admin.", 'ERROR'); return; }
+      if (app.isLocked) { showAlert("This app is currently locked.", 'ERROR'); return; }
       if (app.creditCost > 0) {
-          if (user.credits < app.creditCost) { showAlert(`Insufficient Credits! You need ${app.creditCost} credits.`, 'ERROR'); return; }
+          if (user.credits < app.creditCost) { showAlert(`Insufficient Credits! Need ${app.creditCost}.`, 'ERROR'); return; }
           if (user.isAutoDeductEnabled) processAppAccess(app, app.creditCost);
           else setPendingApp({ app, cost: app.creditCost });
           return;
@@ -797,31 +367,13 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       setPendingApp(null);
   };
 
-
-  const handleBuyPackage = (pkg: CreditPackage) => {
-      const phoneNum = getPhoneNumber();
-      const message = `Hello Admin, I want to buy credits.\n\n🆔 User ID: ${user.id}\n📦 Package: ${pkg.name}\n💰 Amount: ₹${pkg.price}\n💎 Credits: ${pkg.credits}\n\nPlease check my payment.`;
-      const url = `https://wa.me/91${phoneNum}?text=${encodeURIComponent(message)}`;
-      window.open(url, '_blank');
-  };
-
-  const formatTime = (secs: number) => {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-    return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
   const saveProfile = () => {
-      // Cost Check
       const isPremium = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
       const cost = settings?.profileEditCost ?? 10;
-      
       if (!isPremium && user.credits < cost) {
-          showAlert(`Profile update costs ${cost} NST Coins.\nYou have ${user.credits} coins.`, 'ERROR');
+          showAlert(`Profile update costs ${cost} NST Coins.`, 'ERROR');
           return;
       }
-      
       const updatedUser = { 
           ...user, 
           board: profileData.board,
@@ -843,7 +395,6 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       if (userIdx !== -1) {
           storedUsers[userIdx] = updatedUser;
           localStorage.setItem('nst_users', JSON.stringify(storedUsers));
-          
           if (!isImpersonating) {
               localStorage.setItem('nst_current_user', JSON.stringify(updatedUser));
               saveUserToLive(updatedUser); 
@@ -858,7 +409,6 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       handleUserUpdate({ ...user, inbox: updatedInbox });
   };
 
-  // --- GENERIC CONTENT FLOW HANDLERS ---
   const handleContentSubjectSelect = async (subject: Subject) => {
       setSelectedSubject(subject);
       setLoadingChapters(true);
@@ -876,68 +426,10 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   } | null>(null);
 
   const handleContentChapterSelect = (chapter: Chapter) => {
-    // Record Activity
-    if (typeof (window as any).recordActivity === 'function') {
-        const typeMap: Record<string, any> = {
-            'VIDEO': 'VIDEO',
-            'PDF': 'PDF',
-            'MCQ': 'MCQ',
-            'AUDIO': 'AUDIO'
-        };
-        const currentType = typeMap[activeTab] || 'VIEW';
-        (window as any).recordActivity(currentType, chapter.title, 0, { 
-            itemId: chapter.id, 
-            subject: selectedSubject?.name || 'General' 
-        });
-    }
-
     setSelectedChapter(chapter);
     setContentViewStep('PLAYER');
     setFullScreen(true);
   };
-
-  const confirmSyllabusSelection = (mode: 'SCHOOL' | 'COMPETITION') => {
-    if (showSyllabusPopup) {
-      if (mode === 'COMPETITION') {
-          // 1. Check if Globally Disabled
-          if (settings?.isCompetitionModeEnabled === false) {
-              showAlert("Coming Soon! Competition Mode is currently disabled.", 'INFO');
-              return;
-          }
-          // 2. Check User Access (Strictly ULTRA & Active)
-          const now = new Date();
-          const isSubscribed = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > now;
-          const hasAccess = (isSubscribed && (user.subscriptionLevel === 'ULTRA' || user.subscriptionTier === 'YEARLY')) || user.subscriptionTier === 'LIFETIME';
-
-          if (!hasAccess) {
-              showAlert("🏆 Competition Mode is exclusive to Active ULTRA users! Renew or Upgrade.", 'ERROR');
-              return;
-          }
-      }
-
-      setSyllabusMode(mode);
-      setSelectedChapter(showSyllabusPopup.chapter);
-      setContentViewStep('PLAYER');
-      setFullScreen(true);
-      setShowSyllabusPopup(null);
-    }
-  };
-
-  const onLoadingComplete = () => {
-      setIsLoadingContent(false);
-      setContentViewStep('PLAYER');
-      setFullScreen(true);
-  };
-
-  // GENERIC CONTENT SECTION RENDERER
-  // Trend Analysis (Last 5 tests for Home Page)
-  const homeTrendData = (user.mcqHistory || [])
-      .slice(0, 5)
-      .reverse()
-      .map(h => ({
-          score: h.totalQuestions > 0 ? Math.round((h.correctCount / h.totalQuestions) * 100) : 0,
-          topic: h.chapterTitle || 'Test'
-      }));
 
   const renderContentSection = (type: 'VIDEO' | 'PDF' | 'MCQ' | 'AUDIO') => {
       const handlePlayerBack = () => {
@@ -946,15 +438,10 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       };
 
       if (contentViewStep === 'PLAYER' && selectedChapter && selectedSubject) {
-          if (type === 'VIDEO') {
-            return <VideoPlaylistView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} initialSyllabusMode={syllabusMode} />;
-          } else if (type === 'PDF') {
-            return <PdfView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} initialSyllabusMode={syllabusMode} directResource={(selectedChapter as any).directResource} />;
-          } else if (type === 'AUDIO') {
-            return <AudioPlaylistView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} onPlayAudio={setCurrentAudioTrack} initialSyllabusMode={syllabusMode} />;
-          } else {
-            return <McqView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} />;
-          }
+          if (type === 'VIDEO') return <VideoPlaylistView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} initialSyllabusMode={syllabusMode} />;
+          if (type === 'PDF') return <PdfView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} initialSyllabusMode={syllabusMode} directResource={(selectedChapter as any).directResource} />;
+          if (type === 'AUDIO') return <AudioPlaylistView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} onPlayAudio={setCurrentAudioTrack} initialSyllabusMode={syllabusMode} />;
+          return <McqView chapter={selectedChapter} subject={selectedSubject} user={user} board={user.board || 'CBSE'} classLevel={user.classLevel || '10'} stream={user.stream || null} onBack={handlePlayerBack} onUpdateUser={handleUserUpdate} settings={settings} />;
       }
 
       if (contentViewStep === 'CHAPTERS' && selectedSubject) {
@@ -969,7 +456,6 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                   onSelect={(chapter, contentType) => {
                       setSelectedChapter(chapter);
                       if (contentType) {
-                          // contentType based logic if needed, but for now we just go to player
                           setContentViewStep('PLAYER');
                           setFullScreen(true);
                       } else {
@@ -980,518 +466,201 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
               />
           );
       }
-
       return null; 
   };
 
-  const isGameEnabled = settings?.isGameEnabled ?? true;
-
-  const DashboardSectionWrapper = ({ id, children, label }: { id: string, children: React.ReactNode, label: string }) => {
-      const isVisible = settings?.dashboardLayout?.[id]?.visible !== false;
-      
-      if (!isVisible && !isLayoutEditing) return null;
-
-      return (
-          <div className={`relative ${isLayoutEditing ? 'border-2 border-dashed border-yellow-400 p-2 rounded-xl mb-4 bg-yellow-50/10' : ''}`}>
-              {isLayoutEditing && (
-                  <div className="absolute -top-3 left-2 bg-yellow-400 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow z-50 flex items-center gap-2">
-                      <span>{label}</span>
-                      <button 
-                          onClick={(e) => { e.stopPropagation(); toggleLayoutVisibility(id); }}
-                          className={`px-2 py-0.5 rounded text-xs ${isVisible ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
-                      >
-                          {isVisible ? 'ON' : 'OFF'}
-                      </button>
-                  </div>
-              )}
-              <div className={!isVisible ? 'opacity-50 grayscale pointer-events-none' : ''}>
-                  {children}
-              </div>
-          </div>
-      );
-  };
-
-  const DashboardTileWrapper = ({ id, children, label }: { id: string, children: React.ReactNode, label: string }) => {
-      const isVisible = settings?.dashboardLayout?.[id]?.visible !== false;
-      
-      if (!isVisible && !isLayoutEditing) return null;
-
-      return (
-          <div className={`relative h-full ${isLayoutEditing ? 'border-2 border-dashed border-yellow-400 rounded-xl bg-yellow-50/10' : ''}`}>
-              {isLayoutEditing && (
-                  <div className="absolute -top-2 -right-2 z-50">
-                      <button 
-                          onClick={(e) => { e.stopPropagation(); toggleLayoutVisibility(id); }}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ${isVisible ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
-                      >
-                          {isVisible ? '✓' : '✕'}
-                      </button>
-                  </div>
-              )}
-              <div className={`${!isVisible ? 'opacity-50 grayscale pointer-events-none' : ''} h-full`}>
-                  {children}
-              </div>
-          </div>
-      );
-  };
-
-  // --- RENDER BASED ON ACTIVE TAB ---
   const renderMainContent = () => {
-      // 1. HOME TAB
+      // 1. HOME TAB (Redesigned)
       if (activeTab === 'HOME') {
           return (
-              <div className="space-y-4 pb-24">
-                {/* NEW HEADER DESIGN */}
-                <div className="bg-white p-4 rounded-b-3xl shadow-sm border-b border-slate-200 mb-2 flex items-center justify-between sticky top-0 z-40">
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setShowSidebar(true)}
-                            className="bg-slate-50 p-2 rounded-xl hover:bg-slate-100 transition-colors"
-                        >
-                            <List size={24} className="text-slate-600" />
-                        </button>
+              <div className="space-y-6 pb-24">
+                {/* NEW HEADER */}
+                <div className="bg-white p-4 rounded-b-3xl shadow-sm border-b border-slate-200 sticky top-0 z-40">
+                    <div className="flex justify-between items-center">
                         <div>
-                            <h2 className="text-lg font-black text-slate-800 leading-none">
-                                {settings?.appName || 'Student App'}
-                            </h2>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{user.displayId || user.id.slice(0,6)}</span>
-                                {user.role === 'ADMIN' && <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-bold">ADMIN</span>}
+                            <h2 className="text-xl font-black text-slate-800 tracking-tight">{settings?.appName || 'Student App'}</h2>
+                            <p className="text-xs text-slate-500 font-mono mt-0.5">ID: {user.displayId || user.id}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Credits</span>
+                                <span className="font-black text-blue-600 flex items-center gap-1">
+                                    <Crown size={14} className="fill-blue-600" /> {user.credits}
+                                </span>
                             </div>
+                            <div className="flex flex-col items-end border-l pl-4 border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Streak</span>
+                                <span className="font-black text-orange-500 flex items-center gap-1">
+                                    <Zap size={14} className="fill-orange-500" /> {user.streak}
+                                </span>
+                            </div>
+                            {user.subscriptionEndDate && (
+                                <div className="flex flex-col items-end border-l pl-4 border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Plan</span>
+                                    <span className="font-black text-purple-600 flex items-center gap-1">
+                                        <Clock size={14} />
+                                        {(() => {
+                                            if (user.subscriptionTier === 'LIFETIME') return '∞';
+                                            const diff = new Date(user.subscriptionEndDate).getTime() - Date.now();
+                                            if (diff <= 0) return 'Exp';
+                                            return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 'd';
+                                        })()}
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Credits</span>
-                            <span className="font-black text-blue-600 flex items-center gap-1">
-                                <Crown size={14} className="fill-blue-600"/> {user.credits}
-                            </span>
-                        </div>
-                        <div className="flex flex-col items-end border-l pl-3 border-slate-100">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Streak</span>
-                            <span className="font-black text-orange-500 flex items-center gap-1">
-                                <Zap size={14} className="fill-orange-500"/> {user.streak}
-                            </span>
-                        </div>
-                        <button
-                            onClick={() => setEditMode(true)}
-                            className="bg-slate-50 p-2 rounded-full hover:bg-slate-100"
-                        >
-                            <Settings size={20} className="text-slate-400"/>
-                        </button>
                     </div>
                 </div>
 
                 {/* PERFORMANCE GRAPH */}
-                <DashboardSectionWrapper id="section_performance" label="Performance">
+                <div className="mx-2">
                     <PerformanceGraph
                         history={user.mcqHistory || []}
                         user={user}
-                        onViewNotes={(topic) => {
-                            // Find note by topic logic or open PDF tab
-                            // For simplicity, switch to PDF tab and trigger search if possible
-                            onTabChange('PDF');
-                            // We can't auto-search yet without a search context in PDF view, but this navigates user.
-                        }}
+                        onViewNotes={(topic) => { onTabChange('PDF'); }}
                     />
-                </DashboardSectionWrapper>
+                </div>
 
-                {/* STUDY GOAL TIMER */}
-                <DashboardSectionWrapper id="section_timer" label="Study Goal">
-                    <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
-                        <div className="flex justify-between items-center mb-4">
-                            <div>
-                                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
-                                    <Timer size={20} className="text-orange-500" /> Daily Goal
-                                </h3>
-                                <p className="text-xs text-slate-500">Set your study target</p>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-2xl font-black text-slate-800">
-                                    {Math.floor(dailyTargetSeconds / 3600)}h {Math.floor((dailyTargetSeconds % 3600) / 60)}m
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                            {[0.5, 1, 2].map(h => (
-                                <button
-                                    key={h}
-                                    onClick={() => {
-                                        setDailyTargetSeconds(h * 3600);
-                                        localStorage.setItem(`nst_goal_${user.id}`, h.toString());
-                                    }}
-                                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${dailyTargetSeconds === h * 3600 ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
-                                >
-                                    {h} Hour{h > 1 ? 's' : ''}
-                                </button>
-                            ))}
-                            <button 
-                                onClick={() => {
-                                    setDailyTargetSeconds(3 * 3600);
-                                    localStorage.setItem(`nst_goal_${user.id}`, '3');
-                                }}
-                                className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${dailyTargetSeconds === 3 * 3600 ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
-                            >
-                                Default (3h)
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const custom = prompt("Enter hours (1-12):");
-                                    if (custom) {
-                                        const h = parseFloat(custom);
-                                        if (h > 0 && h <= 12) {
-                                            setDailyTargetSeconds(h * 3600);
-                                            localStorage.setItem(`nst_goal_${user.id}`, h.toString());
-                                        }
-                                    }
-                                }}
-                                className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200"
-                            >
-                                Custom
-                            </button>
-                        </div>
+                {/* STUDY TIMER & MENU BUTTON */}
+                <div className="flex items-center gap-3 mx-2">
+                    <button
+                        onClick={() => setShowSidebar(true)}
+                        className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 h-[120px] w-20 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors"
+                    >
+                        <Menu size={28} className="text-slate-700" />
+                        <span className="text-[10px] font-bold text-slate-500">MENU</span>
+                    </button>
+                    <div className="flex-1">
+                        <StudyGoalTimer
+                            dailyTargetSeconds={dailyTargetSeconds}
+                            dailyStudySeconds={dailyStudySeconds}
+                            onUpdateGoal={(h) => {
+                                setDailyTargetSeconds(h * 3600);
+                                localStorage.setItem(`nst_goal_${user.id}`, h.toString());
+                            }}
+                        />
                     </div>
-                </DashboardSectionWrapper>
+                </div>
 
-                {/* STUDY HUB LINKS (MOVED FROM BOTTOM) */}
-                <DashboardSectionWrapper id="section_hub_links" label="Study Hub">
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* Videos Button */}
-                        {hasPermission('f1') && (
-                            <button
-                                onClick={() => {
-                                    setSelectedSubject({ id: 'universal', name: 'Special' } as any);
-                                    setSelectedChapter({ id: 'UNIVERSAL', title: 'Featured Lectures' } as any);
-                                    setContentViewStep('PLAYER');
-                                    setFullScreen(true);
-                                    onTabChange('VIDEO');
-                                    localStorage.setItem('nst_last_read_update', Date.now().toString());
-                                    setHasNewUpdate(false);
-                                }}
-                                className="bg-gradient-to-br from-red-500 to-rose-600 p-6 rounded-3xl shadow-lg shadow-red-200 flex flex-col items-center justify-center gap-3 group active:scale-95 transition-all relative overflow-hidden"
-                            >
-                                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="bg-white/20 p-4 rounded-full text-white backdrop-blur-sm">
-                                    <Play size={32} fill="currentColor" />
-                                </div>
-                                <span className="font-black text-white text-lg tracking-wide uppercase">Videos</span>
-                                {hasNewUpdate && <span className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full animate-pulse"></span>}
-                            </button>
-                        )}
+                {/* LARGE ACTION BUTTONS */}
+                <div className="grid grid-cols-2 gap-4 mx-2">
+                    <button
+                        onClick={() => { onTabChange('COURSES'); setContentViewStep('SUBJECTS'); }}
+                        className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-3xl shadow-lg shadow-blue-200 flex flex-col items-center justify-center gap-3 text-white h-32 active:scale-95 transition-transform"
+                    >
+                        <BookOpen size={32} />
+                        <span className="font-black text-lg uppercase tracking-wide">My Courses</span>
+                    </button>
+                    <button
+                        onClick={() => { onTabChange('ANALYTICS'); }}
+                        className="bg-gradient-to-br from-purple-600 to-fuchsia-700 p-6 rounded-3xl shadow-lg shadow-purple-200 flex flex-col items-center justify-center gap-3 text-white h-32 active:scale-95 transition-transform"
+                    >
+                        <BarChart3 size={32} />
+                        <span className="font-black text-lg uppercase tracking-wide">My Analysis</span>
+                    </button>
+                </div>
+              </div>
+          );
+      }
 
-                        {/* Courses Button */}
-                        <button
-                            onClick={() => { onTabChange('COURSES'); setContentViewStep('SUBJECTS'); }}
-                            className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl shadow-lg shadow-blue-200 flex flex-col items-center justify-center gap-3 group active:scale-95 transition-all relative overflow-hidden"
-                        >
-                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <div className="bg-white/20 p-4 rounded-full text-white backdrop-blur-sm">
-                                <Book size={32} />
-                            </div>
-                            <span className="font-black text-white text-lg tracking-wide uppercase">Courses</span>
-                        </button>
-                    </div>
-                </DashboardSectionWrapper>
+      // 2. AI STUDIO (Formerly Explore)
+      if (activeTab === 'EXPLORE') {
+          return (
+              <div className="space-y-6 pb-24 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                          <Bot className="text-indigo-600" /> AI Studio
+                      </h2>
+                  </div>
 
-                {/* HERO SECTION */}
-                  <div className="space-y-4 mb-6">
-                      
-                      {/* SPECIAL DISCOUNT BANNER (Kept separate as requested) */}
-                      {showDiscountBanner && discountTimer && (
-                          <div 
-                              onClick={() => onTabChange('STORE')}
-                              className="mx-1 mb-4 relative p-[2px] rounded-2xl overflow-hidden cursor-pointer group"
-                          >
-                              {/* Rotating Border Animation */}
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-spin-slow opacity-0 group-hover:opacity-100 transition-opacity" style={{ animationDuration: '3s' }}></div>
-                              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-600 animate-border-rotate"></div>
-                              
-                              <div className="relative bg-gradient-to-r from-blue-900 to-slate-900 p-4 rounded-2xl shadow-xl overflow-hidden">
-                                  {/* Glossy Overlay */}
-                                  <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none"></div>
-                                  
-                                  <div className="flex justify-between items-center relative z-10 text-white">
-                                      <div>
-                                          <h3 className="text-lg font-black italic flex items-center gap-2">
-                                              <Sparkles size={18} className="text-yellow-400 animate-pulse" />
-                                              {discountStatus === 'WAITING' ? '⚡ SALE STARTING SOON' : `🔥 ${settings?.specialDiscountEvent?.eventName || 'LIMITED TIME OFFER'} IS LIVE!`}
-                                          </h3>
-                                          <p className="text-xs font-bold text-blue-200">
-                                              {discountStatus === 'WAITING' ? 'Get ready for massive discounts!' : `Get ${settings?.specialDiscountEvent?.discountPercent || 50}% OFF on all premium plans!`}
-                                          </p>
-                                      </div>
-                                      <div className="text-right">
-                                          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-300">{discountStatus === 'WAITING' ? 'STARTS IN' : 'ENDS IN'}</p>
-                                          <p className="text-2xl font-black font-mono leading-none text-white drop-shadow-md">{discountTimer}</p>
-                                      </div>
-                                  </div>
-                                  
-                                  {/* Moving Shine Effect */}
-                                  <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shine"></div>
+                  {/* DISCOUNT BANNER */}
+                  {showDiscountBanner && discountTimer && (
+                      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden mb-6">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                          <div className="relative z-10 flex justify-between items-center">
+                              <div>
+                                  <h3 className="font-black text-lg flex items-center gap-2">
+                                      <Sparkles className="text-yellow-400" /> SALE IS LIVE
+                                  </h3>
+                                  <p className="text-xs text-blue-200 font-bold">{settings?.specialDiscountEvent?.discountPercent || 50}% OFF Ends in:</p>
                               </div>
-                          </div>
-                      )}
-
-                      {/* NEW: STACKED ACTION GRID */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 mx-1">
-                          {/* 1. Subscription Buttons */}
-                          <div className="grid grid-cols-2 gap-3">
-                              {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-24 bg-gradient-to-br from-purple-800 to-indigo-900 rounded-2xl overflow-hidden shadow-lg flex flex-col items-center justify-center border border-purple-500/30 p-2 group">
-                                  <div className="absolute right-0 top-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity"><Crown size={48} className="text-white"/></div>
-                                  <Crown size={24} className="text-yellow-400 mb-1"/>
-                                  <span className="text-sm font-black text-white italic">ULTRA SUB</span>
-                                  <span className="text-[8px] text-purple-200">Unlock Everything</span>
-                              </button>}
-
-                              {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-24 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl overflow-hidden shadow-lg flex flex-col items-center justify-center border border-blue-400/30 p-2 group">
-                                  <div className="absolute right-0 top-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity"><Star size={48} className="text-white"/></div>
-                                  <Star size={24} className="text-white mb-1"/>
-                                  <span className="text-sm font-black text-white italic">BASIC SUB</span>
-                                  <span className="text-[8px] text-blue-100">Starter Pack</span>
-                              </button>}
-                          </div>
-
-                          {/* 2. Auto-Sliding Ultra Media Banner (Non-Clickable) */}
-                          <div className="h-32 rounded-2xl overflow-hidden shadow-lg relative border-2 border-slate-900">
-                              {/* Overlay controls disabled */}
-                              <div className="absolute inset-0 z-20 bg-transparent"></div>
-
-                              <BannerCarousel interval={2000} autoPlay={true}>
-                                  {[
-                                      { id: '1', image: 'https://img.freepik.com/free-vector/gradient-education-poster-template_23-2150338779.jpg', title: 'ULTRA VIDEO', subtitle: 'HD Lectures' },
-                                      { id: '2', image: 'https://img.freepik.com/free-vector/gradient-education-flyer-template_23-2150338784.jpg', title: 'ULTRA PDF', subtitle: 'Premium Notes' },
-                                      { id: '3', image: 'https://img.freepik.com/free-vector/online-tutorials-concept_52683-37480.jpg', title: 'ULTRA MCQ', subtitle: 'Test Series' },
-                                      { id: '4', image: 'https://img.freepik.com/free-vector/audiobook-concept-illustration_114360-6070.jpg', title: 'ULTRA AUDIO', subtitle: 'Listen & Learn' }
-                                  ].map(slide => (
-                                      <div key={slide.id} className="relative w-full h-32">
-                                          <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" />
-                                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-4 pb-8">
-                                              <h3 className="text-white font-black text-sm">{slide.title}</h3>
-                                              <p className="text-white/80 text-[10px]">{slide.subtitle}</p>
-                                          </div>
-                                      </div>
-                                  ))}
-                              </BannerCarousel>
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 flex justify-between items-center z-10 backdrop-blur-sm">
-                                  <span className="text-xs font-black text-white flex items-center gap-1"><Crown size={12} className="text-yellow-400"/> PREMIUM CONTENT</span>
-                                  <span className="text-[9px] text-slate-300 uppercase tracking-widest">Auto-Preview</span>
-                              </div>
-                          </div>
-
-                          {/* 3. AI & Custom Buttons */}
-                          <div className="grid grid-cols-3 gap-3 md:col-span-2">
-                              {hasPermission('f101') && <button onClick={() => onTabChange('AI_CHAT')} className="h-24 bg-indigo-600 rounded-2xl shadow-lg flex flex-col items-center justify-center text-white relative overflow-hidden group">
-                                  <div className="absolute inset-0 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                  <MessageSquare size={28} className="mb-1 relative z-10"/>
-                                  <span className="text-xs font-black relative z-10">AI CHAT</span>
-                                  <span className="text-[8px] opacity-70 relative z-10">Ask Anything</span>
-                              </button>}
-
-                              {hasPermission('f36') && <button onClick={() => setShowAiModal(true)} className="h-24 bg-sky-500 rounded-2xl shadow-lg flex flex-col items-center justify-center text-white relative overflow-hidden group">
-                                  <div className="absolute inset-0 bg-sky-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                  <BrainCircuit size={28} className="mb-1 relative z-10"/>
-                                  <span className="text-xs font-black relative z-10">AI NOTES</span>
-                                  <span className="text-[8px] opacity-70 relative z-10">Generate</span>
-                              </button>}
-
-                              {hasPermission('f32') && <button onClick={() => onTabChange('CUSTOM_PAGE')} className="h-24 bg-slate-800 rounded-2xl shadow-lg flex flex-col items-center justify-center text-white relative overflow-hidden group">
-                                  <div className="absolute inset-0 bg-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                  <Layout size={28} className="mb-1 relative z-10"/>
-                                  <span className="text-xs font-black relative z-10">CUSTOM</span>
-                                  <span className="text-[8px] opacity-70 relative z-10">Explore Page</span>
-                              </button>}
+                              <div className="text-2xl font-mono font-black">{discountTimer}</div>
                           </div>
                       </div>
+                  )}
+
+                  {/* AUTO SLIDING BANNERS */}
+                  {settings?.exploreBanners && settings.exploreBanners.filter(b => b.isActive).length > 0 && (
+                      <div className="rounded-2xl overflow-hidden shadow-lg mb-6">
+                          <BannerCarousel
+                              slides={settings.exploreBanners.filter(b => b.isActive).map(b => ({
+                                  id: b.id,
+                                  image: b.imageUrl,
+                                  title: '',
+                                  subtitle: '',
+                                  link: b.actionUrl || ''
+                              }))}
+                              interval={3000}
+                              autoPlay={true}
+                              showDots={true}
+                              showArrows={false}
+                          >
+                              {/* Children are passed as slides logic handled in BannerCarousel */}
+                          </BannerCarousel>
+                      </div>
+                  )}
+
+                  {/* AI TOOLS */}
+                  <div className="grid grid-cols-2 gap-4">
+                      <button
+                          onClick={() => onTabChange('AI_CHAT')}
+                          className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-3 hover:border-indigo-200 transition-colors group"
+                      >
+                          <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                              <MessageCircle size={28} />
+                          </div>
+                          <div className="text-center">
+                              <h3 className="font-black text-slate-800">AI Tutor</h3>
+                              <p className="text-[10px] text-slate-400">Chat & Learn</p>
+                          </div>
+                      </button>
+
+                      <button
+                          onClick={() => setShowAiModal(true)}
+                          className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-3 hover:border-sky-200 transition-colors group"
+                      >
+                          <div className="w-14 h-14 bg-sky-50 rounded-full flex items-center justify-center text-sky-600 group-hover:scale-110 transition-transform">
+                              <BrainCircuit size={28} />
+                          </div>
+                          <div className="text-center">
+                              <h3 className="font-black text-slate-800">AI Agent</h3>
+                              <p className="text-[10px] text-slate-400">Gen Notes</p>
+                          </div>
+                      </button>
                   </div>
               </div>
           );
       }
 
-      // 2. EXPLORE TAB
-      if (activeTab === 'EXPLORE') {
+      if (activeTab === 'COURSES') {
+          const visibleSubjects = getSubjectsList(user.classLevel || '10', user.stream || null).filter(s => !(settings?.hiddenSubjects || []).includes(s.id));
           return (
-              <ExplorePage
-                  user={user}
-                  settings={settings}
-                  onTabChange={onTabChange}
-                  onStartWeeklyTest={onStartWeeklyTest}
-                  onOpenAiChat={() => onTabChange('AI_CHAT')}
-                  onOpenAiNotes={() => setShowAiModal(true)}
-              />
+              <div className="space-y-6 pb-24 p-4">
+                  <h2 className="text-2xl font-black text-slate-800">All Courses</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                      {visibleSubjects.map(s => (
+                          <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 hover:shadow-md transition-all">
+                              <div className={`w-12 h-12 rounded-full ${s.color?.split(' ')[0] || 'bg-blue-500'} flex items-center justify-center text-white font-bold text-lg`}>
+                                  {s.name.charAt(0)}
+                              </div>
+                              <span className="font-bold text-xs text-slate-700 text-center">{s.name}</span>
+                          </button>
+                      ))}
+                  </div>
+              </div>
           );
       }
 
-      // 3. COURSES TAB (Handles Video, Notes, MCQ Selection)
-      if (activeTab === 'COURSES') {
-          // If viewing a specific content type (from drilled down), show it
-          // Note: Clicking a subject switches tab to VIDEO/PDF/MCQ, so COURSES just shows the Hub.
-          const visibleSubjects = getSubjectsList(user.classLevel || '10', user.stream || null)
-                                    .filter(s => !(settings?.hiddenSubjects || []).includes(s.id));
-
-          return (
-              <div className="space-y-6 pb-24">
-                      <div className="flex items-center justify-between">
-                          <h2 className="text-2xl font-black text-slate-800">Explore</h2>
-                          <button onClick={() => onTabChange('LEADERBOARD')} className="bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-yellow-200 transition">
-                              <Trophy size={14} /> Rank List
-                          </button>
-                      </div>
-
-                      {/* ADMIN BANNERS */}
-                      {settings?.exploreBanners && settings.exploreBanners.filter(b => b.isActive).length > 0 && (
-                          <div className="mb-6">
-                              <BannerCarousel
-                                  slides={settings.exploreBanners.filter(b => b.isActive).map(b => ({
-                                      id: b.id,
-                                      image: b.imageUrl,
-                                      title: '',
-                                      subtitle: '',
-                                      link: b.actionUrl || ''
-                                  }))}
-                                  interval={3000}
-                                  autoPlay={true}
-                                  showDots={true}
-                                  showArrows={false}
-                              />
-                          </div>
-                      )}
-
-                      {/* ASK DOUBTS (AI CHAT) */}
-                      <div className="bg-indigo-600 rounded-2xl p-6 shadow-lg shadow-indigo-200 relative overflow-hidden mb-6">
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-                          <div className="relative z-10">
-                              <h3 className="text-xl font-black text-white mb-1 flex items-center gap-2"><MessageCircle size={24}/> Ask Your Doubts</h3>
-                              <p className="text-indigo-100 text-xs mb-4">Stuck on a question? Ask our AI Tutor for instant help!</p>
-                              <button
-                                  onClick={() => onTabChange('AI_CHAT')}
-                                  className="bg-white text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm shadow hover:bg-indigo-50 transition-colors"
-                              >
-                                  Chat Now &rarr;
-                              </button>
-                          </div>
-                      </div>
-
-                      {/* RECOMMENDED NOTES (Universal) */}
-                      {universalNotes.length > 0 && !(settings?.hiddenFeatures?.includes('f56')) && (
-                          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 animate-in slide-in-from-top-4">
-                              <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
-                                  <FileText size={18} className="text-blue-600" /> Recommended Notes
-                              </h3>
-                              <div className="space-y-2">
-                                  {universalNotes.map((note, i) => (
-                                      <button
-                                          key={i}
-                                          onClick={() => {
-                                              // Open PDF View
-                                              setSelectedSubject({ id: 'universal_notes', name: 'Recommended' } as any);
-                                              setSelectedChapter({
-                                                  id: `NOTE_${i}`,
-                                                  title: note.title,
-                                                  directResource: { url: note.url, access: note.access }
-                                              } as any);
-                                              setContentViewStep('PLAYER');
-                                              setFullScreen(true);
-                                              onTabChange('PDF');
-                                          }}
-                                          className="w-full bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex items-center justify-between group hover:border-blue-300 transition-all"
-                                      >
-                                          <div className="flex items-center gap-3 overflow-hidden">
-                                              <div className="bg-blue-100 text-blue-600 p-2 rounded-lg font-bold text-xs group-hover:bg-blue-600 group-hover:text-white transition-colors">PDF</div>
-                                              <div className="text-left">
-                                                  <p className="font-bold text-slate-800 text-xs truncate group-hover:text-blue-700">{note.title}</p>
-                                                  <p className="text-[10px] text-slate-400">{note.access === 'FREE' ? 'Free Access' : 'Premium'}</p>
-                                              </div>
-                                          </div>
-                                          <div className="bg-slate-50 p-1.5 rounded-full text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                              <ArrowRight size={14} />
-                                          </div>
-                                      </button>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-
-                      {/* SYLLABUS SELECTOR REMOVED FROM COURSES */}
-                      
-                      {/* Video Section */}
-                      {settings?.contentVisibility?.VIDEO !== false && (
-                          <div className="bg-gradient-to-br from-red-50 to-rose-100 p-6 rounded-3xl border border-red-200 shadow-sm">
-                              <h3 className="font-black text-red-900 flex items-center gap-2 mb-4 text-lg">
-                                  <div className="p-2 bg-white rounded-full shadow-sm text-red-600"><Youtube size={20} /></div>
-                                  Video Lectures
-                              </h3>
-                              <div className="grid grid-cols-2 gap-3">
-                                  {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-red-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
-                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-red-500'}`}></div>
-                                          {s.name}
-                                      </button>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-
-                      {/* Notes Section */}
-                      {settings?.contentVisibility?.PDF !== false && (
-                          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-3xl border border-blue-200 shadow-sm">
-                              <h3 className="font-black text-blue-900 flex items-center gap-2 mb-4 text-lg">
-                                  <div className="p-2 bg-white rounded-full shadow-sm text-blue-600"><FileText size={20} /></div>
-                                  Notes Library
-                              </h3>
-                              <div className="grid grid-cols-2 gap-3">
-                                  {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('PDF'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-blue-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
-                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-blue-500'}`}></div>
-                                          {s.name}
-                                      </button>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-
-                      {/* MCQ Section */}
-                      {settings?.contentVisibility?.MCQ !== false && (
-                          <div className="bg-gradient-to-br from-purple-50 to-fuchsia-100 p-6 rounded-3xl border border-purple-200 shadow-sm">
-                              <div className="flex justify-between items-center mb-4">
-                                  <h3 className="font-black text-purple-900 flex items-center gap-2 text-lg">
-                                      <div className="p-2 bg-white rounded-full shadow-sm text-purple-600"><CheckSquare size={20} /></div>
-                                      MCQ Practice
-                                  </h3>
-                              </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                  {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('MCQ'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-purple-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
-                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-purple-500'}`}></div>
-                                          {s.name}
-                                      </button>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-
-                      {/* Audio/Podcast Section */}
-                      {settings?.contentVisibility?.AUDIO !== false && (
-                          <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700 relative overflow-hidden">
-                              <div className="flex justify-between items-center mb-2 relative z-10">
-                                  <h3 className="font-bold text-white flex items-center gap-2"><Headphones className="text-pink-500" /> Audio Library</h3>
-                                  <span className="text-[10px] font-black bg-pink-600 text-white px-2 py-0.5 rounded-full">NEW</span>
-                              </div>
-                              <p className="text-xs text-slate-400 mb-3 relative z-10">Listen to high-quality audio lectures and podcasts.</p>
-                              <div className="grid grid-cols-2 gap-2 relative z-10">
-                                  {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('AUDIO'); handleContentSubjectSelect(s); }} className="bg-white/10 hover:bg-white/20 p-2 rounded-xl text-xs font-bold text-white shadow-sm border border-white/10 text-left backdrop-blur-sm transition-colors">
-                                          {s.name}
-                                      </button>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              );
-      }
-
-      // 4. LEGACY TABS (Mapped to new structure or kept as sub-views)
       if (activeTab === 'CUSTOM_PAGE') return <CustomBloggerPage onBack={() => onTabChange('HOME')} />;
       if (activeTab === 'DEEP_ANALYSIS') return <AiDeepAnalysis user={user} settings={settings} onUpdateUser={handleUserUpdate} onBack={() => onTabChange('HOME')} />;
       if (activeTab === 'AI_HISTORY') return <AiHistoryPage user={user} onBack={() => onTabChange('HOME')} />;
@@ -1500,150 +669,67 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       if ((activeTab as string) === 'SUB_HISTORY') return <SubscriptionHistory user={user} onBack={() => onTabChange('HOME')} />;
       if (activeTab === 'HISTORY') return <HistoryPage user={user} onUpdateUser={handleUserUpdate} settings={settings} />;
       if (activeTab === 'LEADERBOARD') return <Leaderboard user={user} settings={settings} />;
-      if (activeTab === 'GAME') return isGameEnabled ? (user.isGameBanned ? <div className="text-center py-20 bg-red-50 rounded-2xl border border-red-100"><Ban size={48} className="mx-auto text-red-500 mb-4" /><h3 className="text-lg font-bold text-red-700">Access Denied</h3><p className="text-sm text-red-600">Admin has disabled the game for your account.</p></div> : <SpinWheel user={user} onUpdateUser={handleUserUpdate} settings={settings} />) : null;
+      if (activeTab === 'GAME') return <SpinWheel user={user} onUpdateUser={handleUserUpdate} settings={settings} />;
       if (activeTab === 'REDEEM') return <div className="animate-in fade-in slide-in-from-bottom-2 duration-300"><RedeemSection user={user} onSuccess={onRedeemSuccess} /></div>;
       if (activeTab === 'PRIZES') return <div className="animate-in fade-in slide-in-from-bottom-2 duration-300"><PrizeList /></div>;
-      // if (activeTab === 'REWARDS') return (...); // REMOVED TO PREVENT CRASH
       if (activeTab === 'STORE') return <Store user={user} settings={settings} onUserUpdate={handleUserUpdate} />;
+      if (activeTab === 'MARKSHEET') return <MonthlyMarksheet user={user} settings={settings} onClose={() => onTabChange('HOME')} />;
+
+      if (activeTab === 'INBOX') {
+          return (
+              <div className="min-h-screen bg-white animate-in fade-in slide-in-from-right">
+                  <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center sticky top-0 z-10">
+                      <h3 className="font-bold text-slate-800 flex items-center gap-2"><Mail size={18} className="text-blue-600" /> Inbox</h3>
+                      <button onClick={() => onTabChange('HOME')} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm"><X size={20} /></button>
+                  </div>
+                  <div className="p-4 space-y-3 pb-24">
+                      {(!user.inbox || user.inbox.length === 0) && <p className="text-slate-400 text-sm text-center py-20">No messages found.</p>}
+                      {user.inbox?.map(msg => (
+                          <div key={msg.id} className={`p-4 rounded-xl border text-sm ${msg.read ? 'bg-white border-slate-100' : 'bg-blue-50 border-blue-100'} transition-all`}>
+                              <div className="flex justify-between items-start mb-2">
+                                  <div className="flex items-center gap-2">
+                                      <p className="font-bold text-slate-600">{msg.type === 'GIFT' ? '🎁 GIFT' : 'MESSAGE'}</p>
+                                      {!msg.read && <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>}
+                                  </div>
+                                  <p className="text-slate-400 text-[10px]">{new Date(msg.date).toLocaleDateString()}</p>
+                              </div>
+                              <p className="text-slate-800 leading-relaxed mb-3 font-medium">{msg.text}</p>
+
+                              {(msg.type === 'REWARD' || msg.type === 'GIFT') && !msg.isClaimed && (
+                                  <button
+                                      onClick={() => claimRewardMessage(msg.id, msg.reward, msg.gift)}
+                                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:scale-[1.02] transition-transform text-xs flex items-center justify-center gap-2"
+                                  >
+                                      <Gift size={16} /> Claim {msg.type === 'GIFT' ? 'Gift' : 'Reward'}
+                                  </button>
+                              )}
+                              {(msg.isClaimed) && <p className="text-[10px] text-green-600 font-bold bg-green-50 inline-block px-3 py-1.5 rounded-lg border border-green-100">✅ Claimed</p>}
+                          </div>
+                      ))}
+                      {unreadCount > 0 && <button onClick={markInboxRead} className="fixed bottom-24 left-4 right-4 py-3 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-slate-900 z-20">Mark All as Read</button>}
+                  </div>
+              </div>
+          );
+      }
       if (activeTab === 'PROFILE') return (
-                <div className="animate-in fade-in zoom-in duration-300 pb-24">
-                    <div className={`rounded-3xl p-8 text-center text-white mb-6 shadow-xl relative overflow-hidden transition-all duration-500 ${
-                        user.subscriptionLevel === 'ULTRA' && user.isPremium 
-                        ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 shadow-purple-500/50 ring-2 ring-purple-400/50' 
-                        : user.subscriptionLevel === 'BASIC' && user.isPremium
-                        ? 'bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 shadow-blue-500/50'
-                        : 'bg-gradient-to-br from-slate-700 to-slate-900'
-                    }`}>
-                        {/* ANIMATED BACKGROUND FOR ULTRA */}
-                        {user.subscriptionLevel === 'ULTRA' && user.isPremium && (
-                            <>
-                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-spin-slow"></div>
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                                <div className="absolute -top-20 -right-20 w-64 h-64 bg-purple-500/30 rounded-full blur-3xl animate-pulse"></div>
-                            </>
-                        )}
-                        
-                        {/* ANIMATED BACKGROUND FOR BASIC */}
-                        {user.subscriptionLevel === 'BASIC' && user.isPremium && (
-                            <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-30 animate-pulse"></div>
-                        )}
-
-                        {/* SPECIAL BANNER ANIMATION (7/30/365) */}
-                        {(user.subscriptionTier === 'WEEKLY' || user.subscriptionTier === 'MONTHLY' || user.subscriptionTier === 'YEARLY' || user.subscriptionTier === 'LIFETIME') && user.isPremium && (
-                            <div className="absolute top-2 right-2 animate-bounce">
-                                <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/30">
-                                    {user.subscriptionTier === 'WEEKLY' ? '7 DAYS' : user.subscriptionTier === 'MONTHLY' ? '30 DAYS' : user.subscriptionTier === 'LIFETIME' ? '∞' : '365 DAYS'}
-                                </span>
-                            </div>
-                        )}
-
-                        <div className={`w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-4xl font-black shadow-2xl relative z-10 ${
-                            user.subscriptionLevel === 'ULTRA' && user.isPremium ? 'text-purple-700 ring-4 ring-purple-300 animate-bounce-slow' : 
-                            user.subscriptionLevel === 'BASIC' && user.isPremium ? 'text-blue-600 ring-4 ring-cyan-300' : 
-                            'text-slate-800'
-                        }`}>
+                <div className="animate-in fade-in zoom-in duration-300 pb-24 p-4">
+                    {/* Simplified Profile for Clean Look */}
+                    <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-100 text-center mb-6 relative overflow-hidden">
+                        <div className="w-24 h-24 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl font-black text-slate-400">
                             {user.name.charAt(0)}
-                            {user.subscriptionLevel === 'ULTRA' && user.isPremium && <div className="absolute -top-2 -right-2 text-2xl">👑</div>}
                         </div>
-                        
-                        <div className="flex items-center justify-center gap-2 relative z-10">
-                            <h2 className="text-3xl font-black">{user.name}</h2>
-                            <button 
-                                onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
-                                className="bg-white/20 p-1.5 rounded-full hover:bg-white/40 transition-colors"
-                            >
-                                <Edit size={14} />
-                            </button>
-                        </div>
-                        <p className="text-white/80 text-sm font-mono relative z-10">ID: {user.displayId || user.id}</p>
-                        {user.createdAt && (
-                            <p className="text-white/60 text-[10px] mt-1 font-medium relative z-10">
-                                Joined: {new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </p>
-                        )}
-                        
-                        <div className="mt-4 relative z-10">
-                            <span className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg ${
-                                user.subscriptionLevel === 'ULTRA' && user.isPremium ? 'bg-purple-500 text-white border border-purple-300' : 
-                                user.subscriptionLevel === 'BASIC' && user.isPremium ? 'bg-cyan-500 text-white' : 'bg-slate-600 text-slate-300'
-                            }`}>
-                                {user.isPremium ? `✨ ${user.subscriptionLevel} MEMBER ✨` : 'Free User'}
-                            </span>
+                        <h2 className="text-2xl font-black text-slate-800">{user.name}</h2>
+                        <p className="text-slate-500 text-xs font-mono">{user.displayId || user.id}</p>
+                        <div className="mt-4 flex justify-center gap-2">
+                            <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">{user.classLevel}</span>
+                            <span className="px-3 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-bold">{user.board}</span>
                         </div>
                     </div>
-                    
-                    <div className="space-y-4">
-                        <div className="bg-white rounded-xl p-4 border border-slate-200">
-                            <p className="text-xs font-bold text-slate-500 uppercase mb-1">Class</p>
-                            <p className="text-lg font-black text-slate-800">{user.classLevel} • {user.board} • {user.stream}</p>
-                        </div>
-                        
-                        <div className="bg-white rounded-xl p-4 border border-slate-200">
-                            <p className="text-xs font-bold text-slate-500 uppercase mb-1">Subscription</p>
-                            <p className="text-lg font-black text-slate-800">
-                                {user.subscriptionTier === 'CUSTOM' ? (user.customSubscriptionName || 'Basic Ultra') : (user.subscriptionTier || 'FREE')}
-                            </p>
-                            {user.subscriptionEndDate && user.subscriptionTier !== 'LIFETIME' && (
-                                <div className="mt-1">
-                                    <p className="text-xs text-slate-500 font-medium">Expires on:</p>
-                                    <p className="text-xs font-bold text-slate-700">
-                                        {new Date(user.subscriptionEndDate).toLocaleString('en-IN', {
-                                            year: 'numeric', month: 'long', day: 'numeric',
-                                            hour: '2-digit', minute: '2-digit', second: '2-digit'
-                                        })}
-                                    </p>
-                                    <p className="text-[10px] text-red-500 mt-1 font-mono">
-                                        (Time left: {
-                                            (() => {
-                                                const diff = new Date(user.subscriptionEndDate).getTime() - Date.now();
-                                                if (diff <= 0) return 'Expired';
-                                                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-                                                const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-                                                const m = Math.floor((diff / 1000 / 60) % 60);
-                                                return `${d}d ${h}h ${m}m`;
-                                            })()
-                                        })
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                                <p className="text-xs font-bold text-blue-600 uppercase">Credits</p>
-                                <p className="text-2xl font-black text-blue-600">{user.credits}</p>
-                            </div>
-                            <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                                <p className="text-xs font-bold text-orange-600 uppercase">Streak</p>
-                                <p className="text-2xl font-black text-orange-600">{user.streak} Days</p>
-                            </div>
-                        </div>
-                        
-                        <button onClick={() => setShowMonthlyReport(true)} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 shadow flex items-center justify-center gap-2"><BarChart3 size={18} /> View Monthly Report</button>
-                        <button onClick={() => onTabChange('SUB_HISTORY')} className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 shadow flex items-center justify-center gap-2"><History size={18} /> View Subscription History</button>
-                        
-                        <div className="flex items-center justify-between p-4 bg-slate-100 rounded-xl">
-                            <div className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-slate-800 text-yellow-400' : 'bg-white text-slate-600'}`}>
-                                    {isDarkMode ? <Sparkles size={16} /> : <Zap size={16} />}
-                                </div>
-                                <span className="font-bold text-slate-700 text-sm">Dark Mode</span>
-                            </div>
-                            <button 
-                                onClick={() => onToggleDarkMode && onToggleDarkMode(!isDarkMode)}
-                                className={`w-12 h-7 rounded-full transition-all relative ${isDarkMode ? 'bg-slate-800' : 'bg-slate-300'}`}
-                            >
-                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${isDarkMode ? 'left-6' : 'left-1'}`} />
-                            </button>
-                        </div>
-
-                        <button onClick={() => setEditMode(true)} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900">✏️ Edit Profile</button>
-                        <button onClick={() => {localStorage.removeItem(`nst_user_${user.id}`); window.location.reload();}} className="w-full bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600">🚪 Logout</button>
-                    </div>
+                    <button onClick={() => setEditMode(true)} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold mb-4">Edit Profile</button>
+                    <button onClick={() => {localStorage.removeItem(`nst_user_${user.id}`); window.location.reload();}} className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold">Logout</button>
                 </div>
       );
 
-      // Handle Drill-Down Views (Video, PDF, MCQ, AUDIO)
       if (activeTab === 'VIDEO' || activeTab === 'PDF' || activeTab === 'MCQ' || activeTab === 'AUDIO') {
           return renderContentSection(activeTab);
       }
@@ -1652,262 +738,58 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-        {/* ADMIN SWITCH BUTTON */}
+    <div className="min-h-screen bg-slate-50 pb-20 font-sans">
+        {/* Layout Editor & Admin Switch */}
         {(user.role === 'ADMIN' || isImpersonating) && (
              <div className="fixed bottom-36 right-4 z-50 flex flex-col gap-3 items-end">
-                 <button 
-                    onClick={() => setIsLayoutEditing(!isLayoutEditing)}
-                    className={`p-4 rounded-full shadow-2xl border-2 hover:scale-110 transition-transform flex items-center gap-2 ${isLayoutEditing ? 'bg-yellow-400 text-black border-yellow-500' : 'bg-white text-slate-800 border-slate-200'}`}
-                 >
-                     <Edit size={20} />
-                     {isLayoutEditing && <span className="font-bold text-xs">Editing Layout</span>}
-                 </button>
-                 <button 
-                    onClick={handleSwitchToAdmin}
-                    className="bg-slate-900 text-white p-4 rounded-full shadow-2xl border-2 border-slate-700 hover:scale-110 transition-transform flex items-center gap-2 animate-bounce-slow"
-                 >
+                 <button onClick={handleSwitchToAdmin} className="bg-slate-900 text-white p-4 rounded-full shadow-2xl border-2 border-slate-700 hover:scale-110 transition-transform flex items-center gap-2">
                      <Layout size={20} className="text-yellow-400" />
-                     <span className="font-bold text-xs">Admin Panel</span>
                  </button>
              </div>
         )}
 
-        {/* NOTIFICATION BAR (Only on Home) (COMPACT VERSION) */}
-        {activeTab === 'HOME' && settings?.noticeText && (
-            <div className="bg-slate-900 text-white p-3 mb-4 rounded-xl shadow-md border border-slate-700 animate-in slide-in-from-top-4 relative mx-2 mt-2">
-                <div className="flex items-center gap-3">
-                    <Megaphone size={16} className="text-yellow-400 shrink-0" />
-                    <div className="overflow-hidden flex-1">
-                        <p className="text-xs font-medium truncate">{settings.noticeText}</p>
-                    </div>
-                    <SpeakButton text={settings.noticeText} className="text-white hover:bg-white/10" iconSize={14} />
-                </div>
-            </div>
-        )}
-
-        {/* AI NOTES MODAL */}
         {showAiModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
-                <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
-                                <BrainCircuit size={20} />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-black text-slate-800">{settings?.aiName || 'AI Notes'}</h3>
-                                <p className="text-xs text-slate-500">Instant Note Generator</p>
-                            </div>
-                        </div>
-                        <button onClick={() => {setShowAiModal(false); setAiResult(null);}} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
+                <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-black text-slate-800">AI Note Generator</h3>
+                        <button onClick={() => {setShowAiModal(false); setAiResult(null);}}><X size={20} /></button>
                     </div>
-
                     {!aiResult ? (
                         <div className="space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase block mb-2">What topic do you want notes for?</label>
-                                <textarea 
-                                    value={aiTopic}
-                                    onChange={(e) => setAiTopic(e.target.value)}
-                                    placeholder="e.g. Newton's Laws of Motion, Photosynthesis process..."
-                                    className="w-full p-4 bg-slate-50 border-none rounded-2xl text-slate-800 focus:ring-2 focus:ring-indigo-100 h-32 resize-none"
-                                />
-                            </div>
-                            
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
-                                <AlertCircle size={16} className="text-blue-600 mt-0.5 shrink-0" />
-                                <div className="text-xs text-blue-800">
-                                    <span className="font-bold block mb-1">Usage Limit</span>
-                                    You can generate notes within your daily limit. 
-                                    {user.isPremium ? (user.subscriptionLevel === 'ULTRA' ? ' (Ultra Plan: High Limit)' : ' (Basic Plan: Medium Limit)') : ' (Free Plan: Low Limit)'}
-                                </div>
-                            </div>
-
-                            <button 
-                                onClick={handleAiNotesGeneration}
-                                disabled={aiGenerating}
-                                className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-2"
-                            >
-                                {aiGenerating ? <Sparkles className="animate-spin" /> : <Sparkles />}
-                                {aiGenerating ? "Generating Magic..." : "Generate Notes"}
+                            <textarea value={aiTopic} onChange={(e) => setAiTopic(e.target.value)} placeholder="Enter topic..." className="w-full p-4 bg-slate-50 border-none rounded-2xl h-32 resize-none" />
+                            <button onClick={handleAiNotesGeneration} disabled={aiGenerating} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl">
+                                {aiGenerating ? "Generating..." : "Generate Notes"}
                             </button>
                         </div>
                     ) : (
-                        <div className="flex-1 overflow-hidden flex flex-col">
-                            <div className="flex-1 overflow-y-auto bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4 prose prose-sm max-w-none">
-                                <div className="whitespace-pre-wrap">{aiResult}</div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={() => setAiResult(null)}
-                                    className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl"
-                                >
-                                    New Topic
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(aiResult);
-                                        showAlert("Notes Copied!", "SUCCESS");
-                                    }}
-                                    className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg"
-                                >
-                                    Copy Text
-                                </button>
-                            </div>
+                        <div>
+                            <div className="max-h-60 overflow-y-auto bg-slate-50 p-4 rounded-xl mb-4 whitespace-pre-wrap">{aiResult}</div>
+                            <button onClick={() => { navigator.clipboard.writeText(aiResult); showAlert("Copied!", "SUCCESS"); }} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">Copy</button>
                         </div>
                     )}
                 </div>
             </div>
         )}
 
-        {/* REQUEST CONTENT MODAL */}
-        {showRequestModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-                    <div className="flex items-center gap-2 mb-4 text-pink-600">
-                        <Megaphone size={24} />
-                        <h3 className="text-lg font-black text-slate-800">Request Content</h3>
-                    </div>
-                    
-                    <div className="space-y-3 mb-6">
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase">Subject</label>
-                            <input 
-                                type="text" 
-                                value={requestData.subject} 
-                                onChange={e => setRequestData({...requestData, subject: e.target.value})}
-                                className="w-full p-2 border rounded-lg"
-                                placeholder="e.g. Mathematics"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase">Topic / Chapter</label>
-                            <input 
-                                type="text" 
-                                value={requestData.topic} 
-                                onChange={e => setRequestData({...requestData, topic: e.target.value})}
-                                className="w-full p-2 border rounded-lg"
-                                placeholder="e.g. Trigonometry"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase">Type</label>
-                            <select 
-                                value={requestData.type} 
-                                onChange={e => setRequestData({...requestData, type: e.target.value})}
-                                className="w-full p-2 border rounded-lg"
-                            >
-                                <option value="PDF">PDF Notes</option>
-                                <option value="VIDEO">Video Lecture</option>
-                                <option value="MCQ">MCQ Test</option>
-                            </select>
-                        </div>
-                    </div>
+        {/* MAIN RENDER */}
+        {renderMainContent()}
 
-                    <div className="flex gap-2">
-                        <button onClick={() => setShowRequestModal(false)} className="flex-1 py-3 text-slate-500 font-bold bg-slate-100 rounded-xl">Cancel</button>
-                        <button 
-                            onClick={() => {
-                                if (!requestData.subject || !requestData.topic) {
-                                    showAlert("Please fill all fields", 'ERROR');
-                                    return;
-                                }
-                                const request = {
-                                    id: `req-${Date.now()}`,
-                                    userId: user.id,
-                                    userName: user.name,
-                                    details: `${user.classLevel || '10'} ${user.board || 'CBSE'} - ${requestData.subject} - ${requestData.topic} - ${requestData.type}`,
-                                    timestamp: new Date().toISOString()
-                                };
-                                const existing = JSON.parse(localStorage.getItem('nst_demand_requests') || '[]');
-                                existing.push(request);
-                                localStorage.setItem('nst_demand_requests', JSON.stringify(existing));
-                                
-                                setShowRequestModal(false);
-                                showAlert("✅ Request Sent! Admin will check it.", 'SUCCESS');
-                            }}
-                            className="flex-1 py-3 bg-pink-600 text-white font-bold rounded-xl hover:bg-pink-700 shadow-lg"
-                        >
-                            Send Request
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* NAME CHANGE MODAL */}
-        {showNameChangeModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-                    <h3 className="text-lg font-bold mb-4 text-slate-800">Change Display Name</h3>
-                    <input 
-                        type="text" 
-                        value={newNameInput} 
-                        onChange={e => setNewNameInput(e.target.value)} 
-                        className="w-full p-3 border rounded-xl mb-2" 
-                        placeholder="Enter new name" 
-                    />
-                    <p className="text-xs text-slate-500 mb-4">Cost: <span className="font-bold text-orange-600">{settings?.nameChangeCost || 10} Coins</span></p>
-                    <div className="flex gap-2">
-                        <button onClick={() => setShowNameChangeModal(false)} className="flex-1 py-2 text-slate-500 font-bold bg-slate-100 rounded-lg">Cancel</button>
-                        <button 
-                            onClick={() => {
-                                const cost = settings?.nameChangeCost || 10;
-                                if (newNameInput && newNameInput !== user.name) {
-                                    if (user.credits < cost) { showAlert(`Insufficient Coins! Need ${cost}.`, 'ERROR'); return; }
-                                    const u = { ...user, name: newNameInput, credits: user.credits - cost };
-                                    handleUserUpdate(u);
-                                    setShowNameChangeModal(false);
-                                    showAlert("Name Updated Successfully!", 'SUCCESS');
-                                }
-                            }}
-                            className="flex-1 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700"
-                        >
-                            Pay & Update
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* MAIN CONTENT AREA */}
-        <div className="p-4">
-            {renderMainContent()}
-            
-            {settings?.showFooter !== false && (
-                <div className="mt-8 mb-4 text-center">
-                    <p 
-                        className="text-[10px] font-black uppercase tracking-widest"
-                        style={{ color: settings?.footerColor || '#cbd5e1' }}
-                    >
-                        Developed by Nadim Anwar
-                    </p>
-                </div>
-            )}
-        </div>
-
-        {/* MINI PLAYER */}
-        <MiniPlayer track={currentAudioTrack} onClose={() => setCurrentAudioTrack(null)} />
-
-        {/* FIXED BOTTOM NAVIGATION */}
+        {/* BOTTOM NAV */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg z-50 pb-safe">
             <div className="flex justify-around items-center h-16">
                 <button onClick={() => { onTabChange('HOME'); setContentViewStep('SUBJECTS'); }} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'HOME' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <Home size={24} fill={activeTab === 'HOME' ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold mt-1">Home</span>
                 </button>
-                
                 <button onClick={() => onTabChange('EXPLORE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'EXPLORE' ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <Compass size={24} fill={activeTab === 'EXPLORE' ? "currentColor" : "none"} />
-                    <span className="text-[10px] font-bold mt-1">Explore</span>
+                    <Bot size={24} fill={activeTab === 'EXPLORE' ? "currentColor" : "none"} />
+                    <span className="text-[10px] font-bold mt-1">AI Studio</span>
                 </button>
-
                 <button onClick={() => onTabChange('HISTORY')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'HISTORY' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <History size={24} className={activeTab === 'HISTORY' ? "text-blue-600" : ""} />
                     <span className="text-[10px] font-bold mt-1">History</span>
                 </button>
-
                 <button onClick={() => onTabChange('PROFILE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'PROFILE' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <UserIconOutline size={24} fill={activeTab === 'PROFILE' ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold mt-1">Profile</span>
@@ -1915,12 +797,13 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
             </div>
         </div>
 
+        {/* SIDEBAR */}
         <StudentSidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
+            isOpen={showSidebar}
+            onClose={() => setShowSidebar(false)}
             onNavigate={(tab) => {
                 onTabChange(tab);
-                setIsSidebarOpen(false);
+                setShowSidebar(false);
             }}
             user={user}
             settings={settings}
@@ -1930,259 +813,25 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
             }}
         />
 
-        {/* SYLLABUS SELECTION POPUP */}
-        {showSyllabusPopup && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
-                <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl scale-in-center">
-                    <div className="text-center mb-6">
-                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
-                            <BookOpen size={32} />
-                        </div>
-                        <h3 className="text-xl font-black text-slate-800">Choose Syllabus Mode</h3>
-                        <p className="text-sm text-slate-500 mt-1">Select how you want to study this chapter.</p>
-                    </div>
-                    
-                    <div className="space-y-3 mb-6">
-                        <button 
-                            onClick={() => confirmSyllabusSelection('SCHOOL')}
-                            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-3"
-                        >
-                            🏫 School Mode
-                        </button>
-                        <button 
-                            onClick={() => confirmSyllabusSelection('COMPETITION')}
-                            className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-purple-200 active:scale-95 transition-all flex items-center justify-center gap-3"
-                        >
-                            🏆 Competition Mode
-                        </button>
-                    </div>
-
-                    <button 
-                        onClick={() => setShowSyllabusPopup(null)}
-                        className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {/* MODALS */}
-        {showUserGuide && <UserGuide onClose={() => setShowUserGuide(false)} />}
-        
-        {editMode && (
+        {showRequestModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-                    {/* ... (Edit Profile Content - duplicated code removed for brevity, should use component) ... */}
-                    {/* Re-implementing simplified edit mode here as it was inside a helper function before */}
-                    <h3 className="font-bold text-lg mb-4">Edit Profile & Settings</h3>
+                    <h3 className="text-lg font-black text-slate-800 mb-4">Request Content</h3>
                     <div className="space-y-3 mb-6">
-                        <div><label className="text-xs font-bold text-slate-500 uppercase">Daily Study Goal (Hours)</label><input type="number" value={profileData.dailyGoalHours} onChange={e => setProfileData({...profileData, dailyGoalHours: Number(e.target.value)})} className="w-full p-2 border rounded-lg" min={1} max={12}/></div>
-                        <div className="h-px bg-slate-100 my-2"></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase">New Password</label><input type="text" placeholder="Set new password (optional)" value={profileData.newPassword} onChange={e => setProfileData({...profileData, newPassword: e.target.value})} className="w-full p-2 border rounded-lg bg-yellow-50 border-yellow-200"/><p className="text-[9px] text-slate-400 mt-1">Leave blank to keep current password.</p></div>
-                        <div className="h-px bg-slate-100 my-2"></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase">Board</label><select value={profileData.board} onChange={e => setProfileData({...profileData, board: e.target.value as any})} className="w-full p-2 border rounded-lg"><option value="CBSE">CBSE</option><option value="BSEB">BSEB</option></select></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase">Class</label><select value={profileData.classLevel} onChange={e => setProfileData({...profileData, classLevel: e.target.value as any})} className="w-full p-2 border rounded-lg">{['6','7','8','9','10','11','12'].map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                        {['11','12'].includes(profileData.classLevel) && (<div><label className="text-xs font-bold text-slate-500 uppercase">Stream</label><select value={profileData.stream} onChange={e => setProfileData({...profileData, stream: e.target.value as any})} className="w-full p-2 border rounded-lg"><option value="Science">Science</option><option value="Commerce">Commerce</option><option value="Arts">Arts</option></select></div>)}
-                        
-                        {/* NAME CHANGE */}
-                        <div className="h-px bg-slate-100 my-2"></div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase">Display Name ({settings?.nameChangeCost || 10} Coins)</label>
-                            <input 
-                                type="text" 
-                                value={user.name} 
-                                onChange={(e) => {
-                                    // Normally name is in user object, here we modify a local state if we want preview, 
-                                    // but saveProfile uses profileData. Let's add name to profileData.
-                                    // BUT user prop is read-only here. We need to handle this in saveProfile properly.
-                                    // For now, we will just prompt for Name Change separately or add it here.
-                                    // Adding separate logic for Name Change.
-                                    // Actually, let's keep it simple: separate button in profile view is better.
-                                }}
-                                disabled
-                                className="w-full p-2 border rounded-lg bg-slate-100 text-slate-500"
-                                placeholder="Change from Profile Page"
-                            />
-                            <p className="text-[9px] text-slate-400 mt-1">Use 'Edit Name' on Profile page to change.</p>
-                        </div>
+                        <input type="text" value={requestData.subject} onChange={e => setRequestData({...requestData, subject: e.target.value})} className="w-full p-2 border rounded-lg" placeholder="Subject" />
+                        <input type="text" value={requestData.topic} onChange={e => setRequestData({...requestData, topic: e.target.value})} className="w-full p-2 border rounded-lg" placeholder="Topic" />
                     </div>
-                    <div className="flex gap-2"><button onClick={() => setEditMode(false)} className="flex-1 py-2 text-slate-500 font-bold">Cancel</button><button onClick={saveProfile} className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold">Save Changes</button></div>
-                </div>
-            </div>
-        )}
-        
-        {showInbox && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-                    <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2"><Mail size={18} className="text-blue-600" /> Admin Messages</h3>
-                        <button onClick={() => setShowInbox(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto p-4 space-y-3">
-                        {(!user.inbox || user.inbox.length === 0) && <p className="text-slate-400 text-sm text-center py-8">No messages.</p>}
-                        {user.inbox?.map(msg => (
-                            <div key={msg.id} className={`p-3 rounded-xl border text-sm ${msg.read ? 'bg-white border-slate-100' : 'bg-blue-50 border-blue-100'} transition-all`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <p className="font-bold text-slate-500">{msg.type === 'GIFT' ? '🎁 GIFT' : 'MESSAGE'}</p>
-                                        {!msg.read && <span className="w-2 h-2 bg-blue-500 rounded-full"></span>}
-                                    </div>
-                                    <p className="text-slate-400 text-[10px]">{new Date(msg.date).toLocaleDateString()}</p>
-                                </div>
-                                <p className="text-slate-700 leading-relaxed mb-2">{msg.text}</p>
-                                
-                                {(msg.type === 'REWARD' || msg.type === 'GIFT') && !msg.isClaimed && (
-                                    <button 
-                                        onClick={() => claimRewardMessage(msg.id, msg.reward, msg.gift)}
-                                        className="w-full mt-2 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-lg shadow-md hover:scale-[1.02] transition-transform text-xs flex items-center justify-center gap-2"
-                                    >
-                                        <Gift size={14} /> Claim {msg.type === 'GIFT' ? 'Gift' : 'Reward'}
-                                    </button>
-                                )}
-                                {(msg.isClaimed) && <p className="text-[10px] text-green-600 font-bold bg-green-50 inline-block px-2 py-1 rounded">✅ Claimed</p>}
-                            </div>
-                        ))}
-                    </div>
-                    {unreadCount > 0 && <button onClick={markInboxRead} className="w-full py-3 bg-blue-600 text-white font-bold text-sm hover:opacity-90">Mark All as Read</button>}
-                </div>
-            </div>
-        )}
-
-        {/* SUPPORT MODAL (Replacing ChatHub) */}
-        {showSupportModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl text-center">
-                    <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Headphones size={32} className="text-blue-600" />
-                    </div>
-                    <h3 className="text-xl font-black text-slate-800 mb-2">Need Help?</h3>
-                    <p className="text-sm text-slate-500 mb-6">
-                        Contact Admin directly for support, subscription issues, or questions.
-                    </p>
-                    
-                    <button 
-                        onClick={handleSupportEmail}
-                        className="w-full bg-green-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2 mb-3"
-                    >
-                        <Mail size={20} /> Email Support
-                    </button>
-                    
-                    <button 
-                        onClick={() => setShowSupportModal(false)} 
-                        className="w-full py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl"
-                    >
-                        Close
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {isLoadingContent && <LoadingOverlay dataReady={isDataReady} onComplete={onLoadingComplete} />}
-        {activeExternalApp && <div className="fixed inset-0 z-50 bg-white flex flex-col"><div className="flex items-center justify-between p-4 border-b bg-slate-50"><button onClick={() => setActiveExternalApp(null)} className="p-2 bg-white rounded-full border shadow-sm"><X size={20} /></button><p className="font-bold text-slate-700">External App</p><div className="w-10"></div></div><iframe src={activeExternalApp} className="flex-1 w-full border-none" title="External App" allow="camera; microphone; geolocation; payment" /></div>}
-        {pendingApp && <CreditConfirmationModal title={`Access ${pendingApp.app.name}`} cost={pendingApp.cost} userCredits={user.credits} isAutoEnabledInitial={!!user.isAutoDeductEnabled} onCancel={() => setPendingApp(null)} onConfirm={(auto) => processAppAccess(pendingApp.app, pendingApp.cost, auto)} />}
-        
-        {/* GLOBAL ALERT MODAL */}
-        <CustomAlert 
-            isOpen={alertConfig.isOpen}
-            type={alertConfig.type}
-            title={alertConfig.title}
-            message={alertConfig.message}
-            onClose={() => setAlertConfig(prev => ({...prev, isOpen: false}))}
-        />
-
-        {showChat && <UniversalChat user={user} onClose={() => setShowChat(false)} />}
-
-        {/* AI INTERSTITIAL */}
-        {/* ... (existing ai interstitial code if any) ... */}
-
-        {/* EXPIRY POPUP */}
-        <ExpiryPopup 
-            isOpen={showExpiryPopup}
-            onClose={() => setShowExpiryPopup(false)}
-            expiryDate={user.subscriptionEndDate || new Date().toISOString()}
-            onRenew={() => {
-                setShowExpiryPopup(false);
-                onTabChange('STORE');
-            }}
-        />
-
-        {showMonthlyReport && <MonthlyMarksheet user={user} settings={settings} onClose={() => setShowMonthlyReport(false)} />}
-        {showReferralPopup && <ReferralPopup user={user} onClose={() => setShowReferralPopup(false)} onUpdateUser={handleUserUpdate} />}
-
-        {/* SIDEBAR OVERLAY */}
-        {showSidebar && (
-            <div className="fixed inset-0 z-[100] flex animate-in fade-in duration-200">
-                {/* Backdrop */}
-                <div
-                    className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-                    onClick={() => setShowSidebar(false)}
-                ></div>
-
-                {/* Sidebar Panel */}
-                <div className="w-64 bg-white h-full shadow-2xl relative z-10 flex flex-col slide-in-from-left duration-300">
-                    <div className="p-6 bg-slate-900 text-white rounded-br-3xl">
-                        <h2 className="text-2xl font-black italic mb-1">{settings?.appName || 'App'}</h2>
-                        <p className="text-xs text-slate-400">Student Menu</p>
-                        <button onClick={() => setShowSidebar(false)} className="absolute top-4 right-4 text-white/50 hover:text-white">
-                            <X size={24} />
-                        </button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                        {hasPermission('f6') && (
-                            <button onClick={() => { onTabChange('REDEEM'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
-                                <div className="bg-indigo-100 text-indigo-600 p-2 rounded-lg"><Gift size={20} /></div>
-                                Redeem
-                            </button>
-                        )}
-                        {hasPermission('f9') && isGameEnabled && (
-                            <button onClick={() => { onTabChange('GAME'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
-                                <div className="bg-purple-100 text-purple-600 p-2 rounded-lg"><Gamepad2 size={20} /></div>
-                                Play Game
-                            </button>
-                        )}
-                        {hasPermission('f11') && (
-                            <button onClick={() => { onTabChange('SUB_HISTORY'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
-                                <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><CreditCard size={20} /></div>
-                                My Plan
-                            </button>
-                        )}
-                        {hasPermission('f12') && (
-                            <button onClick={() => { onTabChange('STORE'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
-                                <div className="bg-yellow-100 text-yellow-600 p-2 rounded-lg"><Crown size={20} /></div>
-                                Premium Store
-                            </button>
-                        )}
-                        {hasPermission('f35') && (
-                            <button onClick={() => { onTabChange('HISTORY'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
-                                <div className="bg-slate-100 text-slate-600 p-2 rounded-lg"><History size={20} /></div>
-                                History
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="p-4 border-t border-slate-100">
-                        <div className="bg-slate-50 p-4 rounded-xl flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold">
-                                {user.name.charAt(0)}
-                            </div>
-                            <div className="overflow-hidden">
-                                <p className="font-bold text-sm truncate text-slate-800">{user.name}</p>
-                                <p className="text-xs text-slate-500 truncate">{user.id}</p>
-                            </div>
-                        </div>
+                    <div className="flex gap-2">
+                        <button onClick={() => setShowRequestModal(false)} className="flex-1 py-3 text-slate-500 font-bold bg-slate-100 rounded-xl">Cancel</button>
+                        <button onClick={() => { showAlert("Request Sent!", "SUCCESS"); setShowRequestModal(false); }} className="flex-1 py-3 bg-pink-600 text-white font-bold rounded-xl">Send</button>
                     </div>
                 </div>
             </div>
         )}
 
-        <StudentAiAssistant 
-            user={user} 
-            settings={settings} 
-            isOpen={activeTab === 'AI_CHAT'} 
-            onClose={() => onTabChange('HOME')} 
-        />
+        <StudentAiAssistant user={user} settings={settings} isOpen={activeTab === 'AI_CHAT'} onClose={() => onTabChange('HOME')} />
+        <CustomAlert isOpen={alertConfig.isOpen} type={alertConfig.type} title={alertConfig.title} message={alertConfig.message} onClose={() => setAlertConfig(prev => ({...prev, isOpen: false}))} />
+        {isLoadingContent && <LoadingOverlay dataReady={isDataReady} onComplete={() => { setIsLoadingContent(false); setContentViewStep('PLAYER'); setFullScreen(true); }} />}
     </div>
   );
 };

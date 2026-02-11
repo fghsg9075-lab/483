@@ -76,13 +76,9 @@ type AdminTab =
   | 'UNIVERSAL_PLAYLIST'
   | 'CONFIG_CHALLENGE'
   | 'CHALLENGE_CREATOR_20'
-  | 'APP_MODES'
-
-
   | 'BLOGGER_HUB'
   | 'CONFIG_GATING'
-  | 'WHATSAPP_CONNECT'
-  | 'FEATURE_CONTROL';
+  | 'WHATSAPP_CONNECT';
 
 interface ContentConfig {
     freeLink?: string;
@@ -2644,10 +2640,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               <div className="p-2 bg-purple-50 text-purple-600 rounded-full"><CheckCircle size={20} /></div>
                               <span className="text-[10px] font-bold">MCQ & Tests</span>
                           </button>
-                          <button onClick={() => setActiveTab('BULK_UPLOAD')} className="p-3 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-600 hover:text-orange-600 hover:shadow-md transition-all flex flex-col items-center gap-2">
-                              <div className="p-2 bg-orange-50 text-orange-600 rounded-full"><LayersIcon size={20} /></div>
-                              <span className="text-[10px] font-bold">Bulk Import</span>
-                          </button>
                       </div>
                   </div>
                   )}
@@ -2662,10 +2654,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Monitor} label="General" onClick={() => setActiveTab('CONFIG_GENERAL')} color="blue" />
                           <DashboardCard icon={ShieldCheck} label="Security" onClick={() => setActiveTab('CONFIG_SECURITY')} color="red" />
                           <DashboardCard icon={Eye} label="Visibility" onClick={() => setActiveTab('CONFIG_VISIBILITY')} color="cyan" />
-                          <DashboardCard icon={Settings} label="App Modes" onClick={() => setActiveTab('APP_MODES')} color="green" />
                           {(hasPermission('MANAGE_SETTINGS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="Feature Access" onClick={() => setActiveTab('FEATURE_TIERS')} color="violet" />}
                           {currentUser?.role === 'ADMIN' && <DashboardCard icon={PenTool} label="Blogger Hub" onClick={() => setActiveTab('BLOGGER_HUB')} color="orange" />}
-                          <DashboardCard icon={Gamepad2} label="Game Config" onClick={() => setActiveTab('CONFIG_GAME')} color="orange" />
                           <DashboardCard icon={Banknote} label="Payment" onClick={() => setActiveTab('CONFIG_PAYMENT')} color="emerald" />
                           <DashboardCard icon={Globe} label="External Apps" onClick={() => setActiveTab('CONFIG_EXTERNAL_APPS')} color="indigo" />
                           <DashboardCard icon={Gift} label="Engagement Rewards" onClick={() => setActiveTab('CONFIG_REWARDS')} color="rose" />
@@ -2675,7 +2665,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Rocket} label="Challenge 2.0" onClick={() => setActiveTab('CHALLENGE_CREATOR_20')} color="violet" />
                           <DashboardCard icon={Video} label="Universal Playlist" onClick={() => setActiveTab('UNIVERSAL_PLAYLIST')} color="rose" />
                           <DashboardCard icon={ShoppingBag} label="💰 Pricing" onClick={() => setActiveTab('PRICING_MGMT')} color="yellow" />
-                          <DashboardCard icon={Layout} label="Feature Control" onClick={() => setActiveTab('FEATURE_CONTROL')} color="purple" />
                       </>
                   )}
                   
@@ -2947,268 +2936,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       )}
 
       {/* --- AI CONFIG TAB --- */}
-      {activeTab === 'CONFIG_AI' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">AI Configuration</h3>
-              </div>
-
-              <div className="space-y-6">
-                  {/* ENABLE AI TOGGLE */}
-                  <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg">
-                              <BrainCircuit size={24} />
-                          </div>
-                          <div>
-                              <h4 className="font-bold text-indigo-900 text-lg">Enable AI Assistant</h4>
-                              <p className="text-xs text-indigo-700">Allow students to use AI features.</p>
-                          </div>
-                      </div>
-                      <button 
-                          onClick={() => setLocalSettings({...localSettings, isAiEnabled: !localSettings.isAiEnabled})}
-                          className={`w-16 h-8 rounded-full transition-all relative ${localSettings.isAiEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                      >
-                          <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm ${localSettings.isAiEnabled ? 'left-9' : 'left-1'}`} />
-                      </button>
-                  </div>
-
-                  {/* GROQ KEY MANAGEMENT (RECYCLE BIN SUPPORT) */}
-                  <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-200">
-                      <div className="flex justify-between items-center mb-4">
-                          <h4 className="font-bold text-indigo-900 flex items-center gap-2">
-                              <Key size={18} /> Groq API Keys (Safe Mode)
-                          </h4>
-                          <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded border border-green-200 font-bold">
-                              {localSettings.groqApiKeys?.length || 0} Active
-                          </span>
-                      </div>
-                      
-                      {/* Add Keys Area */}
-                      <div className="mb-4">
-                          <textarea 
-                              placeholder="Paste Groq API Keys (One per line)" 
-                              value={newSecureKey}
-                              onChange={(e) => setNewSecureKey(e.target.value)}
-                              className="w-full p-3 border rounded-xl h-24 text-xs font-mono"
-                          />
-                          <div className="flex justify-end gap-2 mt-2">
-                              <button 
-                                  onClick={() => {
-                                      if (newSecureKey.trim()) {
-                                          const newKeys = newSecureKey.split('\n').map(k => k.trim()).filter(k => k.length > 10);
-                                          const current = localSettings.groqApiKeys || [];
-                                          // Merge unique
-                                          const merged = Array.from(new Set([...current, ...newKeys]));
-                                          setLocalSettings({...localSettings, groqApiKeys: merged});
-                                          setNewSecureKey('');
-                                          alert(`Added ${newKeys.length} keys!`);
-                                      }
-                                  }}
-                                  className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs"
-                              >
-                                  + Add Keys
-                              </button>
-                          </div>
-                      </div>
-
-                      {/* Active Keys List */}
-                      <div className="space-y-2 mb-6 max-h-40 overflow-y-auto">
-                          {(localSettings.groqApiKeys || []).map((k, i) => (
-                              <div key={i} className="flex gap-2 items-center bg-white p-2 rounded-lg border border-indigo-100">
-                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                  <input 
-                                      type="password" 
-                                      value={k} 
-                                      disabled 
-                                      className="flex-1 bg-transparent border-none text-xs text-slate-500 font-mono" 
-                                  />
-                                  <span className={`text-[10px] font-bold ${keyStatus[i]?.includes('Valid') ? 'text-green-600' : 'text-slate-400'}`}>
-                                      {keyStatus[i] || 'Ready'}
-                                  </span>
-                                  <button 
-                                      onClick={() => {
-                                          if (!confirm("Move key to Recycle Bin?")) return;
-                                          const keyToDelete = k;
-                                          const updatedActive = (localSettings.groqApiKeys || []).filter(key => key !== keyToDelete);
-                                          
-                                          // Add to Recycle Bin
-                                          const recycleEntry = { key: keyToDelete, deletedAt: Date.now() };
-                                          const updatedRecycle = [...(localSettings.deletedGroqKeys || []), recycleEntry];
-                                          
-                                          setLocalSettings({
-                                              ...localSettings, 
-                                              groqApiKeys: updatedActive,
-                                              deletedGroqKeys: updatedRecycle
-                                          });
-                                      }}
-                                      className="text-slate-400 hover:text-red-500 p-1"
-                                      title="Move to Recycle Bin"
-                                  >
-                                      <Trash2 size={14} />
-                                  </button>
-                              </div>
-                          ))}
-                          {(localSettings.groqApiKeys || []).length === 0 && (
-                              <p className="text-center text-xs text-slate-400 italic">No active keys.</p>
-                          )}
-                      </div>
-
-                      {/* Recycle Bin Section */}
-                      <div className="border-t border-indigo-200 pt-4">
-                          <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-2">
-                              <Trash2 size={12} /> Recycle Bin ({localSettings.deletedGroqKeys?.length || 0})
-                          </h5>
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
-                              {(localSettings.deletedGroqKeys || []).map((item, i) => (
-                                  <div key={i} className="flex gap-2 items-center bg-slate-100 p-2 rounded-lg opacity-70 hover:opacity-100 transition-opacity">
-                                      <span className="text-[10px] font-mono text-slate-500 flex-1 truncate">
-                                          ...{item.key.slice(-6)} (Del: {new Date(item.deletedAt).toLocaleDateString()})
-                                      </span>
-                                      <button 
-                                          onClick={() => {
-                                              // Restore
-                                              const updatedRecycle = (localSettings.deletedGroqKeys || []).filter((_, idx) => idx !== i);
-                                              const updatedActive = [...(localSettings.groqApiKeys || []), item.key];
-                                              setLocalSettings({
-                                                  ...localSettings,
-                                                  groqApiKeys: updatedActive,
-                                                  deletedGroqKeys: updatedRecycle
-                                              });
-                                          }}
-                                          className="text-green-600 hover:text-green-800 text-[10px] font-bold px-2"
-                                      >
-                                          RESTORE
-                                      </button>
-                                      <button 
-                                          onClick={() => {
-                                              if(!confirm("Permanently delete? This cannot be undone.")) return;
-                                              const updatedRecycle = (localSettings.deletedGroqKeys || []).filter((_, idx) => idx !== i);
-                                              setLocalSettings({...localSettings, deletedGroqKeys: updatedRecycle});
-                                          }}
-                                          className="text-red-500 hover:text-red-700 text-[10px] font-bold px-2"
-                                      >
-                                          PERMANENT
-                                      </button>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                      
-                      <div className="flex gap-2 mt-4 pt-2 border-t border-indigo-100">
-                          <button onClick={testKeys} className="w-full bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-slate-900">
-                              {isTestingKeys ? 'Testing Connectivity...' : 'Test All Active Keys'}
-                          </button>
-                      </div>
-                  </div>
-
-                  {/* AI USAGE SPLIT (80/20) */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200">
-                      <div className="flex justify-between items-center mb-4">
-                          <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                              <Activity size={18} className="text-blue-500" /> AI Usage Split
-                          </h4>
-                          <span className="text-xs font-black bg-slate-100 px-2 py-1 rounded">
-                              {localSettings.aiUsageSplit ?? 80}% Pilot / {100 - (localSettings.aiUsageSplit ?? 80)}% Students
-                          </span>
-                      </div>
-                      <input 
-                          type="range" 
-                          min="0" max="100" 
-                          step="5"
-                          value={localSettings.aiUsageSplit ?? 80}
-                          onChange={(e) => setLocalSettings({...localSettings, aiUsageSplit: Number(e.target.value)})}
-                          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
-                      <div className="flex justify-between text-[10px] text-slate-400 mt-2 font-bold uppercase">
-                          <span>0% Pilot</span>
-                          <span>50/50</span>
-                          <span>100% Pilot</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-2">
-                          Controls resource allocation. Higher Pilot % ensures more auto-generated content availability.
-                      </p>
-                  </div>
-
-                  {/* AI NAME */}
-                  <div className="bg-white p-4 rounded-xl border border-slate-200">
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">AI Assistant Name</label>
-                      <input 
-                          type="text" 
-                          value={localSettings.aiName || 'NSTA AI'} 
-                          onChange={(e) => setLocalSettings({...localSettings, aiName: e.target.value})}
-                          className="w-full p-3 border rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none"
-                          placeholder="e.g. Jarvis"
-                      />
-                  </div>
-
-                  {/* AI LIMITS */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                          <Zap size={18} className="text-yellow-500" /> Daily Generation Limits
-                      </h4>
-                      <div className="grid grid-cols-3 gap-4">
-                          <div>
-                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Free User</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.free ?? 5} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...(localSettings.aiLimits || {free:5, basic:20, ultra:100}), free: Number(e.target.value) }
-                                  })}
-                                  className="w-full p-2 border rounded-lg font-bold text-center"
-                              />
-                          </div>
-                          <div>
-                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Basic User</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.basic ?? 20} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...(localSettings.aiLimits || {free:5, basic:20, ultra:100}), basic: Number(e.target.value) }
-                                  })}
-                                  className="w-full p-2 border rounded-lg font-bold text-center text-blue-600"
-                              />
-                          </div>
-                          <div>
-                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Ultra User</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.ultra ?? 100} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...(localSettings.aiLimits || {free:5, basic:20, ultra:100}), ultra: Number(e.target.value) }
-                                  })}
-                                  className="w-full p-2 border rounded-lg font-bold text-center text-purple-600"
-                              />
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* AI PROMPTS */}
-                  <div className="space-y-4">
-                      <div className="bg-white p-4 rounded-xl border border-slate-200">
-                          <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Notes Prompt (Standard)</label>
-                          <textarea 
-                              value={localSettings.aiNotesPrompt || ''}
-                              onChange={(e) => setLocalSettings({...localSettings, aiNotesPrompt: e.target.value})}
-                              className="w-full h-32 p-3 border rounded-xl text-xs font-mono bg-slate-50 focus:bg-white transition-colors resize-none"
-                              placeholder="System instruction for generating notes..."
-                          />
-                      </div>
-                  </div>
-              </div>
-
-              <button onClick={handleSaveSettings} className="w-full mt-6 bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-green-700 flex items-center justify-center gap-2">
-                  <Save size={18} /> Save AI Settings
-              </button>
-          </div>
-      )}
-
-      {/* --- GENERAL CONFIG TAB (With Version Control) --- */}
       {activeTab === 'CONFIG_GENERAL' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -3579,64 +3306,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       )}
 
       {/* 3-TIER POPUP CONFIG TAB */}
-
-      {activeTab === 'BULK_UPLOAD' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Daily Bulk Upload</h3>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 mb-6 text-sm text-yellow-800">
-                  <strong>Instructions:</strong> Paste your links here. If Firebase is configured, clicking Save will sync for ALL students instantly. No need to redeploy.
-              </div>
-              
-              <SubjectSelector />
-
-              {selSubject && selChapters.length > 0 && (
-                  <div className="space-y-4">
-                      <div className="flex justify-between items-center bg-slate-100 p-3 rounded-lg font-bold text-slate-600 text-xs uppercase">
-                          <div className="w-8">#</div>
-                          <div className="flex-1">Chapter</div>
-                          <div className="w-1/3">Premium Link (Paid)</div>
-                          <div className="w-16">Price</div>
-                      </div>
-                      
-                      {selChapters.map((ch, idx) => {
-                          const data = bulkData[ch.id] || { free: '', premium: '', price: 5 };
-                          return (
-                              <div key={ch.id} className="flex gap-2 items-center">
-                                  <div className="w-8 text-center text-xs font-bold text-slate-400">{idx + 1}</div>
-                                  <div className="flex-1 text-sm font-bold text-slate-700 truncate">{ch.title}</div>
-                                  <div className="w-1/3">
-                                      <input 
-                                          type="text" 
-                                          placeholder="Paste Premium PDF Link..." 
-                                          value={data.premium}
-                                          onChange={e => setBulkData({...bulkData, [ch.id]: { ...data, premium: e.target.value }})}
-                                          className="w-full p-2 border border-purple-200 bg-purple-50 rounded text-xs focus:ring-1 focus:ring-purple-500 outline-none"
-                                      />
-                                  </div>
-                                  <div className="w-16">
-                                      <input 
-                                          type="number" 
-                                          value={data.price}
-                                          onChange={e => setBulkData({...bulkData, [ch.id]: { ...data, price: Number(e.target.value) }})}
-                                          className="w-full p-2 border border-slate-200 rounded text-xs text-center font-bold"
-                                      />
-                                  </div>
-                              </div>
-                          );
-                      })}
-
-                      <div className="pt-6 border-t mt-4">
-                          <button onClick={saveBulkData} className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2">
-                              <Save size={20} /> Save All & Sync
-                          </button>
-                      </div>
-                  </div>
-              )}
-          </div>
-      )}
 
 
       {/* 2. SYLLABUS MANAGER */}
@@ -6183,110 +5852,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                   )}
 
                   {activeTab === 'CONFIG_WATERMARK' && renderWatermarkConfig()}
-                  {activeTab === 'CONFIG_GAME' && (
-                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                           <h4 className="font-bold text-slate-800 flex items-center gap-2"><Gamepad2 size={18} /> Spin Wheel Configuration</h4>
-                           
-                           <div>
-                               <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Game Cost (Credits)</label>
-                               <input type="number" value={localSettings.gameCost} onChange={e => setLocalSettings({...localSettings, gameCost: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
-                               <p className="text-[10px] text-slate-400">Set 0 for free entry within daily limits.</p>
-                           </div>
-
-                           <div className="grid grid-cols-3 gap-4 pt-2 border-b border-slate-200 pb-4">
-                               <div>
-                                   <label className="text-xs font-bold text-purple-600 uppercase block mb-1">Ultra Limit</label>
-                                   <input type="number" value={localSettings.spinLimitUltra} onChange={e => setLocalSettings({...localSettings, spinLimitUltra: Number(e.target.value)})} className="w-full p-2 border border-purple-200 bg-purple-50 rounded-lg font-bold" />
-                                   <p className="text-[9px] text-slate-400">Real Users</p>
-                               </div>
-                               <div>
-                                   <label className="text-xs font-bold text-blue-600 uppercase block mb-1">Basic Limit</label>
-                                   <input type="number" value={localSettings.spinLimitBasic} onChange={e => setLocalSettings({...localSettings, spinLimitBasic: Number(e.target.value)})} className="w-full p-2 border border-blue-200 bg-blue-50 rounded-lg font-bold" />
-                                   <p className="text-[9px] text-slate-400">Real Users</p>
-                               </div>
-                               <div>
-                                   <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Normal/Free</label>
-                                   <input type="number" value={localSettings.spinLimitFree} onChange={e => setLocalSettings({...localSettings, spinLimitFree: Number(e.target.value)})} className="w-full p-2 border border-slate-200 bg-white rounded-lg font-bold" />
-                                   <p className="text-[9px] text-slate-400">Others</p>
-                               </div>
-                           </div>
-
-                           {/* PRIZE CONFIGURATION */}
-                           <div>
-                               <h5 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                                   <Gift size={16} /> Prize Wheel Items
-                               </h5>
-                               
-                               {/* List of current prizes */}
-                               <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
-                                   {(localSettings.wheelRewards || []).map((reward: any, idx: number) => {
-                                       // Normalize for display
-                                       const r = typeof reward === 'number' ? { id: idx, type: 'COINS', value: reward, label: `${reward} CR` } : reward;
-                                       return (
-                                           <div key={r.id || idx} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                                               <div className="flex items-center gap-2">
-                                                   <div className="w-4 h-4 rounded-full" style={{backgroundColor: r.color || '#ccc'}}></div>
-                                                   <span className="text-xs font-bold text-slate-700">{r.label}</span>
-                                                   <span className="text-[10px] bg-slate-100 px-1 rounded text-slate-500 font-mono">{r.type}</span>
-                                               </div>
-                                               <button onClick={() => {
-                                                   const updated = [...(localSettings.wheelRewards || [])];
-                                                   updated.splice(idx, 1);
-                                                   setLocalSettings({...localSettings, wheelRewards: updated});
-                                               }} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
-                                           </div>
-                                       );
-                                   })}
-                               </div>
-
-                               {/* Add New Prize Form */}
-                               <div className="bg-white p-3 rounded-lg border border-slate-200">
-                                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Add New Prize</p>
-                                   <div className="grid grid-cols-2 gap-2 mb-2">
-                                       <select 
-                                           value={newReward.type} 
-                                           onChange={e => setNewReward({...newReward, type: e.target.value as any})}
-                                           className="p-2 border rounded text-xs bg-slate-50"
-                                       >
-                                           <option value="COINS">Coins</option>
-                                           <option value="SUBSCRIPTION">Subscription</option>
-                                       </select>
-                                       
-                                       {newReward.type === 'COINS' ? (
-                                           <input type="number" placeholder="Amount" value={newReward.value} onChange={e => setNewReward({...newReward, value: Number(e.target.value), label: `${e.target.value} Coins`})} className="p-2 border rounded text-xs" />
-                                       ) : (
-                                           <select 
-                                               value={String(newReward.value)} 
-                                               onChange={e => setNewReward({...newReward, value: e.target.value, label: e.target.value.toString().replace('_', ' ')})}
-                                               className="p-2 border rounded text-xs"
-                                           >
-                                               <option value="WEEKLY_BASIC">Weekly Basic</option>
-                                               <option value="MONTHLY_ULTRA">Monthly Ultra</option>
-                                               <option value="YEARLY_ULTRA">Yearly Ultra</option>
-                                           </select>
-                                       )}
-                                   </div>
-                                   <div className="grid grid-cols-2 gap-2 mb-2">
-                                       <input type="text" placeholder="Label (Display Name)" value={newReward.label} onChange={e => setNewReward({...newReward, label: e.target.value})} className="p-2 border rounded text-xs" />
-                                       <div className="flex items-center gap-2 border rounded p-1">
-                                            <input type="color" value={newReward.color} onChange={e => setNewReward({...newReward, color: e.target.value})} className="w-8 h-6 p-0 border-0 rounded" />
-                                            <span className="text-[10px] text-slate-400">{newReward.color}</span>
-                                       </div>
-                                   </div>
-                                   <button 
-                                       onClick={() => {
-                                           const item = { ...newReward, id: `rew-${Date.now()}` };
-                                           // Cast to any to avoid type conflict with number[] legacy
-                                           setLocalSettings({ ...localSettings, wheelRewards: [...(localSettings.wheelRewards || []), item] });
-                                       }}
-                                       className="w-full py-2 bg-indigo-600 text-white font-bold rounded-lg text-xs hover:bg-indigo-700"
-                                   >
-                                       + Add Prize
-                                   </button>
-                               </div>
-                           </div>
-                       </div>
-                  )}
                   {activeTab === 'CONFIG_EXTERNAL_APPS' && (
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                           <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Globe size={18} /> Manage External Apps</h4>
@@ -6803,175 +6368,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
       )}
 
       {/* --- FEATURE CONTROL & COSTS --- */}
-      {activeTab === 'FEATURE_CONTROL' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Feature Access & Costs</h3>
-              </div>
-
-              {/* LOGIN BONUS CONFIG */}
-              <div className="bg-green-50 p-6 rounded-2xl border border-green-200 mb-8">
-                  <h4 className="font-bold text-green-900 mb-4 flex items-center gap-2 text-lg">
-                      <Gift size={20} /> Login Bonus Configuration
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                          <label className="text-xs font-bold text-green-700 uppercase">Free User Bonus</label>
-                          <input
-                              type="number"
-                              value={localSettings.loginBonusConfig?.freeBonus ?? 2}
-                              onChange={(e) => setLocalSettings({
-                                  ...localSettings,
-                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), freeBonus: Number(e.target.value) }
-                              })}
-                              className="w-full p-2 border rounded-lg font-bold"
-                          />
-                      </div>
-                      <div>
-                          <label className="text-xs font-bold text-green-700 uppercase">Basic User Bonus</label>
-                          <input
-                              type="number"
-                              value={localSettings.loginBonusConfig?.basicBonus ?? 5}
-                              onChange={(e) => setLocalSettings({
-                                  ...localSettings,
-                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), basicBonus: Number(e.target.value) }
-                              })}
-                              className="w-full p-2 border rounded-lg font-bold"
-                          />
-                      </div>
-                      <div>
-                          <label className="text-xs font-bold text-green-700 uppercase">Ultra User Bonus</label>
-                          <input
-                              type="number"
-                              value={localSettings.loginBonusConfig?.ultraBonus ?? 10}
-                              onChange={(e) => setLocalSettings({
-                                  ...localSettings,
-                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), ultraBonus: Number(e.target.value) }
-                              })}
-                              className="w-full p-2 border rounded-lg font-bold"
-                          />
-                      </div>
-                      <div className="flex flex-col justify-end">
-                          <label className="flex items-center gap-2 bg-white p-2 rounded-lg border cursor-pointer">
-                              <input
-                                  type="checkbox"
-                                  checked={localSettings.loginBonusConfig?.strictStreak !== false}
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings,
-                                      loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), strictStreak: e.target.checked }
-                                  })}
-                                  className="w-5 h-5 accent-green-600"
-                              />
-                              <span className="text-sm font-bold text-slate-700">Strict Streak Mode</span>
-                          </label>
-                          <p className="text-[10px] text-green-700 mt-1">If active, breaking streak forfeits next bonus.</p>
-                      </div>
-                  </div>
-              </div>
-
-              {/* FEATURE COSTS MATRIX */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg">
-                      <Banknote size={20} className="text-blue-600"/> Feature Costs & Access
-                  </h4>
-                  <p className="text-sm text-slate-500 mb-4">Set 0 for Free. Set -1 to Lock completely.</p>
-
-                  <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm border-collapse">
-                          <thead className="bg-slate-100 text-slate-500 uppercase text-xs font-bold">
-                              <tr>
-                                  <th className="p-3 border">Feature</th>
-                                  <th className="p-3 border text-center">Visibility & Badge</th>
-                                  <th className="p-3 border text-center">Free Cost</th>
-                                  <th className="p-3 border text-center">Basic Cost</th>
-                                  <th className="p-3 border text-center">Ultra Cost</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                              {STUDENT_APP_FEATURES.map((feat) => {
-                                  // Helper to get/set cost
-                                  const getCost = (tier: 'free' | 'basic' | 'ultra') => {
-                                      const entry = (localSettings.featureCosts || []).find(f => f.featureId === feat.id);
-                                      return entry ? entry[`${tier}Cost`] : 0;
-                                  };
-                                  const setCost = (tier: 'free' | 'basic' | 'ultra', val: number) => {
-                                      const current = localSettings.featureCosts || [];
-                                      const existingIdx = current.findIndex(f => f.featureId === feat.id);
-                                      const newEntry = existingIdx >= 0 ? { ...current[existingIdx] } : { featureId: feat.id, freeCost: 0, basicCost: 0, ultraCost: 0 };
-                                      newEntry[`${tier}Cost`] = val;
-
-                                      const updated = existingIdx >= 0
-                                          ? current.map((c, i) => i === existingIdx ? newEntry : c)
-                                          : [...current, newEntry];
-                                      setLocalSettings({ ...localSettings, featureCosts: updated });
-                                  };
-
-                                  const isHidden = (localSettings.hiddenFeatures || []).includes(feat.id);
-                                  const badge = (localSettings.featureBadges || {})[feat.id] || 'NORMAL';
-
-                                  return (
-                                      <tr key={feat.id} className="hover:bg-slate-50">
-                                          <td className="p-3 border font-bold text-slate-700">
-                                              {feat.title}
-                                              <p className="text-[9px] text-slate-400">{feat.id}</p>
-                                          </td>
-                                          <td className="p-3 border text-center align-top">
-                                              <div className="flex flex-col gap-2 items-center">
-                                                  <button
-                                                      onClick={() => {
-                                                          const newHidden = isHidden
-                                                              ? (localSettings.hiddenFeatures || []).filter(h => h !== feat.id)
-                                                              : [...(localSettings.hiddenFeatures || []), feat.id];
-                                                          setLocalSettings({...localSettings, hiddenFeatures: newHidden});
-                                                      }}
-                                                      className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider w-full ${
-                                                          isHidden ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700'
-                                                      }`}
-                                                  >
-                                                      {isHidden ? 'Hidden' : 'Visible'}
-                                                  </button>
-
-                                                  <select
-                                                      value={badge}
-                                                      onChange={(e) => {
-                                                          const badges = { ...(localSettings.featureBadges || {}) };
-                                                          badges[feat.id] = e.target.value as any;
-                                                          setLocalSettings({ ...localSettings, featureBadges: badges });
-                                                      }}
-                                                      className="text-[10px] font-bold p-1 border rounded w-full bg-white text-slate-600"
-                                                  >
-                                                      <option value="NORMAL">No Badge</option>
-                                                      <option value="NEW">✨ NEW</option>
-                                                      <option value="UPGRADE">🚀 UPGRADE</option>
-                                                  </select>
-                                              </div>
-                                          </td>
-                                          <td className="p-3 border text-center">
-                                              <input type="number" value={getCost('free')} onChange={e => setCost('free', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
-                                          </td>
-                                          <td className="p-3 border text-center">
-                                              <input type="number" value={getCost('basic')} onChange={e => setCost('basic', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
-                                          </td>
-                                          <td className="p-3 border text-center">
-                                              <input type="number" value={getCost('ultra')} onChange={e => setCost('ultra', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
-                                          </td>
-                                      </tr>
-                                  );
-                              })}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                      <Save size={20} /> Save Configuration
-                  </button>
-              </div>
-          </div>
-      )}
-
       {activeTab === 'CONFIG_CHALLENGE' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right space-y-6">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -7966,7 +7362,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                   <p className="text-[10px] font-bold text-slate-400 uppercase">Avg. Score</p>
                                   <p className="text-xl font-black text-blue-600">
                                       {viewingUserHistory.mcqHistory && viewingUserHistory.mcqHistory.length > 0
-                                          ? Math.round(viewingUserHistory.mcqHistory.reduce((acc: any, h: any) => acc + (h.totalQuestions > 0 ? (h.score/h.totalQuestions)*100 : 0), 0) / viewingUserHistory.mcqHistory.length)
+                                          ? Math.round((viewingUserHistory.mcqHistory || []).reduce((acc: any, h: any) => acc + (h.totalQuestions > 0 ? (h.score/h.totalQuestions)*100 : 0), 0) / viewingUserHistory.mcqHistory.length)
                                           : 0}%
                                   </p>
                               </div>
@@ -7975,8 +7371,8 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                   <p className="text-xl font-black text-green-600">
                                       {(() => {
                                           const hist = viewingUserHistory.mcqHistory || [];
-                                          const totalQ = hist.reduce((acc: any, h: any) => acc + h.totalQuestions, 0);
-                                          const correct = hist.reduce((acc: any, h: any) => acc + h.correctCount, 0);
+                                          const totalQ = hist.reduce((acc: any, h: any) => acc + (h.totalQuestions || 0), 0);
+                                          const correct = hist.reduce((acc: any, h: any) => acc + (h.correctCount || 0), 0);
                                           return totalQ > 0 ? Math.round((correct/totalQ)*100) : 0;
                                       })()}%
                                   </p>
@@ -7986,8 +7382,8 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                   <p className="text-xl font-black text-purple-600">
                                       {(() => {
                                           const hist = viewingUserHistory.mcqHistory || [];
-                                          const totalQ = hist.reduce((acc: any, h: any) => acc + h.totalQuestions, 0);
-                                          const totalTime = hist.reduce((acc: any, h: any) => acc + h.totalTimeSeconds, 0);
+                                          const totalQ = hist.reduce((acc: any, h: any) => acc + (h.totalQuestions || 0), 0);
+                                          const totalTime = hist.reduce((acc: any, h: any) => acc + (h.totalTimeSeconds || 0), 0);
                                           return totalQ > 0 ? (totalTime/totalQ).toFixed(1) : 0;
                                       })()}s
                                   </p>
@@ -8034,26 +7430,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           </div>
                       </div>
 
-                      {/* 2. AI ANALYSIS HISTORY */}
-                      <div>
-                          <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><BrainCircuit size={18}/> AI Analysis Reports</h4>
-                          <div className="max-h-60 overflow-y-auto border rounded-xl bg-slate-50 p-4 space-y-3">
-                              {analysisLogs.filter(l => l.userId === viewingUserHistory.id).length === 0 && (
-                                  <p className="text-slate-400 text-center text-xs">No analysis reports found.</p>
-                              )}
-                              {analysisLogs.filter(l => l.userId === viewingUserHistory.id).map(log => (
-                                  <div key={log.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                                      <div className="flex justify-between items-start mb-2">
-                                          <p className="font-bold text-xs text-slate-700">{log.chapter} ({log.subject})</p>
-                                          <span className="text-[10px] text-slate-400">{new Date(log.date).toLocaleString()}</span>
-                                      </div>
-                                      <div className="text-[10px] text-slate-600 bg-slate-50 p-2 rounded whitespace-pre-wrap font-mono max-h-20 overflow-y-auto">
-                                          {log.aiResponse}
-                                      </div>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
 
                       {/* 3. USAGE LOGS */}
                       <div>
@@ -8750,84 +8126,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
 
 
 
-      {activeTab === 'CONFIG_AI' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">AI Tutor Configuration</h3>
-              </div>
-
-              <div className="space-y-6">
-                  {/* LIMITS */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                          <Bot size={20} className="text-indigo-600"/> Daily Usage Limits
-                      </h4>
-                      <div className="grid grid-cols-3 gap-4">
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Free Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.free ?? 5} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, free: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Basic Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.basic ?? 50} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, basic: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Ultra Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.ultra ?? 99999} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, ultra: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* INSTRUCTIONS */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                          <BrainCircuit size={20} className="text-purple-600"/> AI Persona & Instructions
-                      </h4>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">System Prompt (Persona)</label>
-                      <textarea 
-                          value={localSettings.aiInstruction || ''}
-                          onChange={(e) => setLocalSettings({...localSettings, aiInstruction: e.target.value})}
-                          placeholder="You are a helpful tutor..."
-                          className="w-full h-32 p-4 rounded-xl border border-slate-200 text-sm font-mono leading-relaxed"
-                      />
-                      <p className="text-[10px] text-slate-400 mt-2">
-                          This instruction will guide the AI's behavior. If empty, it uses the default friendly tutor persona.
-                      </p>
-                  </div>
-
-                  <div className="flex justify-end">
-                      <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                          <Save size={20} /> Save Configuration
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
       {activeTab === 'BLOGGER_HUB' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
