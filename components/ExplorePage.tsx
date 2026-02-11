@@ -61,6 +61,7 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
     useEffect(() => {
         const loadMorningInsight = async () => {
             const now = new Date();
+            // Check Setting (Default: TRUE)
             if (settings?.showMorningInsight !== false && now.getHours() >= 6) {
                 const today = now.toDateString();
                 const savedBanner = localStorage.getItem('nst_morning_banner');
@@ -83,6 +84,8 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                          } catch(e) {}
                      }
                 }
+            } else {
+                setMorningBanner(null);
             }
         };
         loadMorningInsight();
@@ -108,14 +111,14 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         {icon}
                     </div>
                     <span className="text-xs font-bold uppercase tracking-widest opacity-80">
-                        {isDisabled ? 'Premium Only' : 'Featured'}
+                        {isDisabled ? 'Locked' : 'Featured'}
                     </span>
                 </div>
                 <h2 className="text-2xl font-black mb-1 leading-tight">{title}</h2>
                 <p className="text-sm opacity-90 font-medium max-w-[85%]">{subtitle}</p>
                 {isDisabled && (
                     <div className="mt-3 inline-flex items-center gap-2 bg-black/30 px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm border border-white/20">
-                        <Lock size={12} /> Locked for Free Users
+                        <Lock size={12} /> Premium Only
                     </div>
                 )}
             </div>
@@ -126,6 +129,15 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
             )}
         </div>
     );
+
+    // --- FEATURE CHECKS ---
+    // Use settings.contentVisibility first, fallback to true if undefined
+    const isVisible = (type: 'VIDEO' | 'PDF' | 'MCQ' | 'AUDIO') => {
+        if (settings?.contentVisibility?.[type] !== undefined) {
+            return settings.contentVisibility[type];
+        }
+        return true; // Default Visible
+    };
 
     return (
         <div className="space-y-8 pb-24 animate-in fade-in slide-in-from-bottom-4">
@@ -165,7 +177,8 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         </div>
                     )}
 
-                    {/* 1. ULTRA SUBSCRIPTION */}
+                    {/* 1. ULTRA SUBSCRIPTION (Always Visible unless User is Ultra?) */}
+                    {/* Keeping it visible as an upsell or info banner */}
                     {renderSimpleBanner(
                         "Ultra Subscription",
                         "Unlock Unlimited Access to Everything.",
@@ -183,47 +196,47 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         () => onTabChange('STORE')
                     )}
 
-                    {/* 3. ULTRA PDF (DISABLED) */}
-                    {renderSimpleBanner(
+                    {/* 3. ULTRA PDF (CONDITIONAL) */}
+                    {isVisible('PDF') && renderSimpleBanner(
                         "Ultra PDF Library",
                         "Premium High-Yield Notes.",
                         "bg-gradient-to-r from-emerald-500 to-teal-600",
                         <FileText className="text-white" size={20} />,
-                        undefined,
-                        true
+                        () => onTabChange('PDF'), // Changed to Navigate
+                        !user.isPremium // Dynamic Lock
                     )}
 
-                    {/* 4. ULTRA VIDEO (DISABLED) */}
-                    {renderSimpleBanner(
+                    {/* 4. ULTRA VIDEO (CONDITIONAL) */}
+                    {isVisible('VIDEO') && renderSimpleBanner(
                         "Ultra Video Lectures",
                         "HD Animated Concepts.",
                         "bg-gradient-to-r from-red-500 to-rose-600",
                         <VideoIcon className="text-white" size={20} />,
-                        undefined,
-                        true
+                        () => onTabChange('VIDEO'), // Changed to Navigate
+                        !user.isPremium // Dynamic Lock
                     )}
 
-                    {/* 5. ULTRA AUDIO (DISABLED) */}
-                    {renderSimpleBanner(
+                    {/* 5. ULTRA AUDIO (CONDITIONAL) */}
+                    {isVisible('AUDIO') && renderSimpleBanner(
                         "Ultra Audiobooks",
                         "Learn on the Go.",
                         "bg-gradient-to-r from-pink-500 to-fuchsia-600",
                         <Headphones className="text-white" size={20} />,
-                        undefined,
-                        true
+                        () => onTabChange('AUDIO'), // Changed to Navigate
+                        !user.isPremium // Dynamic Lock
                     )}
 
-                    {/* 6. ULTRA MCQ (DISABLED) */}
-                    {renderSimpleBanner(
+                    {/* 6. ULTRA MCQ (CONDITIONAL) */}
+                    {isVisible('MCQ') && renderSimpleBanner(
                         "Ultra MCQ Tests",
                         "Exam Level Practice.",
                         "bg-gradient-to-r from-orange-500 to-amber-600",
                         <CheckCircle className="text-white" size={20} />,
-                        undefined,
-                        true
+                        () => onTabChange('MCQ'), // Changed to Navigate
+                        !user.isPremium // Dynamic Lock
                     )}
 
-                    {/* 7. AI CHAT (Open Chat) */}
+                    {/* 7. AI CHAT (Open Chat) - CONDITIONAL */}
                     {settings?.isAiEnabled !== false && renderSimpleBanner(
                         "Ask AI Anything",
                         "Clear your doubts instantly.",
@@ -232,7 +245,7 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         onOpenAiChat
                     )}
 
-                    {/* 8. AI NOTES (Open Notes) */}
+                    {/* 8. AI NOTES (Open Notes) - CONDITIONAL */}
                     {settings?.isAiEnabled !== false && renderSimpleBanner(
                         "AI Smart Notes",
                         "Generate notes on any topic.",
