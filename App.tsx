@@ -226,6 +226,10 @@ const App: React.FC = () => {
   const [popupQueue, setPopupQueue] = useState<('TRACKER' | 'CHALLENGE' | 'WELCOME')[]>([]);
   const [showUpdatePopup, setShowUpdatePopup] = useState(false); // NEW
 
+  useEffect(() => {
+      console.log("App Version:", APP_VERSION, "User:", state.user ? "Logged In" : "Logged Out");
+  });
+
   // --- VERSION CONTROL INIT ---
   useEffect(() => {
       const storedVersion = localStorage.getItem('nst_app_version');

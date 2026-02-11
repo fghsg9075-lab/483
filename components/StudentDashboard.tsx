@@ -45,9 +45,8 @@ import { StudentAiAssistant } from './StudentAiAssistant';
 import { SpeakButton } from './SpeakButton';
 import { PerformanceGraph } from './PerformanceGraph';
 import { StudentSidebar } from './StudentSidebar';
-import { PerformanceGraph } from './PerformanceGraph';
 import { StudyGoalTimer } from './StudyGoalTimer';
-import { ExplorePage } from './ExplorePage';main
+import { ExplorePage } from './ExplorePage';
 
 interface Props {
   user: User;
