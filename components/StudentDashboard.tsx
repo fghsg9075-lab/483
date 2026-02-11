@@ -11,7 +11,7 @@ import { generateMorningInsight } from '../services/morningInsight';
 import { RedeemSection } from './RedeemSection';
 import { PrizeList } from './PrizeList';
 import { Store } from './Store';
-import { Layout, Gift, Sparkles, Megaphone, Lock, BookOpen, AlertCircle, Edit, Settings, Play, Pause, RotateCcw, MessageCircle, Gamepad2, Timer, CreditCard, Send, CheckCircle, Mail, X, Ban, Smartphone, Trophy, ShoppingBag, ArrowRight, Video, Youtube, Home, User as UserIcon, Book, BookOpenText, List, BarChart3, Award, Bell, Headphones, LifeBuoy, WifiOff, Zap, Star, Crown, History, ListChecks, Rocket, Ticket, TrendingUp, BrainCircuit } from 'lucide-react';
+import { Layout, Gift, Sparkles, Megaphone, Lock, BookOpen, AlertCircle, Edit, Settings, Play, Pause, RotateCcw, MessageCircle, Gamepad2, Timer, CreditCard, Send, CheckCircle, Mail, X, Ban, Smartphone, Trophy, ShoppingBag, ArrowRight, Video, Youtube, Home, User as UserIcon, Book, BookOpenText, List, BarChart3, Award, Bell, Headphones, LifeBuoy, WifiOff, Zap, Star, Crown, History, ListChecks, Rocket, Ticket, TrendingUp, BrainCircuit, FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline } from 'lucide-react';
 import { SubjectSelection } from './SubjectSelection';
 import { BannerCarousel } from './BannerCarousel';
 import { ChapterSelection } from './ChapterSelection'; // Imported for Video Flow
@@ -24,7 +24,6 @@ import { HistoryPage } from './HistoryPage';
 import { Leaderboard } from './Leaderboard';
 import { SpinWheel } from './SpinWheel';
 import { fetchChapters, generateCustomNotes } from '../services/groq'; // Needed for Video Flow
-import { FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline } from 'lucide-react'; // Icons
 import { LoadingOverlay } from './LoadingOverlay';
 import { CreditConfirmationModal } from './CreditConfirmationModal';
 import { UserGuide } from './UserGuide';
@@ -1293,8 +1292,12 @@ main
                   {/* Custom Header */}
                   <div className="flex justify-between items-center py-4 px-2">
                       <div className="flex items-center gap-3">
-                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
-                              <Menu size={24} className="text-slate-800" />
+                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors group">
+                              {/* Custom 2-line Menu Icon */}
+                              <div className="flex flex-col gap-1.5 w-6 items-center justify-center">
+                                  <div className="w-5 h-0.5 bg-slate-800 rounded-full group-hover:bg-slate-600 transition-colors"></div>
+                                  <div className="w-5 h-0.5 bg-slate-800 rounded-full group-hover:bg-slate-600 transition-colors"></div>
+                              </div>
                           </button>
                           <div>
                               <h1 className="font-black text-xl text-slate-900 leading-none">{settings?.appName || 'IIC'}</h1>
