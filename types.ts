@@ -927,7 +927,7 @@ export interface StudentTestAttempt {
   answers: Record<number, number>; // question index -> selected answer index
 }
 
-export type StudentTab = 'HOME' | 'EXPLORE' | 'COURSES' | 'ROUTINE' | 'HISTORY' | 'REDEEM' | 'PREMIUM' | 'GAME' | 'WEEKLY_TEST' | 'PROFILE' | 'LEADERBOARD' | 'STORE' | 'VIDEO' | 'PDF' | 'MCQ' | 'ANALYTICS' | 'PRIZES' | 'REWARDS' | 'UPDATES' | 'SUB_HISTORY' | 'AUDIO' | 'AI_HISTORY' | 'DEEP_ANALYSIS' | 'CUSTOM_PAGE' | 'AI_CHAT';
+export type StudentTab = 'HOME' | 'EXPLORE' | 'COURSES' | 'ROUTINE' | 'HISTORY' | 'REDEEM' | 'PREMIUM' | 'GAME' | 'WEEKLY_TEST' | 'PROFILE' | 'LEADERBOARD' | 'STORE' | 'VIDEO' | 'PDF' | 'MCQ' | 'ANALYTICS' | 'PRIZES' | 'REWARDS' | 'UPDATES' | 'SUB_HISTORY' | 'AUDIO' | 'AI_HISTORY' | 'DEEP_ANALYSIS' | 'CUSTOM_PAGE' | 'AI_CHAT' | 'INBOX' | 'MARKSHEET';
 
 export type Language = 'English' | 'Hindi';
 
