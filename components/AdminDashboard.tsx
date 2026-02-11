@@ -13,7 +13,6 @@ import { SimpleRichTextEditor } from './SimpleRichTextEditor';
 import { ImageCropper } from './ImageCropper';
 import { DEFAULT_SYLLABUS, MonthlySyllabus } from '../syllabus_data';
 import { CustomAlert } from './CustomDialogs';
-import { AdminAiAssistant } from './AdminAiAssistant';
 import { UniversalChat } from './UniversalChat';
 import { ChallengeCreator20 } from './admin/ChallengeCreator20';
 // @ts-ignore
@@ -79,9 +78,12 @@ type AdminTab =
   | 'UNIVERSAL_NOTES'
   | 'CONFIG_CHALLENGE'
   | 'CHALLENGE_CREATOR_20'
+ feature-dashboard-redesign-cleanup-13635731507476622996
+  | 'APP_MODES'
+  | 'EXPLORE_BANNERS'
 
 
-
+ main
   | 'BLOGGER_HUB'
   | 'CONFIG_GATING'
   | 'WHATSAPP_CONNECT'
@@ -2673,6 +2675,11 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Monitor} label="General" onClick={() => setActiveTab('CONFIG_GENERAL')} color="blue" />
                           <DashboardCard icon={ShieldCheck} label="Security" onClick={() => setActiveTab('CONFIG_SECURITY')} color="red" />
                           <DashboardCard icon={Eye} label="Visibility" onClick={() => setActiveTab('CONFIG_VISIBILITY')} color="cyan" />
+feature-dashboard-redesign-cleanup-13635731507476622996
+                          <DashboardCard icon={Settings} label="App Modes" onClick={() => setActiveTab('APP_MODES')} color="green" />
+                          {(hasPermission('MANAGE_SETTINGS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="Feature Access" onClick={() => setActiveTab('FEATURE_TIERS')} color="violet" />}
+                      {(hasPermission('MANAGE_CONTENT') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="pink" />}
+        main
                           {currentUser?.role === 'ADMIN' && <DashboardCard icon={PenTool} label="Blogger Hub" onClick={() => setActiveTab('BLOGGER_HUB')} color="orange" />}
                           <DashboardCard icon={Sparkles} label="Ads Config" onClick={() => setActiveTab('CONFIG_ADS')} color="rose" />
                           <DashboardCard icon={Gamepad2} label="Game Config" onClick={() => setActiveTab('CONFIG_GAME')} color="orange" />
@@ -3419,9 +3426,22 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
               </div>
 
               <div className="space-y-6">
-                  {/* APP IDENTITY */}
+                  {/* APP IDENTITY & AI CHAT */}
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                      <h4 className="font-bold text-slate-700 mb-3">App Identity</h4>
+                      <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-bold text-slate-700">App Identity & Features</h4>
+                          {/* AI CHAT TOGGLE */}
+                          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm">
+                              <Bot size={16} className="text-indigo-600"/>
+                              <span className="text-xs font-bold text-slate-600">Student AI Chat</span>
+                              <div
+                                  onClick={() => toggleSetting('isChatEnabled')}
+                                  className={`w-8 h-4 rounded-full relative cursor-pointer transition-colors ${localSettings.isChatEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                              >
+                                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm ${localSettings.isChatEnabled ? 'left-4.5' : 'left-0.5'}`} style={{left: localSettings.isChatEnabled ? '18px' : '2px'}}></div>
+                              </div>
+                          </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="text-xs font-bold text-slate-500 uppercase block mb-1">App Name</label>
@@ -7052,6 +7072,13 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           <ChallengeCreator20 onBack={() => setActiveTab('DASHBOARD')} language={localSettings.aiModel?.includes('Hindi') ? 'Hindi' : 'English'} />
       )}
 
+feature-dashboard-redesign-cleanup-13635731507476622996
+      {activeTab === 'CONFIG_CHALLENGE' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right space-y-6">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Challenge Config (Legacy 1.0) & Theme</h3>
+              </div>
 
       {/* --- EXPLORE BANNERS --- */}
       {activeTab === 'EXPLORE_BANNERS' && (
@@ -7149,7 +7176,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                               setLocalSettings({ ...localSettings, exploreBanners: updated });
                                           }}
                                           className="w-full p-2 border rounded-lg font-bold"
-                                      />
+                                      / main
 
                                       <label className="text-xs font-bold text-slate-500 uppercase">Subtitle</label>
                                       <input
@@ -7281,11 +7308,28 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           </div>
       )}
 
+ feature-dashboard-redesign-cleanup-13635731507476622996
+      {/* --- AI STUDIO TAB --- */}
+      {activeTab === 'DEPLOY' && 
       {/* --- FEATURE CONTROL & COSTS --- */}
-      {activeTab === 'FEATURE_CONTROL' && (
+      {activeTab === 'FEATURE_CONTROL' &&  main
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+              <div className="flex items-center gap-4 mb-6">
                   <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+ feature-dashboard-redesign-cleanup-13635731507476622996
+                  <h3 className="text-xl font-black text-slate-800">Deployment & Blueprint</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* APP UPDATE CONFIGURATION */}
+                  <div className="bg-green-50 p-6 rounded-3xl border border-green-100 space-y-4">
+                      <div>
+                          <div className="w-12 h-12 bg-green-600 text-white rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-green-200">
+                              <RefreshCw size={24} />
+                          </div>
+                          <h4 className="text-xl font-black text-green-900 mb-2">Configure App Update</h4>
+                          <p className="text-xs text-green-700 mb-4">Manage Force Updates and version notifications.</p>
+                      </div>
                   <h3 className="text-xl font-black text-slate-800">Feature Access & Costs</h3>
               </div>
 
@@ -7620,7 +7664,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           </div>
                           <h4 className="text-xl font-black text-green-900 mb-2">Configure App Update</h4>
                           <p className="text-xs text-green-700 mb-4">Manage Force Updates and version notifications.</p>
-                      </div>
+                      </divmain
 
                       <div className="space-y-3">
                           <div>
@@ -9383,6 +9427,8 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           </div>
       )}
 
+ feature-dashboard-redesign-cleanup-13635731507476622996
+
 
       {activeTab === 'CONFIG_AI' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
@@ -9462,7 +9508,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
               </div>
           </div>
       )}
-
+main
       {activeTab === 'BLOGGER_HUB' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -9621,6 +9667,206 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                   <div className="mt-6 text-right">
                        <button onClick={() => setViewingSubAdminReport(null)} className="px-6 py-2 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900">Close Report</button>
                   </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- FEATURE CONTROL MATRIX --- */}
+      {activeTab === 'FEATURE_TIERS' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Feature Access Control</h3>
+                  <div className="ml-auto">
+                      <button onClick={handleSaveSettings} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center gap-2">
+                          <Save size={18} /> Save Changes
+                      </button>
+                  </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                      <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
+                              <th className="p-4 w-1/3">Feature</th>
+                              <th className="p-4 text-center">Free Tier</th>
+                              <th className="p-4 text-center">Basic Tier</th>
+                              <th className="p-4 text-center">Ultra Tier</th>
+                              <th className="p-4 text-center">Badge</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {ALL_APP_FEATURES
+                              .filter(f => !['f17', 'f18', 'f19', 'f20', 'f30', 'f33', 'f37', 'f43', 'f44', 'f45', 'f46', 'f47'].includes(f.id) && !f.title.includes('Admin'))
+                              .map(feature => {
+                                  const isFree = localSettings.tierPermissions?.FREE?.includes(feature.id);
+                                  const isBasic = localSettings.tierPermissions?.BASIC?.includes(feature.id);
+                                  const isUltra = localSettings.tierPermissions?.ULTRA?.includes(feature.id);
+                                  const badge = localSettings.featureBadges?.[feature.id] || 'NORMAL';
+
+                                  const togglePermission = (tier: 'FREE' | 'BASIC' | 'ULTRA') => {
+                                      const current = localSettings.tierPermissions?.[tier] || [];
+                                      const updated = current.includes(feature.id)
+                                          ? current.filter(id => id !== feature.id)
+                                          : [...current, feature.id];
+
+                                      setLocalSettings({
+                                          ...localSettings,
+                                          tierPermissions: {
+                                              ...localSettings.tierPermissions,
+                                              [tier]: updated
+                                          } as any
+                                      });
+                                  };
+
+                                  return (
+                                      <tr key={feature.id} className="hover:bg-slate-50 transition-colors">
+                                          <td className="p-4">
+                                              <p className="font-bold text-slate-800">{feature.title}</p>
+                                              <p className="text-[10px] text-slate-400 font-mono">{feature.id}</p>
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <input
+                                                  type="checkbox"
+                                                  checked={isFree}
+                                                  onChange={() => togglePermission('FREE')}
+                                                  className="w-5 h-5 accent-blue-600 cursor-pointer"
+                                              />
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <input
+                                                  type="checkbox"
+                                                  checked={isBasic}
+                                                  onChange={() => togglePermission('BASIC')}
+                                                  className="w-5 h-5 accent-blue-600 cursor-pointer"
+                                              />
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <input
+                                                  type="checkbox"
+                                                  checked={isUltra}
+                                                  onChange={() => togglePermission('ULTRA')}
+                                                  className="w-5 h-5 accent-purple-600 cursor-pointer"
+                                              />
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <select
+                                                  value={badge}
+                                                  onChange={(e) => setLocalSettings({
+                                                      ...localSettings,
+                                                      featureBadges: {
+                                                          ...localSettings.featureBadges,
+                                                          [feature.id]: e.target.value as any
+                                                      }
+                                                  })}
+                                                  className={`p-1 rounded text-xs font-bold border ${badge === 'NEW' ? 'bg-green-100 text-green-700 border-green-200' : badge === 'UPGRADE' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-white border-slate-200 text-slate-500'}`}
+                                              >
+                                                  <option value="NORMAL">Normal</option>
+                                                  <option value="NEW">New</option>
+                                                  <option value="UPGRADE">Upgrade</option>
+                                              </select>
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+      )}
+
+      {/* --- EXPLORE BANNERS MANAGER --- */}
+      {activeTab === 'EXPLORE_BANNERS' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Explore Page Banners</h3>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-8">
+                  <h4 className="font-bold text-slate-800 mb-4">Add New Banner</h4>
+                  <div className="flex gap-4">
+                      <input
+                          type="text"
+                          id="new-banner-img"
+                          placeholder="Image URL"
+                          className="flex-1 p-3 rounded-xl border border-slate-200"
+                      />
+                      <input
+                          type="text"
+                          id="new-banner-link"
+                          placeholder="Action Link (Optional)"
+                          className="flex-1 p-3 rounded-xl border border-slate-200"
+                      />
+                      <button
+                          onClick={() => {
+                              const img = (document.getElementById('new-banner-img') as HTMLInputElement).value;
+                              const link = (document.getElementById('new-banner-link') as HTMLInputElement).value;
+                              if (!img) return alert("Image URL is required");
+
+                              const newBanner = {
+                                  id: Date.now().toString(),
+                                  imageUrl: img,
+                                  actionUrl: link,
+                                  isActive: true
+                              };
+
+                              setLocalSettings({
+                                  ...localSettings,
+                                  exploreBanners: [...(localSettings.exploreBanners || []), newBanner]
+                              });
+
+                              (document.getElementById('new-banner-img') as HTMLInputElement).value = '';
+                              (document.getElementById('new-banner-link') as HTMLInputElement).value = '';
+                          }}
+                          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700"
+                      >
+                          Add Banner
+                      </button>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(localSettings.exploreBanners || []).map((banner, idx) => (
+                      <div key={banner.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm relative group">
+                          <img src={banner.imageUrl} alt="Banner" className="w-full h-32 object-cover" />
+                          <div className="p-3 flex items-center justify-between bg-white">
+                              <span className={`text-xs font-bold px-2 py-1 rounded ${banner.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  {banner.isActive ? 'ACTIVE' : 'HIDDEN'}
+                              </span>
+                              <div className="flex gap-2">
+                                  <button
+                                      onClick={() => {
+                                          const updated = [...(localSettings.exploreBanners || [])];
+                                          updated[idx].isActive = !updated[idx].isActive;
+                                          setLocalSettings({...localSettings, exploreBanners: updated});
+                                      }}
+                                      className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"
+                                      title={banner.isActive ? "Hide" : "Show"}
+                                  >
+                                      {banner.isActive ? <EyeOff size={16} /> : <Eye size={16} />}
+                                  </button>
+                                  <button
+                                      onClick={() => {
+                                          if(!confirm("Delete this banner?")) return;
+                                          const updated = localSettings.exploreBanners!.filter((_, i) => i !== idx);
+                                          setLocalSettings({...localSettings, exploreBanners: updated});
+                                      }}
+                                      className="p-2 bg-red-50 rounded-lg hover:bg-red-100 text-red-600"
+                                      title="Delete"
+                                  >
+                                      <Trash2 size={16} />
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+
+              <div className="mt-8 flex justify-end">
+                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
+                      <Save size={20} /> Save All Changes
+                  </button>
               </div>
           </div>
       )}
