@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { User, ViewState, SystemSettings, Subject, Chapter, MCQItem, RecoveryRequest, ActivityLogEntry, LeaderboardEntry, RecycleBinItem, Stream, Board, ClassLevel, GiftCode, SubscriptionPlan, CreditPackage, WatermarkConfig, SpinReward, HtmlModule, PremiumNoteSlot, ContentInfoConfig, ContentInfoItem, SubscriptionHistoryEntry, UniversalAnalysisLog, ContentType, LessonContent } from '../types';
 import { LayoutDashboard, Users, Search, Trash2, Save, X, Eye, EyeOff, Shield, Megaphone, CheckCircle, ListChecks, Database, FileText, Monitor, Sparkles, Banknote, BrainCircuit, AlertOctagon, ArrowLeft, Key, Bell, ShieldCheck, Lock, Globe, Layers, Zap, PenTool, RefreshCw, RotateCcw, Plus, LogOut, Download, Upload, CreditCard, Ticket, Video, Image as ImageIcon, Type, Link, FileJson, Activity, AlertTriangle, Gift, Book, Mail, Edit3, MessageSquare, ShoppingBag, Cloud, Rocket, Code2, Layers as LayersIcon, Wifi, WifiOff, Copy, Crown, Gamepad2, Calendar, BookOpen, Image, HelpCircle, Youtube, Play, Star, Trophy, Palette, Settings, Headphones, Layout, Bot, LayoutDashboard as DashboardIcon } from 'lucide-react';
-import { getSubjectsList, DEFAULT_SUBJECTS, DEFAULT_APP_FEATURES, DEFAULT_CONTENT_INFO_CONFIG, ADMIN_PERMISSIONS, APP_VERSION } from '../constants';
+import { getSubjectsList, DEFAULT_SUBJECTS, DEFAULT_APP_FEATURES, ALL_APP_FEATURES, DEFAULT_CONTENT_INFO_CONFIG, ADMIN_PERMISSIONS, APP_VERSION } from '../constants';
 import { fetchChapters, fetchLessonContent } from '../services/groq';
 import { runAutoPilot, runCommandMode } from '../services/autoPilot';
 import { saveChapterData, bulkSaveLinks, checkFirebaseConnection, saveSystemSettings, subscribeToUsers, rtdb, saveUserToLive, db, getChapterData, saveCustomSyllabus, deleteCustomSyllabus, subscribeToUniversalAnalysis, saveAiInteraction, saveSecureKeys, getSecureKeys, subscribeToApiUsage, subscribeToDrafts, resetAllContent } from '../firebase'; // IMPORT FIREBASE
@@ -7386,6 +7386,51 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                   <h3 className="text-xl font-black text-slate-800">Explore Page Banners</h3>
               </div>
 
+              {/* BUILT-IN BANNERS TOGGLE */}
+              <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-200 mb-8">
+                  <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2 text-lg">
+                      <Settings size={20} /> Built-in Section Visibility
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
+                          <div>
+                              <p className="font-bold text-slate-800 text-sm">Morning Insight</p>
+                              <p className="text-[10px] text-slate-500">Daily Wisdom at Top</p>
+                          </div>
+                          <input
+                              type="checkbox"
+                              checked={localSettings.showMorningInsight !== false}
+                              onChange={() => toggleSetting('showMorningInsight')}
+                              className="w-5 h-5 accent-indigo-600"
+                          />
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
+                          <div>
+                              <p className="font-bold text-slate-800 text-sm">Active Challenges</p>
+                              <p className="text-[10px] text-slate-500">Live Quizzes Banner</p>
+                          </div>
+                          <input
+                              type="checkbox"
+                              checked={localSettings.showChallengesBanner !== false}
+                              onChange={() => toggleSetting('showChallengesBanner')}
+                              className="w-5 h-5 accent-indigo-600"
+                          />
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
+                          <div>
+                              <p className="font-bold text-slate-800 text-sm">AI Promo Banner</p>
+                              <p className="text-[10px] text-slate-500">"Ask Your Doubts" Link</p>
+                          </div>
+                          <input
+                              type="checkbox"
+                              checked={localSettings.showAiPromo !== false}
+                              onChange={() => toggleSetting('showAiPromo')}
+                              className="w-5 h-5 accent-indigo-600"
+                          />
+                      </div>
+                  </div>
+              </div>
+
               <div className="space-y-4 mb-8">
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
                       <p className="text-sm text-blue-800 font-bold">
@@ -7647,14 +7692,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                              {[
-                                  { id: 'mcq_test', label: 'MCQ Test Entry' },
-                                  { id: 'mcq_analysis', label: 'Analysis Unlock' },
-                                  { id: 'ai_chat', label: 'AI Chat Message' },
-                                  { id: 'pdf_view', label: 'PDF View' },
-                                  { id: 'video_view', label: 'Video Play' },
-                                  { id: 'game_spin', label: 'Game Spin' },
-                              ].map((feat) => {
+                              {ALL_APP_FEATURES.map((feat) => {
                                   // Helper to get/set cost
                                   const getCost = (tier: 'free' | 'basic' | 'ultra') => {
                                       const entry = (localSettings.featureCosts || []).find(f => f.featureId === feat.id);
@@ -7674,7 +7712,10 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
 
                                   return (
                                       <tr key={feat.id} className="hover:bg-slate-50">
-                                          <td className="p-3 border font-bold text-slate-700">{feat.label}</td>
+                                          <td className="p-3 border font-bold text-slate-700">
+                                              {feat.title}
+                                              <p className="text-[9px] text-slate-400">{feat.id}</p>
+                                          </td>
                                           <td className="p-3 border text-center">
                                               <input type="number" value={getCost('free')} onChange={e => setCost('free', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
                                           </td>

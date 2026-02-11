@@ -114,7 +114,7 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                 <BannerCarousel className="shadow-xl mx-2 min-h-[192px]">
 
                     {/* A. MORNING INSIGHT (Priority) */}
-                    {morningBanner && (
+                    {morningBanner && settings?.showMorningInsight !== false && (
                         <div className="w-full h-48 bg-gradient-to-r from-orange-100 to-amber-100 p-6 relative overflow-hidden flex flex-col justify-center">
                              <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-2">
@@ -163,7 +163,7 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                     ))}
 
                     {/* C. ACTIVE CHALLENGES */}
-                    {challenges20.map(c => (
+                    {settings?.showChallengesBanner !== false && challenges20.map(c => (
                         <div key={c.id} className="w-full h-48 bg-slate-900 p-6 relative overflow-hidden flex flex-col justify-center text-white">
                             <div className="relative z-10">
                                 <div className="inline-block px-3 py-1 bg-indigo-500/20 rounded-full text-[10px] font-black tracking-widest mb-2 border border-indigo-500/30 text-indigo-300">
@@ -183,7 +183,7 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                     ))}
 
                     {/* D. AI PROMO (If Enabled & Not Covered by Custom) */}
-                    {settings?.isAiEnabled && !customBanners.some(b => b.actionUrl === 'AI_CHAT') && (
+                    {settings?.isAiEnabled && settings?.showAiPromo !== false && !customBanners.some(b => b.actionUrl === 'AI_CHAT') && (
                         <div
                             onClick={onOpenAiChat}
                             className="w-full h-48 bg-gradient-to-r from-violet-600 to-indigo-600 p-6 relative overflow-hidden cursor-pointer flex flex-col justify-center text-white"

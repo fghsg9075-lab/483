@@ -393,6 +393,10 @@ export interface SystemSettings {
       MCQ?: boolean;
       AUDIO?: boolean;
   };
+  // EXPLORE PAGE CONFIG
+  showMorningInsight?: boolean; // NEW: Toggle Morning Banner
+  showAiPromo?: boolean; // NEW: Toggle AI Banner
+  showChallengesBanner?: boolean; // NEW: Toggle Live Challenges
   exploreBanners?: ExploreBanner[]; // NEW: Dynamic Explore Banners
   featureAccess?: FeatureAccessConfig[]; // NEW: Granular Feature Control
   featureCosts?: FeatureCostConfig[]; // NEW: Granular Cost Control
