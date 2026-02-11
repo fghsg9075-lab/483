@@ -159,16 +159,10 @@ const MODELS = [
 const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSettings, onImpersonate, logActivity, isDarkMode, onToggleDarkMode, user }) => {
 
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
-  const [dashboardMode, setDashboardMode] = useState<'MASTER' | 'PILOT' | null>(null);
+  const [dashboardMode, setDashboardMode] = useState<'MASTER' | 'PILOT'>('MASTER'); // Default to MASTER
   const [customBloggerCode, setCustomBloggerCode] = useState('');
   const [showVisibilityControls, setShowVisibilityControls] = useState(false); // NEW: Master Visibility Toggle
   const [mcqGenCount, setMcqGenCount] = useState(20); // NEW: Custom MCQ Quantity
-
-  // PILOT COMMAND STATE
-  const [pilotBoard, setPilotBoard] = useState<Board>('CBSE');
-  const [pilotClass, setPilotClass] = useState<ClassLevel>('10');
-  const [pilotStream, setPilotStream] = useState<Stream>('Science');
-  const [pilotSubject, setPilotSubject] = useState<Subject | null>(null);
 
   // CURRENT USER CONTEXT (From Props or LocalStorage if missing)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -228,12 +222,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       };
       loadKeys();
   }, [currentUser]);
-
-  // --- AI AUTO-PILOT STATE ---
-  const [isAutoPilotRunning, setIsAutoPilotRunning] = useState(false);
-  const [liveFeed, setLiveFeed] = useState<string[]>([]);
-  const [isAutoPilotForceRunning, setIsAutoPilotForceRunning] = useState(false);
-  const autoPilotIntervalRef = useRef<any>(null);
 
   // --- AI API MONITOR STATE ---
   const [apiStats, setApiStats] = useState<any>(null);
@@ -1049,35 +1037,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
 
   };
 
-  // --- AI AUTO-PILOT LOGIC ---
-  const handleRunAutoPilotOnce = async () => {
-      if (isAutoPilotRunning || isAutoPilotForceRunning) return;
-      setIsAutoPilotForceRunning(true);
-      await runAutoPilot(localSettings, (msg) => setLiveFeed(prev => [msg, ...prev].slice(0, 50)), true, 5, []);
-      setIsAutoPilotForceRunning(false);
-  };
-
-
-  useEffect(() => {
-      if (localSettings.isAutoPilotEnabled) {
-          const runWrapper = async () => {
-              setIsAutoPilotRunning(true);
-              await runAutoPilot(localSettings, (msg) => setLiveFeed(prev => [msg, ...prev].slice(0, 50)), false, 5, []);
-              setIsAutoPilotRunning(false);
-          };
-
-          // Initial run after 5s
-          const timer = setTimeout(runWrapper, 5000);
-
-          // Periodic run every 60s
-          autoPilotIntervalRef.current = setInterval(runWrapper, 60000);
-
-          return () => {
-              clearTimeout(timer);
-              if (autoPilotIntervalRef.current) clearInterval(autoPilotIntervalRef.current);
-          }
-      }
-  }, [localSettings.isAutoPilotEnabled, localSettings.autoPilotConfig]);
+  // --- AI AUTO-PILOT LOGIC (REMOVED) ---
 
   // --- SETTINGS HANDLERS ---
   // --- DRAGGABLE BUTTON STATE ---
@@ -2587,223 +2547,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   };
 
   // --- MAIN RENDER ---
-  if (!dashboardMode) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-              <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <button
-                      onClick={() => setDashboardMode('PILOT')}
-                      className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-8 rounded-3xl shadow-xl hover:scale-105 transition-transform flex flex-col items-center text-center group relative overflow-hidden"
-                  >
-                      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors backdrop-blur-sm">
-                          <BrainCircuit size={48} />
-                      </div>
-                      <h2 className="text-3xl font-black mb-2">AI Pilot Automation</h2>
-                      <p className="text-indigo-100 font-medium">Auto-generate content, manage syllabus, and run bulk operations.</p>
-                      <span className="mt-8 bg-white/20 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest backdrop-blur-sm">Enter Pilot Mode</span>
-                  </button>
-
-                  <button
-                      onClick={() => setDashboardMode('MASTER')}
-                      className="bg-white text-slate-800 p-8 rounded-3xl shadow-xl border border-slate-200 hover:scale-105 transition-transform flex flex-col items-center text-center group relative overflow-hidden"
-                  >
-                       <div className="absolute inset-0 bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-slate-600 group-hover:bg-slate-200 transition-colors">
-                          <Shield size={48} />
-                      </div>
-                      <h2 className="text-3xl font-black mb-2">Admin Master Panel</h2>
-                      <p className="text-slate-500 font-medium">Full control over users, subscriptions, database, and settings.</p>
-                      <span className="mt-8 bg-slate-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-slate-500">Enter Master Mode</span>
-                  </button>
-              </div>
-          </div>
-      );
-  }
-
-  // PILOT VIEW
-  if (dashboardMode === 'PILOT') {
-       return (
-          <div className="min-h-screen bg-slate-900 text-white pb-20 relative font-mono">
-              {/* Floating Button */}
-              <div
-                  style={{
-                      transform: `translate(${buttonPos.x}px, ${buttonPos.y}px)`,
-                      position: 'fixed',
-                      zIndex: 9999,
-                      top: 100,
-                      left: 20,
-                      touchAction: 'none'
-                  }}
-                  onMouseDown={handleMouseDown}
-                  className="group cursor-move"
-              >
-                  <div className={`w-16 h-16 rounded-2xl bg-indigo-600 text-white shadow-[0_0_20px_rgba(99,102,241,0.5)] flex items-center justify-center border border-indigo-400 ${isDragging ? 'scale-95' : 'hover:scale-110'} transition-all`}>
-                      <BrainCircuit size={32} className="text-white" />
-                  </div>
-
-                  {/* Quick Menu */}
-                  <div className="absolute left-full top-0 ml-4 w-56 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none group-hover:pointer-events-auto">
-                      <button onClick={() => { setActiveTab('SYLLABUS_MANAGER'); setDashboardMode('MASTER'); }} className="px-4 py-3 text-left text-xs font-bold text-slate-300 hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2"><BookOpen size={14} /> Check Syllabus</button>
-                      <button onClick={() => { handleBulkGenerateMCQs(); }} className="px-4 py-3 text-left text-xs font-bold text-slate-300 hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2"><CheckCircle size={14} /> Run Bulk MCQ</button>
-                      <button onClick={() => { setActiveTab('APP_MODES'); setDashboardMode('MASTER'); }} className="px-4 py-3 text-left text-xs font-bold text-slate-300 hover:bg-slate-700 flex items-center gap-2"><Activity size={14} /> AI Status</button>
-                  </div>
-              </div>
-
-              <div className="p-8">
-                  <header className="flex items-center justify-between mb-12">
-                      <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/50">
-                              <BrainCircuit size={32} className="text-white" />
-                          </div>
-                          <div>
-                              <h1 className="text-4xl font-black text-white tracking-tight">AI PILOT <span className="text-indigo-400">2.0</span></h1>
-                              <p className="text-indigo-200 font-bold uppercase tracking-widest text-xs mt-1">Autonomous Content Engine</p>
-                          </div>
-                      </div>
-                      <button
-                          onClick={() => setDashboardMode(null)}
-                          className="px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-sm text-slate-300 transition-colors border border-slate-700"
-                      >
-                          Switch Mode
-                      </button>
-                  </header>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* LIVE FEED CONSOLE */}
-                      <div className="lg:col-span-2 space-y-6">
-                          <div className="bg-slate-950 rounded-3xl border border-slate-800 p-6 shadow-2xl relative overflow-hidden">
-                              <div className="absolute top-0 right-0 p-4 flex gap-2">
-                                  <div className="flex items-center gap-2 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-                                      <div className={`w-2 h-2 rounded-full ${isAutoPilotRunning ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></div>
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase">{isAutoPilotRunning ? 'ONLINE' : 'IDLE'}</span>
-                                  </div>
-                              </div>
-                              <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-4 flex items-center gap-2"><Monitor size={14}/> System Logs</h3>
-                              <div className="h-96 overflow-y-auto font-mono text-xs space-y-2 pr-2 custom-scrollbar flex flex-col-reverse">
-                                  {liveFeed.length === 0 && <span className="text-slate-700 italic">...System Ready. Waiting for tasks...</span>}
-                                  {liveFeed.map((log, i) => (
-                                      <div key={i} className="border-b border-slate-900/50 pb-1 last:border-0 text-green-400/80">
-                                          <span className="text-slate-600 mr-2 opacity-50">[{new Date().toLocaleTimeString()}]</span>
-                                          {log}
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      </div>
-
-                      {/* CONTROLS */}
-                      <div className="space-y-6">
-                           <div className="bg-indigo-900/20 rounded-3xl border border-indigo-500/30 p-6">
-                               <h3 className="font-bold text-indigo-300 uppercase tracking-widest text-xs mb-4">Command Center</h3>
-                               <p className="text-[10px] text-indigo-200 mb-6 border-l-2 border-indigo-500 pl-2">
-                                   "Direct Order Execution Mode"<br/>
-                                   Select specific targets to save API quota.
-                               </p>
-
-                               <div className="space-y-4">
-                                   <div className="grid grid-cols-2 gap-2">
-                                       <div className="space-y-1">
-                                           <label className="text-[10px] text-slate-400 font-bold uppercase">Board</label>
-                                           <select
-                                               value={pilotBoard}
-                                               onChange={e => setPilotBoard(e.target.value as Board)}
-                                               className="w-full bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 font-bold"
-                                           >
-                                               <option value="CBSE">CBSE</option>
-                                               <option value="BSEB">BSEB</option>
-                                           </select>
-                                       </div>
-                                       <div className="space-y-1">
-                                           <label className="text-[10px] text-slate-400 font-bold uppercase">Class</label>
-                                           <select
-                                               value={pilotClass}
-                                               onChange={e => {
-                                                   setPilotClass(e.target.value as ClassLevel);
-                                                   setPilotSubject(null);
-                                               }}
-                                               className="w-full bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 font-bold"
-                                           >
-                                               {['6','7','8','9','10','11','12','COMPETITION'].map(c => <option key={c} value={c}>{c}</option>)}
-                                           </select>
-                                       </div>
-                                   </div>
-
-                                   {['11','12'].includes(pilotClass) && (
-                                       <div className="space-y-1">
-                                           <label className="text-[10px] text-slate-400 font-bold uppercase">Stream</label>
-                                           <div className="flex gap-1">
-                                               {['Science', 'Commerce', 'Arts'].map(s => (
-                                                   <button
-                                                       key={s}
-                                                       onClick={() => { setPilotStream(s as Stream); setPilotSubject(null); }}
-                                                       className={`flex-1 py-2 rounded-lg text-[10px] font-bold border ${pilotStream === s ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
-                                                   >
-                                                       {s}
-                                                   </button>
-                                               ))}
-                                           </div>
-                                       </div>
-                                   )}
-
-                                   <div className="space-y-1">
-                                       <label className="text-[10px] text-slate-400 font-bold uppercase">Subject</label>
-                                       <div className="flex flex-wrap gap-2">
-                                           {getSubjectsList(pilotClass, pilotStream).map(s => (
-                                               <button
-                                                   key={s.id}
-                                                   onClick={() => setPilotSubject(s)}
-                                                   className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-all ${pilotSubject?.id === s.id ? 'bg-indigo-500 text-white border-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
-                                               >
-                                                   {s.name}
-                                               </button>
-                                           ))}
-                                       </div>
-                                   </div>
-
-                                   <button
-                                       onClick={async () => {
-                                           if (!pilotSubject) {
-                                               alert("Please select a subject first!");
-                                               return;
-                                           }
-                                           setIsAiGenerating(true);
-                                           await runCommandMode(localSettings, (msg) => setLiveFeed(prev => [msg, ...prev].slice(0, 50)), {
-                                               board: pilotBoard,
-                                               classLevel: pilotClass,
-                                               stream: ['11','12'].includes(pilotClass) ? pilotStream : null,
-                                               subject: pilotSubject
-                                           });
-                                           setIsAiGenerating(false);
-                                       }}
-                                       disabled={isAutoPilotRunning || isAutoPilotForceRunning || isAiGenerating}
-                                       className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold shadow-lg shadow-green-900/50 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-                                   >
-                                       {isAiGenerating ? <RefreshCw size={18} className="animate-spin" /> : <Rocket size={18} />}
-                                       EXECUTE COMMAND
-                                   </button>
-                               </div>
-                           </div>
-
-                           <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6">
-                               <h3 className="font-bold text-slate-500 uppercase tracking-widest text-xs mb-4">Stats</h3>
-                               <div className="grid grid-cols-2 gap-4">
-                                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                                       <p className="text-[10px] text-slate-500 font-bold uppercase">Chapters Scanned</p>
-                                       <p className="text-2xl font-black text-white mt-1">--</p>
-                                   </div>
-                                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                                       <p className="text-[10px] text-slate-500 font-bold uppercase">Content Generated</p>
-                                       <p className="text-2xl font-black text-green-400 mt-1">--</p>
-                                   </div>
-                               </div>
-                           </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-       );
-  }
 
   return (
     <div className="pb-20 bg-slate-50 min-h-screen">
@@ -2932,12 +2675,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Monitor} label="General" onClick={() => setActiveTab('CONFIG_GENERAL')} color="blue" />
                           <DashboardCard icon={ShieldCheck} label="Security" onClick={() => setActiveTab('CONFIG_SECURITY')} color="red" />
                           <DashboardCard icon={Eye} label="Visibility" onClick={() => setActiveTab('CONFIG_VISIBILITY')} color="cyan" />
-                          <DashboardCard icon={Settings} label="App Modes" onClick={() => setActiveTab('APP_MODES')} color="green" />
-                          {(hasPermission('MANAGE_SETTINGS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="Feature Access" onClick={() => setActiveTab('FEATURE_TIERS')} color="violet" />}
+                          {(hasPermission('MANAGE_SETTINGS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="Feature Costs & Access" onClick={() => setActiveTab('FEATURE_TIERS')} color="violet" />}
                           {(hasPermission('MANAGE_CONTENT') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="pink" />}
                           {currentUser?.role === 'ADMIN' && <DashboardCard icon={PenTool} label="Blogger Hub" onClick={() => setActiveTab('BLOGGER_HUB')} color="orange" />}
                           <DashboardCard icon={Sparkles} label="Ads Config" onClick={() => setActiveTab('CONFIG_ADS')} color="rose" />
-              <DashboardCard icon={Layers} label="Feature Tiers" onClick={() => setActiveTab('FEATURE_TIERS')} color="orange" />
                           <DashboardCard icon={Gamepad2} label="Game Config" onClick={() => setActiveTab('CONFIG_GAME')} color="orange" />
                           <DashboardCard icon={Banknote} label="Payment" onClick={() => setActiveTab('CONFIG_PAYMENT')} color="emerald" />
                           <DashboardCard icon={Globe} label="External Apps" onClick={() => setActiveTab('CONFIG_EXTERNAL_APPS')} color="indigo" />
