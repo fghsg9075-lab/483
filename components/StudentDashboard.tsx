@@ -77,6 +77,21 @@ const DEFAULT_PACKAGES: CreditPackage[] = [
 
 export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onSubjectSelect, onRedeemSuccess, settings, onStartWeeklyTest, activeTab, onTabChange, setFullScreen, onNavigate, isImpersonating, onNavigateToChapter, isDarkMode, onToggleDarkMode }) => {
   
+  // --- PERMISSION HELPER ---
+  const hasPermission = (featureId: string) => {
+      if (user.role === 'ADMIN') return true;
+      if (!settings?.tierPermissions) return true; // Default allow if not configured
+
+      let tier: 'FREE' | 'BASIC' | 'ULTRA' = 'FREE';
+      if (user.isPremium) {
+          if (user.subscriptionLevel === 'ULTRA') tier = 'ULTRA';
+          else tier = 'BASIC';
+      }
+
+      const allowed = settings.tierPermissions[tier] || [];
+      return allowed.includes(featureId);
+  };
+
   // CUSTOM ALERT STATE (Moved up to be available for early hooks)
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, type: 'SUCCESS'|'ERROR'|'INFO', title?: string, message: string}>({isOpen: false, type: 'INFO', message: ''});
   const showAlert = (msg: string, type: 'SUCCESS'|'ERROR'|'INFO' = 'INFO', title?: string) => {
