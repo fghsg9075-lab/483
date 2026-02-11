@@ -777,7 +777,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
         )}
         </>
       );
-  };
 
   const renderStatsSection = () => (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 relative overflow-hidden">
