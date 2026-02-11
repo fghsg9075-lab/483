@@ -266,6 +266,13 @@ export interface BannerSettings {
     textColor?: string;
 }
 
+export interface BannerItem {
+    id: string;
+    imageUrl: string;
+    actionUrl?: string; // Optional link
+    isActive: boolean;
+}
+
 export interface SystemSettings {
   appName: string; // Long Name
   mcqTestLimitFree?: number;
@@ -277,6 +284,7 @@ export interface SystemSettings {
   mcqAnalysisCost?: number;
   appShortName?: string; // e.g. "IIC"
   officialAppUrl?: string; // NEW: Play Store Link
+  exploreBanners?: BannerItem[]; // NEW: Explore Page Banners
   bannerConfig?: {
       top: BannerSettings;
       bottom: BannerSettings;
@@ -494,6 +502,7 @@ export interface SystemSettings {
       BASIC: string[];
       ULTRA: string[];
   };
+  featureBadges?: Record<string, 'NEW' | 'UPGRADE' | 'NORMAL'>; // NEW: Feature Badges
 }
 
 export interface ContentInfoItem {
