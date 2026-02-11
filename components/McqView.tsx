@@ -167,35 +167,6 @@ export const McqView: React.FC<Props> = ({
 
   const proceedWithStart = (mode: 'PRACTICE' | 'TEST', data: any) => {
 
-      // SHUFFLE & LIMIT QUESTIONS
-      const rawMcqData = data.manualMcqData || [];
-      const rawMcqDataHi = data.manualMcqData_HI || [];
-      const hasHindi = rawMcqDataHi.length === rawMcqData.length && rawMcqData.length > 0;
-
-      // 1. Create Index Array
-      const indices = Array.from({ length: rawMcqData.length }, (_, i) => i);
-
-      // 2. Fisher-Yates Shuffle
-      for (let i = indices.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [indices[i], indices[j]] = [indices[j], indices[i]];
-      }
-
-      // 3. Determine Limit based on Tier
-      let limit = 30; // Default Free
-
-      if (user.role === 'ADMIN') {
-          limit = 9999;
-      } else if (user.subscriptionTier && user.subscriptionTier !== 'FREE') {
-          if (user.subscriptionLevel === 'ULTRA') limit = 9999;
-          else limit = 50; // Basic Limit
-      }
-
-      // 4. Slice & Select
-      const finalIndices = indices.slice(0, limit);
-      const finalMcqData = finalIndices.map(i => rawMcqData[i]);
-      const finalMcqDataHi = hasHindi ? finalIndices.map(i => rawMcqDataHi[i]) : undefined;
-
       // Prepare LessonContent object for the existing LessonView component
       const content = {
           id: Date.now().toString(),
@@ -205,8 +176,8 @@ export const McqView: React.FC<Props> = ({
           type: 'MCQ_ANALYSIS', // Always allow analysis flow
           dateCreated: new Date().toISOString(),
           subjectName: subject.name,
-          mcqData: finalMcqData,
-          manualMcqData_HI: finalMcqDataHi
+          mcqData: data.manualMcqData,
+          manualMcqData_HI: data.manualMcqData_HI
       };
       
       setLessonContent(content);
@@ -532,36 +503,19 @@ export const McqView: React.FC<Props> = ({
   return (
     <div className="bg-white min-h-screen pb-20 animate-in fade-in slide-in-from-right-8">
        {resultData && (
-           settings?.hiddenFeatures?.includes('f51') ? (
-               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                   <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl">
-                       <Trophy className="mx-auto text-yellow-500 mb-4" size={48} />
-                       <h2 className="text-2xl font-black text-slate-800 mb-2">Test Completed!</h2>
-                       <p className="text-lg font-bold text-slate-600">Score: <span className="text-blue-600">{resultData.score}</span> / {resultData.totalQuestions}</p>
-                       <p className="text-sm text-slate-400 mt-2 mb-6">Detailed marksheet is currently disabled.</p>
-                       <button
-                           onClick={() => setResultData(null)}
-                           className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl"
-                       >
-                           Continue
-                       </button>
-                   </div>
-               </div>
-           ) : (
-               <MarksheetCard
-                   result={resultData}
-                   user={user}
-                   settings={settings}
-                   onClose={() => {
-                       setResultData(null);
-                       setViewMode('SELECTION');
-                   }}
-                   onViewAnalysis={handleViewAnalysis}
-                   onPublish={handlePublishResult}
-                   questions={completedMcqData}
-                   onUpdateUser={onUpdateUser}
-               />
-           )
+           <MarksheetCard
+               result={resultData}
+               user={user}
+               settings={settings}
+               onClose={() => {
+                   setResultData(null);
+                   setViewMode('SELECTION');
+               }}
+               onViewAnalysis={handleViewAnalysis}
+               onPublish={handlePublishResult}
+               questions={completedMcqData}
+               onUpdateUser={onUpdateUser}
+           />
        )}
        <CustomAlert 
            isOpen={alertConfig.isOpen} 

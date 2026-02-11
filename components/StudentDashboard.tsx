@@ -24,7 +24,7 @@ import { HistoryPage } from './HistoryPage';
 import { Leaderboard } from './Leaderboard';
 import { SpinWheel } from './SpinWheel';
 import { fetchChapters, generateCustomNotes } from '../services/groq'; // Needed for Video Flow
-import { FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline } from 'lucide-react'; // Icons
+import { FileText, CheckSquare } from 'lucide-react'; // Icons
 import { LoadingOverlay } from './LoadingOverlay';
 import { CreditConfirmationModal } from './CreditConfirmationModal';
 import { UserGuide } from './UserGuide';
@@ -44,10 +44,6 @@ import { CustomBloggerPage } from './CustomBloggerPage';
 import { ReferralPopup } from './ReferralPopup';
 import { StudentAiAssistant } from './StudentAiAssistant';
 import { SpeakButton } from './SpeakButton';
-import { StudentSidebar } from './StudentSidebar';
-import { PerformanceGraph } from './PerformanceGraph';
-import { StudyGoalTimer } from './StudyGoalTimer';
-import { ExplorePage } from './ExplorePage';
 
 interface Props {
   user: User;
@@ -162,20 +158,6 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   // Monthly Report
   const [showMonthlyReport, setShowMonthlyReport] = useState(false);
   const [showReferralPopup, setShowReferralPopup] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // --- HEADER CONTROL ---
-  useEffect(() => {
-    // Force Full Screen for Home/Explore/Profile to use Custom Header
-    if (activeTab === 'HOME' || activeTab === 'EXPLORE' || activeTab === 'PROFILE') {
-        setFullScreen(true);
-    } else {
-        // For other tabs (content), let the content decide or default to normal
-        if (activeTab !== 'VIDEO' && activeTab !== 'PDF' && activeTab !== 'MCQ' && activeTab !== 'AUDIO') {
-             setFullScreen(false);
-        }
-    }
-  }, [activeTab]);
 
   // --- REFERRAL POPUP CHECK ---
   useEffect(() => {
@@ -779,17 +761,10 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   const claimDailyReward = () => {
       if (!canClaimReward) return;
       
-      // DYNAMIC REWARD LOGIC (ADMIN CONTROLLED)
-      let finalReward = settings?.loginBonusConfig?.freeBonus ?? 3;
-      if (user.subscriptionTier !== 'FREE') {
-          if (user.subscriptionLevel === 'BASIC') finalReward = settings?.loginBonusConfig?.basicBonus ?? 5;
-          if (user.subscriptionLevel === 'ULTRA') finalReward = settings?.loginBonusConfig?.ultraBonus ?? 10;
-      }
-
-      // STRICT STREAK LOGIC
-      // If Strict Mode is ON and User missed yesterday, they might get reduced reward or no reward next time
-      // Here we just grant the reward for hitting the goal TODAY.
-      // But we update streak logic elsewhere.
+      // DYNAMIC REWARD LOGIC: 10 for Basic, 20 for Ultra, Default for Free
+      let finalReward = REWARD_AMOUNT; // Default (e.g. 3)
+      if (user.subscriptionLevel === 'BASIC' && user.isPremium) finalReward = 10;
+      if (user.subscriptionLevel === 'ULTRA' && user.isPremium) finalReward = 20;
 
       const updatedUser = {
           ...user,
@@ -1078,9 +1053,10 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   const renderMainContent = () => {
       // 1. HOME TAB
       if (activeTab === 'HOME') {
+          const isPremium = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
+
           return (
               <div className="space-y-6 pb-24">
- feature-dashboard-history-redesign-16781466771829255113
                 {/* NEW: USER PROFILE DASHBOARD HEADER */}
                 <DashboardSectionWrapper id="section_profile_header" label="Profile Header">
                 <div 
@@ -1414,74 +1390,27 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                                   <Crown size={16} className="text-yellow-400" />
                               </div>
                           </div>
-
-                  {/* Custom Header */}
-                  <div className="flex justify-between items-center py-4 px-2">
-                      <div className="flex items-center gap-3">
-                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
-                              <Menu size={24} className="text-slate-800" />
-                          </button>
-                          <div>
-                              <h1 className="font-black text-xl text-slate-900 leading-none">{settings?.appName || 'IIC'}</h1>
-                              <p className="text-xs font-bold text-slate-400 font-mono tracking-widest mt-0.5">ID: {user.displayId || user.id.slice(0, 6)}</p>
-                          </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                         <div className="text-right hidden sm:block">
-                             <p className="text-[10px] font-bold text-slate-400 uppercase">Credits</p>
-                             <p className="text-lg font-black text-blue-600 leading-none">{user.credits}</p>
-                         </div>
-                         <div className="text-right border-l pl-3 border-slate-200 hidden sm:block">
-                             <p className="text-[10px] font-bold text-slate-400 uppercase">Streak</p>
-                             <p className="text-lg font-black text-orange-500 leading-none">{user.streak}🔥</p>
-                         </div>
-                         {/* Mobile Compact View */}
-                         <div className="sm:hidden flex items-center gap-2">
-                             <div className="bg-blue-50 px-2 py-1 rounded">
-                                 <span className="text-xs font-black text-blue-600">{user.credits} CR</span>
-                             </div>
-                             <div className="bg-orange-50 px-2 py-1 rounded">
-                                 <span className="text-xs font-black text-orange-500">{user.streak}🔥</span>
-                             </div>
-                         </div>
-main
                       </div>
                   </div>
+                  </DashboardSectionWrapper>
 
-                  {/* Performance Graph */}
-                  {!(settings?.hiddenFeatures?.includes('f50')) && (
-                      <PerformanceGraph
-                          user={user}
-                          onViewNotes={(topic) => {
-                              onTabChange('PDF');
-                          }}
-                          onViewAnalytics={() => onTabChange('ANALYTICS')}
-                      />
-                  )}
+                  {/* CONTENT REQUEST (DEMAND) SECTION */}
+                  <DashboardSectionWrapper id="request_content" label="Request Content">
+                  <div className="bg-gradient-to-r from-pink-50 to-rose-50 p-4 rounded-2xl border border-pink-100 shadow-sm mt-4">
+                      <h3 className="font-bold text-pink-900 mb-2 flex items-center gap-2">
+                          <Megaphone size={18} className="text-pink-600" /> Request Content
+                      </h3>
+                      <p className="text-xs text-slate-600 mb-4">Don't see what you need? Request it here!</p>
 
-                  {/* Study Timer */}
-                  <StudyGoalTimer
-                      dailyStudySeconds={dailyStudySeconds}
-                      targetSeconds={dailyTargetSeconds}
-                      onSetTarget={(sec) => {
-                          setDailyTargetSeconds(sec);
-                          localStorage.setItem(`nst_goal_${user.id}`, (sec / 3600).toString());
-                      }}
-                  />
-
-                  {/* Big Buttons */}
-                  <div className="grid grid-cols-2 gap-4 px-2">
                       <button
-                          onClick={() => onTabChange('VIDEO')}
-                          className="bg-gradient-to-br from-red-500 to-rose-700 text-white p-6 rounded-3xl shadow-xl shadow-red-200 hover:shadow-2xl transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group border border-red-400/20"
+                          onClick={() => {
+                              setRequestData({ subject: '', topic: '', type: 'PDF' });
+                              setShowRequestModal(true);
+                          }}
+                          className="w-full bg-white text-pink-600 font-bold py-3 rounded-xl shadow-sm border border-pink-200 hover:bg-pink-100 transition-colors flex items-center justify-center gap-2 text-sm"
                       >
-                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform blur-xl"></div>
-                          <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm relative z-10">
-                              <Play size={32} fill="currentColor" className="relative z-10" />
-                          </div>
-                          <span className="font-black text-lg relative z-10 uppercase tracking-wide drop-shadow-sm">Videos</span>
+                          + Make a Request
                       </button>
-feature-dashboard-history-redesign-16781466771829255113
                   </div>
                   </DashboardSectionWrapper>
 
@@ -1583,38 +1512,15 @@ feature-dashboard-history-redesign-16781466771829255113
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Ranks</span>
                               </button>
                               </DashboardTileWrapper>}
-
-
-                      <button
-                          onClick={() => onTabChange('COURSES')}
-                          className="bg-gradient-to-br from-blue-500 to-indigo-700 text-white p-6 rounded-3xl shadow-xl shadow-blue-200 hover:shadow-2xl transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group border border-blue-400/20"
-                      >
-                          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 group-hover:scale-110 transition-transform blur-xl"></div>
-                          <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm relative z-10">
-                              <BookOpen size={32} className="relative z-10" />
-                            main
                           </div>
-                          <span className="font-black text-lg relative z-10 uppercase tracking-wide drop-shadow-sm">Courses</span>
-                      </button>
+                      </div>
+                      </DashboardSectionWrapper>
                   </div>
-              </div>
-          );
-      }
+              );
+          }
 
-      // 2. EXPLORE TAB
-      if (activeTab === 'EXPLORE') {
-          return (
-              <ExplorePage
-                  user={user}
-                  settings={settings}
-                  onTabChange={onTabChange}
-                  onStartWeeklyTest={onStartWeeklyTest}
-                  onOpenAiChat={() => setShowAiModal(true)}
-              />
-          );
-      }
 
-      // 3. COURSES TAB (Handles Video, Notes, MCQ Selection)
+      // 2. COURSES TAB (Handles Video, Notes, MCQ Selection)
       if (activeTab === 'COURSES') {
           // If viewing a specific content type (from drilled down), show it
           // Note: Clicking a subject switches tab to VIDEO/PDF/MCQ, so COURSES just shows the Hub.
@@ -1631,7 +1537,7 @@ feature-dashboard-history-redesign-16781466771829255113
                       </div>
 
                       {/* RECOMMENDED NOTES (Universal) */}
-                      {universalNotes.length > 0 && !(settings?.hiddenFeatures?.includes('f56')) && (
+                      {universalNotes.length > 0 && (
                           <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 animate-in slide-in-from-top-4">
                               <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
                                   <FileText size={18} className="text-blue-600" /> Recommended Notes
@@ -1674,15 +1580,11 @@ feature-dashboard-history-redesign-16781466771829255113
                       
                       {/* Video Section */}
                       {settings?.contentVisibility?.VIDEO !== false && (
-                          <div className="bg-gradient-to-br from-red-50 to-rose-100 p-6 rounded-3xl border border-red-200 shadow-sm">
-                              <h3 className="font-black text-red-900 flex items-center gap-2 mb-4 text-lg">
-                                  <div className="p-2 bg-white rounded-full shadow-sm text-red-600"><Youtube size={20} /></div>
-                                  Video Lectures
-                              </h3>
-                              <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
+                              <h3 className="font-bold text-red-800 flex items-center gap-2 mb-2"><Youtube /> Video Lectures</h3>
+                              <div className="grid grid-cols-2 gap-2">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-red-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
-                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-red-500'}`}></div>
+                                      <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-red-100 text-left">
                                           {s.name}
                                       </button>
                                   ))}
@@ -1692,15 +1594,11 @@ feature-dashboard-history-redesign-16781466771829255113
 
                       {/* Notes Section */}
                       {settings?.contentVisibility?.PDF !== false && (
-                          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-3xl border border-blue-200 shadow-sm">
-                              <h3 className="font-black text-blue-900 flex items-center gap-2 mb-4 text-lg">
-                                  <div className="p-2 bg-white rounded-full shadow-sm text-blue-600"><FileText size={20} /></div>
-                                  Notes Library
-                              </h3>
-                              <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                              <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-2"><FileText /> Notes Library</h3>
+                              <div className="grid grid-cols-2 gap-2">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('PDF'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-blue-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
-                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-blue-500'}`}></div>
+                                      <button key={s.id} onClick={() => { onTabChange('PDF'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-blue-100 text-left">
                                           {s.name}
                                       </button>
                                   ))}
@@ -1710,17 +1608,13 @@ feature-dashboard-history-redesign-16781466771829255113
 
                       {/* MCQ Section */}
                       {settings?.contentVisibility?.MCQ !== false && (
-                          <div className="bg-gradient-to-br from-purple-50 to-fuchsia-100 p-6 rounded-3xl border border-purple-200 shadow-sm">
-                              <div className="flex justify-between items-center mb-4">
-                                  <h3 className="font-black text-purple-900 flex items-center gap-2 text-lg">
-                                      <div className="p-2 bg-white rounded-full shadow-sm text-purple-600"><CheckSquare size={20} /></div>
-                                      MCQ Practice
-                                  </h3>
+                          <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100">
+                              <div className="flex justify-between items-center mb-2">
+                                  <h3 className="font-bold text-purple-800 flex items-center gap-2"><CheckSquare /> MCQ Practice</h3>
                               </div>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-2 gap-2">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('MCQ'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-purple-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
-                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-purple-500'}`}></div>
+                                      <button key={s.id} onClick={() => { onTabChange('MCQ'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-purple-100 text-left">
                                           {s.name}
                                       </button>
                                   ))}
@@ -2156,7 +2050,6 @@ feature-dashboard-history-redesign-16781466771829255113
                     <span className="text-[10px] font-bold mt-1">Home</span>
                 </button>
                 
- feature-dashboard-history-redesign-16781466771829255113
                 {hasPermission('f1') && <button onClick={() => {
                         // Open Universal Video Playlist directly
                         setSelectedSubject({ id: 'universal', name: 'Special' } as any);
@@ -2201,34 +2094,10 @@ feature-dashboard-history-redesign-16781466771829255113
 
                 {hasPermission('f13') && <button onClick={() => onTabChange('PROFILE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'PROFILE' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <UserIcon size={24} fill={activeTab === 'PROFILE' ? "currentColor" : "none"} />
-
-                <button onClick={() => onTabChange('EXPLORE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'EXPLORE' ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <Compass size={24} fill={activeTab === 'EXPLORE' ? "currentColor" : "none"} />
-                    <span className="text-[10px] font-bold mt-1">Explore</span>
-                </button>
-
-                <button onClick={() => onTabChange('PROFILE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'PROFILE' ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <UserIconOutline size={24} fill={activeTab === 'PROFILE' ? "currentColor" : "none"} />
-main
                     <span className="text-[10px] font-bold mt-1">Profile</span>
                 </button>}
             </div>
         </div>
-
-        <StudentSidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-            onNavigate={(tab) => {
-                onTabChange(tab);
-                setIsSidebarOpen(false);
-            }}
-            user={user}
-            settings={settings}
-            onLogout={() => {
-                localStorage.removeItem('nst_current_user');
-                window.location.reload();
-            }}
-        />
 
         {/* SYLLABUS SELECTION POPUP */}
         {showSyllabusPopup && (
