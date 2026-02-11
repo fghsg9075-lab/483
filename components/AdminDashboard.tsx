@@ -84,7 +84,8 @@ type AdminTab =
   | 'AI_NOTES_MANAGER'
   | 'BLOGGER_HUB'
   | 'CONFIG_GATING'
-  | 'WHATSAPP_CONNECT';
+  | 'WHATSAPP_CONNECT'
+  | 'FEATURE_TIERS';
 
 interface ContentConfig {
     freeLink?: string;
@@ -2938,6 +2939,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           {(hasPermission('MANAGE_AI_NOTES') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="AI Notes Manager" onClick={() => setActiveTab('AI_NOTES_MANAGER')} color="indigo" />}
                           {currentUser?.role === 'ADMIN' && <DashboardCard icon={PenTool} label="Blogger Hub" onClick={() => setActiveTab('BLOGGER_HUB')} color="orange" />}
                           <DashboardCard icon={Sparkles} label="Ads Config" onClick={() => setActiveTab('CONFIG_ADS')} color="rose" />
+              <DashboardCard icon={Layers} label="Feature Tiers" onClick={() => setActiveTab('FEATURE_TIERS')} color="orange" />
                           <DashboardCard icon={Gamepad2} label="Game Config" onClick={() => setActiveTab('CONFIG_GAME')} color="orange" />
                           <DashboardCard icon={Banknote} label="Payment" onClick={() => setActiveTab('CONFIG_PAYMENT')} color="emerald" />
                           <DashboardCard icon={Globe} label="External Apps" onClick={() => setActiveTab('CONFIG_EXTERNAL_APPS')} color="indigo" />
@@ -3410,6 +3412,101 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       )}
 
       {/* --- AI CONFIG TAB --- */}
+      {activeTab === 'FEATURE_TIERS' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Feature Access Matrix</h3>
+              </div>
+
+              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-6">
+                  <p className="text-xs text-yellow-800 font-bold">
+                      Control exactly which features are visible to each user tier. Uncheck to hide features from specific users.
+                  </p>
+              </div>
+
+              <div className="overflow-x-auto border rounded-xl shadow-sm h-[70vh]">
+                  <table className="w-full text-left text-sm relative">
+                      <thead className="bg-slate-50 font-black text-slate-600 uppercase border-b sticky top-0 z-20 shadow-sm">
+                          <tr>
+                              <th className="p-4 bg-slate-50 sticky left-0 z-30 border-r">Feature Name</th>
+                              <th className="p-4 text-center text-slate-500 bg-slate-50">Free</th>
+                              <th className="p-4 text-center text-blue-600 bg-slate-50">Basic</th>
+                              <th className="p-4 text-center text-purple-600 bg-slate-50">Ultra</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {ALL_APP_FEATURES.map((feat) => {
+                              // Helper to check if enabled
+                              const isEnabled = (tier: 'FREE' | 'BASIC' | 'ULTRA') => {
+                                  // Default to TRUE if settings not yet initialized
+                                  if (!localSettings.tierPermissions) return true;
+                                  if (!localSettings.tierPermissions[tier]) return true;
+                                  return localSettings.tierPermissions[tier].includes(feat.id);
+                              };
+
+                              // Helper to toggle
+                              const togglePerm = (tier: 'FREE' | 'BASIC' | 'ULTRA') => {
+                                  const current = localSettings.tierPermissions?.[tier] || ALL_APP_FEATURES.map(f => f.id);
+                                  const newSet = current.includes(feat.id)
+                                      ? current.filter(id => id !== feat.id)
+                                      : [...current, feat.id];
+
+                                  setLocalSettings({
+                                      ...localSettings,
+                                      tierPermissions: {
+                                          ...(localSettings.tierPermissions || {
+                                              FREE: ALL_APP_FEATURES.map(f => f.id),
+                                              BASIC: ALL_APP_FEATURES.map(f => f.id),
+                                              ULTRA: ALL_APP_FEATURES.map(f => f.id)
+                                          }),
+                                          [tier]: newSet
+                                      }
+                                  });
+                              };
+
+                              return (
+                                  <tr key={feat.id} className="hover:bg-slate-50 group">
+                                      <td className="p-4 font-bold text-slate-700 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r text-xs">{feat.title} <span className="text-slate-400 font-mono ml-2">({feat.id})</span></td>
+                                      <td className="p-4 text-center">
+                                          <input
+                                              type="checkbox"
+                                              checked={isEnabled('FREE')}
+                                              onChange={() => togglePerm('FREE')}
+                                              className="w-5 h-5 accent-slate-600 cursor-pointer"
+                                          />
+                                      </td>
+                                      <td className="p-4 text-center bg-blue-50/30">
+                                          <input
+                                              type="checkbox"
+                                              checked={isEnabled('BASIC')}
+                                              onChange={() => togglePerm('BASIC')}
+                                              className="w-5 h-5 accent-blue-600 cursor-pointer"
+                                          />
+                                      </td>
+                                      <td className="p-4 text-center bg-purple-50/30">
+                                          <input
+                                              type="checkbox"
+                                              checked={isEnabled('ULTRA')}
+                                              onChange={() => togglePerm('ULTRA')}
+                                              className="w-5 h-5 accent-purple-600 cursor-pointer"
+                                          />
+                                      </td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
+
+              <div className="mt-6 flex justify-end sticky bottom-0 bg-white p-4 border-t z-30">
+                  <button onClick={handleSaveSettings} className="px-8 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 flex items-center gap-2">
+                      <Save size={20} /> Save Permissions
+                  </button>
+              </div>
+          </div>
+      )}
+
       {activeTab === 'CONFIG_AI' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">

@@ -183,7 +183,7 @@ export interface SubscriptionHistoryEntry {
 
 export interface UsageHistoryEntry {
   id: string;
-  type: 'VIDEO' | 'PDF' | 'MCQ' | 'GAME' | 'PURCHASE' | 'VIEW' | 'AUDIO';
+  type: 'VIDEO' | 'PDF' | 'MCQ' | 'GAME' | 'PURCHASE' | 'VIEW' | 'AUDIO' | 'LOGIN' | 'DAILY_USAGE' | 'CREDIT_SPEND' | 'CREDIT_ADD';
   itemId: string;
   itemTitle: string;
   subject: string;

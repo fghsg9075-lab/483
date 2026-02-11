@@ -199,6 +199,23 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
     setSelectedPhoneId(defaultPhoneId);
   }
 
+  // --- PERMISSION CHECKER ---
+  const hasPermission = (featureId: string) => {
+      // Default to TRUE if settings or tierPermissions not loaded (Backward compatibility)
+      if (!settings?.tierPermissions) return true;
+
+      let tier: 'FREE' | 'BASIC' | 'ULTRA' = 'FREE';
+      if (user.isPremium) {
+          tier = user.subscriptionLevel === 'ULTRA' ? 'ULTRA' : 'BASIC';
+      }
+
+      const permissions = settings.tierPermissions[tier];
+      // If permissions for this tier are not defined, allow all (safe default)
+      if (!permissions) return true;
+
+      return permissions.includes(featureId);
+  };
+
   // --- CHALLENGE 2.0 LOGIC ---
   const [challenges20, setChallenges20] = useState<Challenge20[]>([]);
   useEffect(() => {
@@ -235,10 +252,32 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
       if (onStartWeeklyTest) onStartWeeklyTest(mappedTest);
   };
 
-  // --- SELF-REPAIR SYNC (Fix for "New User Not Showing") ---
+  // --- SELF-REPAIR SYNC & LOGIN LOGGING ---
   useEffect(() => {
       if (user && user.id) {
           saveUserToLive(user);
+
+          // Log Login Event (Once per session/hour)
+          const lastLogin = localStorage.getItem(`nst_last_login_${user.id}`);
+          const now = Date.now();
+          if (!lastLogin || (now - Number(lastLogin) > 3600000)) { // 1 Hour
+              localStorage.setItem(`nst_last_login_${user.id}`, now.toString());
+
+              const newLog: any = {
+                  id: `login-${now}`,
+                  type: 'LOGIN',
+                  itemId: 'app_open',
+                  itemTitle: 'App Login',
+                  subject: 'System',
+                  timestamp: new Date().toISOString()
+              };
+
+              // Direct Firebase Update to avoid prop loop
+              const updatedHistory = [newLog, ...(user.usageHistory || [])].slice(0, 500); // Keep last 500
+              const updatedUser = { ...user, usageHistory: updatedHistory };
+              // We don't call onRedeemSuccess here to avoid re-render loop, just save to live
+              saveUserToLive(updatedUser);
+          }
       }
   }, [user.id]);
 
@@ -749,7 +788,23 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   };
 
   const processAppAccess = (app: any, cost: number, enableAuto: boolean = false) => {
-      let updatedUser = { ...user, credits: user.credits - cost };
+      // Log Spending
+      const spendLog: any = {
+          id: `spend-${Date.now()}`,
+          type: 'CREDIT_SPEND',
+          itemId: app.id,
+          itemTitle: app.name,
+          subject: 'External App',
+          amount: cost,
+          timestamp: new Date().toISOString()
+      };
+
+      let updatedUser = {
+          ...user,
+          credits: user.credits - cost,
+          usageHistory: [spendLog, ...(user.usageHistory || [])]
+      };
+
       if (enableAuto) updatedUser.isAutoDeductEnabled = true;
       handleUserUpdate(updatedUser);
       setActiveExternalApp(app.url);
@@ -1067,47 +1122,53 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                                         <TrendingUp size={14} /> Growth Chart
                                     </h4>
                                 </div>
-                                {user.mcqHistory && user.mcqHistory.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {(user.mcqHistory || []).slice(0, 5).map((h, i, arr) => {
-                                            const score = h.totalQuestions > 0 ? Math.round((h.correctCount / h.totalQuestions) * 100) : 0;
+                                {homeTrendData.length > 0 ? (
+                                    <div className="w-full overflow-hidden pt-2">
+                                        <svg viewBox="0 0 300 100" className="w-full h-24">
+                                            {/* Background Lines */}
+                                            <line x1="10" y1="10" x2="290" y2="10" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
+                                            <line x1="10" y1="50" x2="290" y2="50" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
+                                            <line x1="10" y1="90" x2="290" y2="90" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
                                             
-                                            // Calculate Improvement vs Previous Test (which is i+1 in descending list)
-                                            let improvement = 0;
-                                            let showImp = false;
-                                            if (i < arr.length - 1) {
-                                                const prev = arr[i+1];
-                                                const prevScore = prev.totalQuestions > 0 ? Math.round((prev.correctCount / prev.totalQuestions) * 100) : 0;
-                                                improvement = score - prevScore;
-                                                showImp = true;
-                                            }
+                                            {/* The Line */}
+                                            <polyline
+                                                points={homeTrendData.map((d, i) => {
+                                                    const x = (i / (Math.max(1, homeTrendData.length - 1))) * 280 + 10;
+                                                    const y = 90 - (d.score / 100) * 80;
+                                                    return `${x},${y}`;
+                                                }).join(' ')}
+                                                fill="none"
+                                                stroke="#60a5fa"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            />
 
-                                            return (
-                                                <div key={i} className="space-y-1">
-                                                    <div className="flex justify-between items-end">
-                                                        <span className="text-[9px] font-bold text-white/80 truncate max-w-[50%] leading-none">
-                                                            {h.chapterTitle || 'Test'}
-                                                        </span>
-                                                        <div className="flex items-center gap-2">
-                                                            {showImp && (
-                                                                <span className={`text-[8px] font-bold px-1 rounded ${improvement > 0 ? 'text-green-400 bg-green-900/30' : improvement < 0 ? 'text-red-400 bg-red-900/30' : 'text-slate-400 bg-white/10'}`}>
-                                                                    {improvement > 0 ? '+' : ''}{improvement}%
-                                                                </span>
-                                                            )}
-                                                            <span className={`text-[9px] font-black leading-none ${score >= 80 ? 'text-green-400' : score >= 50 ? 'text-blue-400' : 'text-red-400'}`}>
-                                                                {score}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                                                        <div 
-                                                            className={`h-full rounded-full transition-all duration-1000 ${score >= 80 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : score >= 50 ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-gradient-to-r from-red-500 to-orange-400'}`} 
-                                                            style={{ width: `${score}%` }} 
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                            {/* Dots & Labels */}
+                                            {homeTrendData.map((d, i) => {
+                                                const x = (i / (Math.max(1, homeTrendData.length - 1))) * 280 + 10;
+                                                const y = 90 - (d.score / 100) * 80;
+                                                return (
+                                                    <g key={i} className="group cursor-pointer">
+                                                        <circle cx={x} cy={y} r="4" fill="#60a5fa" className="transition-all group-hover:r-6" />
+                                                        <circle cx={x} cy={y} r="2" fill="#1e293b" />
+
+                                                        {/* Tooltip (Visible on Hover) */}
+                                                        <text
+                                                            x={x}
+                                                            y={y - 12}
+                                                            textAnchor="middle"
+                                                            fontSize="10"
+                                                            fontWeight="bold"
+                                                            fill="white"
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md"
+                                                        >
+                                                            {d.score}%
+                                                        </text>
+                                                    </g>
+                                                );
+                                            })}
+                                        </svg>
                                     </div>
                                 ) : (
                                     <p className="text-[10px] text-white/40 italic py-4 text-center">No test history yet</p>
@@ -1238,217 +1299,71 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                           </div>
                       )}
 
-                      {/* CONSOLIDATED BANNER CAROUSEL */}
-                      <BannerCarousel>
-                          {/* 1. HERO SLIDER */}
-                          <DashboardSectionWrapper id="hero_slider" label="Hero Slider">
-                              <div className="relative h-48 rounded-2xl overflow-hidden shadow-xl mx-1 border border-white/20" style={{ backgroundColor: 'var(--primary)' }}>
-                                  <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-transparent"></div>
-                                  {slides.map((slide, index) => (
-                                      <div 
-                                          key={slide.id}
-                                          className={`absolute inset-0 flex flex-col justify-center p-6 transition-all duration-1000 ${index === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
-                                      >
-                                          <div className="text-white relative z-10">
-                                              <div className="inline-block px-3 py-1 bg-black/20 rounded-full text-[10px] font-black tracking-widest mb-2 backdrop-blur-md border border-white/10 shadow-sm">
-                                                  ✨ FEATURED
-                                              </div>
-                                              <h2 className="text-3xl font-black mb-2 leading-none drop-shadow-md">{slide.title}</h2>
-                                              <p className="text-sm font-medium opacity-90 mb-4 max-w-[80%]">{slide.subtitle}</p>
-                                              
-                                              <button onClick={() => onTabChange('STORE')} className="bg-white text-slate-900 px-5 py-2.5 rounded-xl text-xs font-black shadow-lg hover:scale-105 transition-transform flex items-center gap-2 uppercase tracking-wider">
-                                                  <Zap size={14} className="text-yellow-500 fill-yellow-500" /> 
-                                                  {(slide as any).btnText || 'Get Access'}
-                                              </button>
-                                          </div>
-                                          {/* Animated Background Element */}
-                                          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </DashboardSectionWrapper>
+                      {/* NEW: QUICK ACTION GRID (REPLACES BANNERS) */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 mx-1">
+                          {/* Ultra Sub */}
+                          {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-32 bg-gradient-to-r from-purple-900 to-indigo-900 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-purple-500/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Crown size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-purple-300">SUBSCRIPTION</span></h3><p className="text-xs text-purple-200 font-medium mt-1">Unlock All Premium Features</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-purple-900 transition-colors">GO TO STORE &rarr;</div>
+                          </button>}
 
-                          {/* 2. AI NOTES POSTER (If Enabled) */}
-                          {settings?.isAiEnabled && (
-                              <div 
-                                  onClick={() => setShowAiModal(true)}
-                                  className="mx-1 h-48 relative overflow-hidden rounded-2xl shadow-lg cursor-pointer group flex flex-col justify-center"
-                              >
-                                  <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600"></div>
-                                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
-                                  
-                                  <div className="relative p-5 flex items-center justify-between">
-                                      <div>
-                                          <div className="flex items-center gap-2 mb-1">
-                                              <BrainCircuit className="text-yellow-300" size={20} />
-                                              <span className="text-[10px] font-black bg-white/20 px-2 py-0.5 rounded text-white backdrop-blur-sm border border-white/20">NEW FEATURE</span>
-                                          </div>
-                                          <h3 className="text-xl font-black text-white italic tracking-wide">{settings?.aiName || 'AI ASSISTANT'}</h3>
-                                          <p className="text-xs text-indigo-100 font-medium mt-1 max-w-[200px]">Generate custom notes on any topic instantly using AI.</p>
-                                      </div>
-                                      <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 group-hover:scale-110 transition-transform">
-                                          <Sparkles className="text-white" size={24} />
-                                      </div>
-                                  </div>
-                              </div>
-                          )}
+                          {/* Basic Sub */}
+                          {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-32 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-blue-400/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Star size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">BASIC <span className="text-cyan-200">SUBSCRIPTION</span></h3><p className="text-xs text-blue-100 font-medium mt-1">Essential Learning Tools</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-blue-600 transition-colors">GO TO STORE &rarr;</div>
+                          </button>}
 
-                          {/* 3. MORNING INSIGHT BANNER */}
-                          {morningBanner && (
-                              <div className="mx-1 h-48 bg-gradient-to-r from-orange-100 to-amber-100 p-4 rounded-2xl shadow-sm border border-orange-200 overflow-y-auto">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <h3 className="font-black text-orange-900 flex items-center gap-2">
-                                          <Sparkles size={18} className="text-orange-600" /> {morningBanner.title || 'Morning Insight'}
-                                      </h3>
-                                      <div className="flex items-center gap-2">
-                                          <SpeakButton text={`${morningBanner.title}. ${morningBanner.wisdom}. Common Trap: ${morningBanner.commonTrap}. Pro Tip: ${morningBanner.proTip}`} className="text-orange-600 hover:bg-orange-200" iconSize={16} />
-                                          <span className="text-[10px] font-bold text-orange-600 bg-orange-200 px-2 py-0.5 rounded-full">{morningBanner.date}</span>
-                                      </div>
-                                  </div>
-                                  <p className="text-xs text-orange-800 italic mb-3">"{morningBanner.wisdom}"</p>
-                                  <div className="space-y-2">
-                                      <div className="bg-white/60 p-2 rounded-lg text-xs">
-                                          <span className="font-bold text-red-600 block">⚠️ Common Trap:</span>
-                                          <span className="text-slate-700">{morningBanner.commonTrap}</span>
-                                      </div>
-                                      <div className="bg-white/60 p-2 rounded-lg text-xs">
-                                          <span className="font-bold text-green-600 block">💡 Pro Tip:</span>
-                                          <span className="text-slate-700">{morningBanner.proTip}</span>
-                                      </div>
-                                  </div>
-                              </div>
-                          )}
+                          {/* Ultra PDF */}
+                          {hasPermission('f2') && <button onClick={() => onTabChange('PDF')} className="relative h-32 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-emerald-400/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><FileText size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-emerald-200">PDF</span></h3><p className="text-xs text-emerald-100 font-medium mt-1">Premium Notes Library</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-emerald-600 transition-colors">READ NOTES &rarr;</div>
+                          </button>}
 
-                          {/* 4. CUSTOM PAGE BANNER */}
-                          <div 
-                              onClick={() => onTabChange('CUSTOM_PAGE')}
-                              className="mx-1 h-48 bg-gradient-to-r from-orange-500 to-red-500 p-4 rounded-2xl shadow-lg text-white flex flex-col justify-center cursor-pointer border border-white/20 relative overflow-hidden group"
-                          >
-                              <div className="relative z-10 flex justify-between items-center">
-                                  <div>
-                                      <h3 className="text-lg font-black flex items-center gap-2">
-                                          <Sparkles size={18} className="text-yellow-300 animate-pulse" />
-                                          What's New?
-                                      </h3>
-                                      <p className="text-xs font-medium text-orange-100">Tap to see special updates!</p>
-                                  </div>
-                                  <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm group-hover:scale-110 transition-transform relative z-10">
-                                      <ArrowRight size={20} className="text-white" />
-                                  </div>
-                              </div>
-                              <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
-                          </div>
+                          {/* Ultra Video */}
+                          {hasPermission('f1') && <button onClick={() => onTabChange('VIDEO')} className="relative h-32 bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-red-400/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Video size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-rose-200">VIDEO</span></h3><p className="text-xs text-rose-100 font-medium mt-1">HD Video Lectures</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-red-600 transition-colors">WATCH NOW &rarr;</div>
+                          </button>}
 
-                          {/* 5. LIVE CHALLENGES & AUTO CHALLENGES */}
-                          <DashboardSectionWrapper id="live_challenges" label="Live Challenges">
-                              <div className="mx-1 h-48 bg-slate-900 p-4 rounded-2xl shadow-lg text-white border border-slate-700 relative overflow-hidden flex flex-col">
-                                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl"></div>
-                                  
-                                  <h3 className="font-black text-white flex items-center gap-2 mb-3 relative z-10">
-                                      <Rocket size={18} className="text-indigo-400" /> Daily & Weekly Challenges
-                                  </h3>
-                                  
-                                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide relative z-10 flex-1 items-center">
-                                      {/* AUTO DAILY CARD */}
-                                      <button onClick={() => startAutoChallenge('DAILY')} className="min-w-[140px] bg-slate-800 p-3 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all text-left group">
-                                          <p className="text-[10px] font-bold text-yellow-400 uppercase mb-1">Daily Challenge</p>
-                                          <p className="font-bold text-sm text-white leading-tight mb-2">Mixed Practice</p>
-                                          <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                              <span>30 Qs</span>
-                                              <span className="text-yellow-400 font-mono">15 Mins</span>
-                                          </div>
-                                      </button>
+                          {/* Ultra Audio */}
+                          {hasPermission('f65') && <button onClick={() => onTabChange('AUDIO')} className="relative h-32 bg-gradient-to-r from-pink-500 to-fuchsia-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-pink-400/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Headphones size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-fuchsia-200">AUDIO</span></h3><p className="text-xs text-fuchsia-100 font-medium mt-1">Audiobooks & Podcasts</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-pink-600 transition-colors">LISTEN NOW &rarr;</div>
+                          </button>}
 
-                                      {/* AUTO WEEKLY CARD (Only Show on Sundays) */}
-                                      {new Date().getDay() === 0 && (
-                                          <button onClick={() => startAutoChallenge('WEEKLY')} className="min-w-[140px] bg-slate-800 p-3 rounded-xl border border-slate-700 hover:border-purple-500 transition-all text-left group">
-                                              <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Weekly Mega Test</p>
-                                              <p className="font-bold text-sm text-white leading-tight mb-2">Full Revision</p>
-                                              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                                  <span>100 Qs</span>
-                                                  <span className="text-purple-400 font-mono">60 Mins</span>
-                                              </div>
-                                          </button>
-                                      )}
+                          {/* Ultra MCQ */}
+                          {hasPermission('f3') && <button onClick={() => onTabChange('MCQ')} className="relative h-32 bg-gradient-to-r from-orange-400 to-amber-500 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-orange-400/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><CheckSquare size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-amber-100">MCQ</span></h3><p className="text-xs text-amber-100 font-medium mt-1">Test Series & Practice</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-orange-500 transition-colors">START TEST &rarr;</div>
+                          </button>}
 
-                                      {challenges20.map(c => {
-                                          const expiry = new Date(c.expiryDate);
-                                          const now = Date.now();
-                                          const timeLeft = Math.max(0, Math.floor((expiry.getTime() - now) / (1000 * 60))); // Minutes
-                                          const hours = Math.floor(timeLeft / 60);
-                                          const mins = timeLeft % 60;
+                          {/* AI Chat */}
+                          {hasPermission('f101') && <button onClick={() => onTabChange('AI_CHAT')} className="relative h-32 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-indigo-400/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><MessageCircle size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">AI <span className="text-indigo-200">CHAT</span></h3><p className="text-xs text-indigo-100 font-medium mt-1">Ask Anything, Anytime</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-indigo-600 transition-colors">CHAT NOW &rarr;</div>
+                          </button>}
 
-                                          return (
-                                              <button 
-                                                  key={c.id} 
-                                                  onClick={() => startChallenge20(c)}
-                                                  className="min-w-[140px] bg-slate-800 p-3 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all text-left group"
-                                              >
-                                                  <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">
-                                                      {c.type === 'DAILY_CHALLENGE' ? 'Special Challenge' : 'Special Test'}
-                                                  </p>
-                                                  <p className="font-bold text-sm text-white leading-tight mb-2 truncate">{c.title}</p>
-                                                  <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                                      <span>{c.questions.length} Qs</span>
-                                                      <span className="text-red-400 font-mono">{hours}h {mins}m left</span>
-                                                  </div>
-                                              </button>
-                                          );
-                                      })}
-                                  </div>
-                              </div>
-                          </DashboardSectionWrapper>
+                          {/* AI Notes */}
+                          {hasPermission('f36') && <button onClick={() => setShowAiModal(true)} className="relative h-32 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-sky-400/30">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><BrainCircuit size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">AI <span className="text-sky-200">NOTES</span></h3><p className="text-xs text-sky-100 font-medium mt-1">Instant Note Generator</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-sky-600 transition-colors">CREATE NOTES &rarr;</div>
+                          </button>}
 
-                          {/* 6. SUBSCRIPTION PROMO BANNER (Inline with Credits) */}
-                          <DashboardSectionWrapper id="promo_banner" label="Promo Banner">
-                              <div onClick={() => onTabChange('STORE')} className="mx-1 h-48 bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-center cursor-pointer border border-slate-700 relative overflow-hidden group">
-                                  <div className="relative z-10 mb-4">
-                                      <div className="flex items-center gap-2 mb-1">
-                                          <Crown size={16} className="text-yellow-400 animate-pulse" />
-                                          <span className="text-xs font-black text-white tracking-widest">PRO MEMBERSHIP</span>
-                                      </div>
-                                      <p className="text-[10px] text-slate-400">Unlock All Features + Get Credits</p>
-                                  </div>
-                                  <div className="relative z-10 flex flex-col items-end">
-                                      <span className="text-xl font-black text-white">BASIC / ULTRA</span>
-                                      <span className="text-[10px] font-bold bg-yellow-400 text-black px-2 py-0.5 rounded-full">+ 5000 Credits</span>
-                                  </div>
-                                  {/* Shine Effect */}
-                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                              </div>
-                          </DashboardSectionWrapper>
-                      </BannerCarousel>
-
-                      {/* FEATURED SHORTCUTS (Admin Configured) */}
-                      <DashboardSectionWrapper id="featured_shortcuts" label="Shortcuts">
-                          <div className="px-1 mb-2">
-                              <div className="grid grid-cols-2 gap-3">
-                                  {/* Featured Items Logic Removed due to missing property */}
-                              </div>
-                          </div>
-                      </DashboardSectionWrapper>
-
-                      {/* FEATURES SLIDER (360 Loop) - DYNAMIC & CONFIGURABLE */}
-                      <DashboardSectionWrapper id="features_ticker" label="Features Ticker">
-                      <div className="overflow-hidden py-4 bg-slate-50 border-y border-slate-200">
-                          <div className="flex gap-8 animate-marquee whitespace-nowrap">
-                              {/* Use ALL_APP_FEATURES to ensure 100+ items rotate */}
-                              {ALL_APP_FEATURES.map((feat, i) => (
-                                  <span key={feat.id} className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                      {feat.title}
-                                  </span>
-                              ))}
-                              {/* DUPLICATE FOR SMOOTH LOOP */}
-                              {ALL_APP_FEATURES.map((feat, i) => (
-                                  <span key={`dup-${feat.id}`} className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                      {feat.title}
-                                  </span>
-                              ))}
-                          </div>
+                          {/* Custom Page */}
+                          {hasPermission('f32') && <button onClick={() => onTabChange('CUSTOM_PAGE')} className="relative h-32 bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-slate-700">
+                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Layout size={80} className="text-white"/></div>
+                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">CUSTOM <span className="text-slate-400">PAGE</span></h3><p className="text-xs text-slate-400 font-medium mt-1">Special Updates & Content</p></div>
+                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-slate-900 transition-colors">EXPLORE &rarr;</div>
+                          </button>}
                       </div>
-                      </DashboardSectionWrapper>
                   </div>
 
           {/* STATS HEADER (Compact) */}
@@ -1507,27 +1422,27 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                           </h3>
                           <div className="grid grid-cols-3 gap-3">
                               {/* Row 1 */}
-                              <DashboardTileWrapper id="tile_inbox" label="Inbox">
+                              {hasPermission('f16') && <DashboardTileWrapper id="tile_inbox" label="Inbox">
                               <button onClick={() => setShowInbox(true)} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform relative group">
                                   <Mail size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Inbox</span>
                                   {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-black text-[9px] font-bold flex items-center justify-center rounded-full shadow-sm animate-pulse">{unreadCount}</span>}
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
                               
-                              <DashboardTileWrapper id="tile_analytics" label="Analytics">
+                              {hasPermission('f50') && <DashboardTileWrapper id="tile_analytics" label="Analytics">
                               <button onClick={() => onTabChange('ANALYTICS')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <BarChart3 size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Analytics</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
 
-                              <DashboardTileWrapper id="tile_marksheet" label="Marksheet">
+                              {hasPermission('f51') && <DashboardTileWrapper id="tile_marksheet" label="Marksheet">
                               <button onClick={() => setShowMonthlyReport(true)} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <FileText size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Marksheet</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
 
                               {(user.role === 'ADMIN' || isImpersonating) && (
                                 <DashboardTileWrapper id="tile_admin" label="Admin App">
@@ -1538,36 +1453,36 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                                 </DashboardTileWrapper>
                               )}
 
-                              <DashboardTileWrapper id="tile_history" label="History">
+                              {hasPermission('f35') && <DashboardTileWrapper id="tile_history" label="History">
                               <button onClick={() => onTabChange('HISTORY')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <History size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">History</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
 
-                              <DashboardTileWrapper id="tile_ai_history" label="AI History">
+                              {hasPermission('f21') && <DashboardTileWrapper id="tile_ai_history" label="AI History">
                               <button onClick={() => onTabChange('AI_HISTORY')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <BrainCircuit size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">AI History</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
 
                               {/* Row 2 */}
-                              <DashboardTileWrapper id="tile_premium" label="Store">
+                              {hasPermission('f12') && <DashboardTileWrapper id="tile_premium" label="Store">
                               <button onClick={() => onTabChange('STORE')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <Crown size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Premium</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
 
-                              <DashboardTileWrapper id="tile_my_plan" label="My Plan">
+                              {hasPermission('f11') && <DashboardTileWrapper id="tile_my_plan" label="My Plan">
                               <button onClick={() => onTabChange('SUB_HISTORY' as any)} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <CreditCard size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">My Plan</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
 
-                              {isGameEnabled && (
+                              {isGameEnabled && hasPermission('f9') && (
                                 <DashboardTileWrapper id="tile_game" label="Game">
                                 <button onClick={() => onTabChange('GAME')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                     <Gamepad2 size={18} style={{ color: 'var(--primary)' }} />
@@ -1577,26 +1492,26 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                               )}
 
                               {/* Row 3 */}
-                              <DashboardTileWrapper id="tile_redeem" label="Redeem">
+                              {hasPermission('f6') && <DashboardTileWrapper id="tile_redeem" label="Redeem">
                               <button onClick={() => onTabChange('REDEEM')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <Gift size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Redeem</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
                               
-                              <DashboardTileWrapper id="tile_prizes" label="Prizes">
+                              {hasPermission('f6') && <DashboardTileWrapper id="tile_prizes" label="Prizes">
                               <button onClick={() => onTabChange('PRIZES')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <Award size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Prizes</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
 
-                              <DashboardTileWrapper id="tile_leaderboard" label="Ranks">
+                              {hasPermission('f5') && <DashboardTileWrapper id="tile_leaderboard" label="Ranks">
                               <button onClick={() => onTabChange('LEADERBOARD')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                   <Trophy size={18} style={{ color: 'var(--primary)' }} />
                                   <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Ranks</span>
                               </button>
-                              </DashboardTileWrapper>
+                              </DashboardTileWrapper>}
                           </div>
                       </div>
                       </DashboardSectionWrapper>
@@ -2135,7 +2050,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                     <span className="text-[10px] font-bold mt-1">Home</span>
                 </button>
                 
-                <button onClick={() => {
+                {hasPermission('f1') && <button onClick={() => {
                         // Open Universal Video Playlist directly
                         setSelectedSubject({ id: 'universal', name: 'Special' } as any);
                         setSelectedChapter({ id: 'UNIVERSAL', title: 'Featured Lectures' } as any);
@@ -2155,27 +2070,32 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                          {hasNewUpdate && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-600 rounded-full border border-white animate-pulse"></span>}
                     </div>
                     <span className="text-[10px] font-bold mt-1">Videos</span>
-                </button>
+                </button>}
 
                 <button onClick={() => { onTabChange('COURSES'); setContentViewStep('SUBJECTS'); }} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'COURSES' || (activeTab === 'VIDEO' && selectedChapter?.id !== 'UNIVERSAL') || activeTab === 'PDF' || activeTab === 'MCQ' || activeTab === 'AUDIO' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <Book size={24} fill={activeTab === 'COURSES' || (activeTab === 'VIDEO' && selectedChapter?.id !== 'UNIVERSAL') || activeTab === 'PDF' || activeTab === 'MCQ' || activeTab === 'AUDIO' ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold mt-1">Courses</span>
                 </button>
+
+                {hasPermission('f35') && <button onClick={() => onTabChange('HISTORY')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'HISTORY' ? 'text-blue-600' : 'text-slate-400'}`}>
+                    <History size={24} />
+                    <span className="text-[10px] font-bold mt-1">History</span>
+                </button>}
                 
-                <button onClick={() => { onTabChange('STORE'); setContentViewStep('SUBJECTS'); }} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'STORE' ? 'text-blue-600' : 'text-slate-400'}`}>
+                {hasPermission('f12') && <button onClick={() => { onTabChange('STORE'); setContentViewStep('SUBJECTS'); }} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'STORE' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <ShoppingBag size={24} fill={activeTab === 'STORE' ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold mt-1">Store</span>
-                </button>
+                </button>}
 
-                <button onClick={() => onTabChange('SUB_HISTORY')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'SUB_HISTORY' ? 'text-blue-600' : 'text-slate-400'}`}>
+                {hasPermission('f11') && <button onClick={() => onTabChange('SUB_HISTORY')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'SUB_HISTORY' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <CreditCard size={24} fill={activeTab === 'SUB_HISTORY' ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold mt-1">Sub</span>
-                </button>
+                </button>}
 
-                <button onClick={() => onTabChange('PROFILE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'PROFILE' ? 'text-blue-600' : 'text-slate-400'}`}>
+                {hasPermission('f13') && <button onClick={() => onTabChange('PROFILE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'PROFILE' ? 'text-blue-600' : 'text-slate-400'}`}>
                     <UserIcon size={24} fill={activeTab === 'PROFILE' ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold mt-1">Profile</span>
-                </button>
+                </button>}
             </div>
         </div>
 
