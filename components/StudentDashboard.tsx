@@ -1058,13 +1058,15 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                   </div>
 
                   {/* Performance Graph */}
-                  <PerformanceGraph
-                      user={user}
-                      onViewNotes={(topic) => {
-                          onTabChange('PDF');
-                      }}
-                      onViewAnalytics={() => onTabChange('ANALYTICS')}
-                  />
+                  {!(settings?.hiddenFeatures?.includes('f50')) && (
+                      <PerformanceGraph
+                          user={user}
+                          onViewNotes={(topic) => {
+                              onTabChange('PDF');
+                          }}
+                          onViewAnalytics={() => onTabChange('ANALYTICS')}
+                      />
+                  )}
 
                   {/* Study Timer */}
                   <StudyGoalTimer
@@ -1078,22 +1080,26 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
 
                   {/* Big Buttons */}
                   <div className="grid grid-cols-2 gap-4 px-2">
-                      <button 
+                      <button
                           onClick={() => onTabChange('VIDEO')}
-                          className="bg-red-600 text-white p-6 rounded-3xl shadow-lg hover:bg-red-700 transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group"
+                          className="bg-gradient-to-br from-red-500 to-rose-700 text-white p-6 rounded-3xl shadow-xl shadow-red-200 hover:shadow-2xl transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group border border-red-400/20"
                       >
-                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform"></div>
-                          <Play size={40} fill="currentColor" className="relative z-10" />
-                          <span className="font-black text-lg relative z-10 uppercase tracking-wide">Videos</span>
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform blur-xl"></div>
+                          <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm relative z-10">
+                              <Play size={32} fill="currentColor" className="relative z-10" />
+                          </div>
+                          <span className="font-black text-lg relative z-10 uppercase tracking-wide drop-shadow-sm">Videos</span>
                       </button>
 
                       <button
                           onClick={() => onTabChange('COURSES')}
-                          className="bg-blue-600 text-white p-6 rounded-3xl shadow-lg hover:bg-blue-700 transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group"
+                          className="bg-gradient-to-br from-blue-500 to-indigo-700 text-white p-6 rounded-3xl shadow-xl shadow-blue-200 hover:shadow-2xl transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group border border-blue-400/20"
                       >
-                          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 group-hover:scale-110 transition-transform"></div>
-                          <BookOpen size={40} className="relative z-10" />
-                          <span className="font-black text-lg relative z-10 uppercase tracking-wide">Courses</span>
+                          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 group-hover:scale-110 transition-transform blur-xl"></div>
+                          <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm relative z-10">
+                              <BookOpen size={32} className="relative z-10" />
+                          </div>
+                          <span className="font-black text-lg relative z-10 uppercase tracking-wide drop-shadow-sm">Courses</span>
                       </button>
                   </div>
               </div>
@@ -1130,7 +1136,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                       </div>
 
                       {/* RECOMMENDED NOTES (Universal) */}
-                      {universalNotes.length > 0 && (
+                      {universalNotes.length > 0 && !(settings?.hiddenFeatures?.includes('f56')) && (
                           <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 animate-in slide-in-from-top-4">
                               <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
                                   <FileText size={18} className="text-blue-600" /> Recommended Notes
@@ -1663,6 +1669,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                 setIsSidebarOpen(false);
             }}
             user={user}
+            settings={settings}
             onLogout={() => {
                 localStorage.removeItem('nst_current_user');
                 window.location.reload();

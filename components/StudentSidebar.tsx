@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Gift, Gamepad2, CreditCard, Crown, History, BrainCircuit, Award, Trophy, Mail, User, ChevronRight, LogOut } from 'lucide-react';
-import { StudentTab, User as UserType } from '../types';
+import { StudentTab, User as UserType, SystemSettings } from '../types';
 
 interface Props {
     isOpen: boolean;
@@ -8,24 +8,29 @@ interface Props {
     onNavigate: (tab: StudentTab) => void;
     user: UserType;
     onLogout: () => void;
+    settings?: SystemSettings;
 }
 
-export const StudentSidebar: React.FC<Props> = ({ isOpen, onClose, onNavigate, user, onLogout }) => {
+export const StudentSidebar: React.FC<Props> = ({ isOpen, onClose, onNavigate, user, onLogout, settings }) => {
 
-    const menuItems: { id: StudentTab, icon: any, label: string, color: string }[] = [
-        { id: 'REDEEM', icon: Gift, label: 'Redeem', color: 'text-pink-600' },
-        { id: 'GAME', icon: Gamepad2, label: 'Game', color: 'text-orange-600' },
-        { id: 'ANALYTICS', icon: Trophy, label: 'Test Analysis', color: 'text-teal-600' },
-        { id: 'SUB_HISTORY', icon: CreditCard, label: 'My Plan', color: 'text-blue-600' },
-        { id: 'STORE', icon: Crown, label: 'Premium Store', color: 'text-yellow-600' },
-        { id: 'HISTORY', icon: History, label: 'History', color: 'text-slate-600' },
-        { id: 'AI_HISTORY', icon: BrainCircuit, label: 'AI History', color: 'text-indigo-600' },
-        { id: 'PRIZES', icon: Award, label: 'Prizes', color: 'text-purple-600' },
-        { id: 'LEADERBOARD', icon: Trophy, label: 'Leaderboard', color: 'text-yellow-500' },
-        // Inbox is handled separately but can be here too? Let's add it.
-        // { id: 'INBOX', icon: Mail, label: 'Inbox', color: 'text-blue-500' }, // Inbox isn't a Tab yet in type definition, it's a modal. Skipping for now or mapping to profile.
-        { id: 'PROFILE', icon: User, label: 'Profile', color: 'text-slate-800' },
+    const rawItems: { id: StudentTab, icon: any, label: string, color: string, featureId?: string }[] = [
+        { id: 'REDEEM', icon: Gift, label: 'Redeem', color: 'text-pink-600' }, // f30?
+        { id: 'GAME', icon: Gamepad2, label: 'Game', color: 'text-orange-600', featureId: 'f9' },
+        { id: 'ANALYTICS', icon: Trophy, label: 'Test Analysis', color: 'text-teal-600', featureId: 'f50' },
+        { id: 'SUB_HISTORY', icon: CreditCard, label: 'My Plan', color: 'text-blue-600', featureId: 'f11' },
+        { id: 'STORE', icon: Crown, label: 'Premium Store', color: 'text-yellow-600', featureId: 'f12' },
+        { id: 'HISTORY', icon: History, label: 'History', color: 'text-slate-600', featureId: 'f21' },
+        { id: 'AI_HISTORY', icon: BrainCircuit, label: 'AI History', color: 'text-indigo-600', featureId: 'f101' },
+        { id: 'PRIZES', icon: Award, label: 'Prizes', color: 'text-purple-600', featureId: 'f6' },
+        { id: 'LEADERBOARD', icon: Trophy, label: 'Leaderboard', color: 'text-yellow-500', featureId: 'f5' },
+        { id: 'PROFILE', icon: User, label: 'Profile', color: 'text-slate-800', featureId: 'f13' },
     ];
+
+    const menuItems = rawItems.filter(item => {
+        if (!item.featureId) return true;
+        if (settings?.hiddenFeatures?.includes(item.featureId)) return false;
+        return true;
+    });
 
     if (!isOpen) return null;
 
@@ -59,14 +64,16 @@ export const StudentSidebar: React.FC<Props> = ({ isOpen, onClose, onNavigate, u
 
                 {/* Menu Items */}
                 <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-                    {menuItems.map((item) => (
+                    {menuItems.map((item) => {
+                        const badge = item.featureId ? settings?.featureBadges?.[item.featureId] : undefined;
+                        return (
                         <button
                             key={item.id}
                             onClick={() => {
                                 onNavigate(item.id);
                                 onClose();
                             }}
-                            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 active:bg-slate-100 transition-all group"
+                            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 active:bg-slate-100 transition-all group relative"
                         >
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-lg bg-slate-50 group-hover:bg-white group-hover:shadow-sm transition-all ${item.color}`}>
@@ -74,9 +81,13 @@ export const StudentSidebar: React.FC<Props> = ({ isOpen, onClose, onNavigate, u
                                 </div>
                                 <span className="font-bold text-slate-700 text-sm group-hover:text-slate-900">{item.label}</span>
                             </div>
-                            <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
+                            <div className="flex items-center gap-2">
+                                {badge === 'NEW' && <span className="text-[10px] font-black bg-green-500 text-white px-2 py-0.5 rounded-full animate-pulse">NEW</span>}
+                                {badge === 'UPGRADE' && <span className="text-[10px] font-black bg-purple-500 text-white px-2 py-0.5 rounded-full">PRO</span>}
+                                <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
+                            </div>
                         </button>
-                    ))}
+                    )})}
                 </div>
 
                 {/* Footer Actions */}

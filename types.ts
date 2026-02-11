@@ -400,6 +400,8 @@ export interface SystemSettings {
   exploreBanners?: ExploreBanner[]; // NEW: Dynamic Explore Banners
   featureAccess?: FeatureAccessConfig[]; // NEW: Granular Feature Control
   featureCosts?: FeatureCostConfig[]; // NEW: Granular Cost Control
+  featureBadges?: Record<string, 'NEW' | 'UPGRADE' | 'NORMAL'>; // NEW: Feature Badging
+  hiddenFeatures?: string[]; // NEW: Explicit Hidden Features List
   loginBonusConfig?: LoginBonusConfig; // NEW: Login Bonus Settings
   storageCapacity?: string;
   isPaymentEnabled?: boolean;

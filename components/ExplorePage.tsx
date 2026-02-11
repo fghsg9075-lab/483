@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { User, SystemSettings, WeeklyTest, Challenge20 } from '../types';
+import { User, SystemSettings, WeeklyTest, Challenge20, StudentTab } from '../types';
 import { BannerCarousel } from './BannerCarousel';
-import { Sparkles, BrainCircuit, Rocket, Zap, ArrowRight, Crown } from 'lucide-react';
+import { Sparkles, BrainCircuit, Rocket, Zap, ArrowRight, Crown, Headphones, FileText, CheckCircle, Video as VideoIcon } from 'lucide-react';
 import { SpeakButton } from './SpeakButton';
 import { generateMorningInsight } from '../services/morningInsight';
 import { getActiveChallenges } from '../services/questionBank';
-import { StudentTab } from '../types';
 
 interface Props {
     user: User;
@@ -19,14 +18,51 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
     const [morningBanner, setMorningBanner] = useState<any>(null);
     const [challenges20, setChallenges20] = useState<Challenge20[]>([]);
 
-    // --- LOAD MORNING INSIGHT ---
+    // --- DISCOUNT LOGIC ---
+    const [discountStatus, setDiscountStatus] = useState<'WAITING' | 'ACTIVE' | 'NONE'>('NONE');
+    const [discountTimer, setDiscountTimer] = useState<string | null>(null);
+
+    useEffect(() => {
+        const evt = settings?.specialDiscountEvent;
+        const formatDiff = (diff: number) => {
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            return `${d > 0 ? d + 'd ' : ''}${h}h ${m}m ${s}s`;
+        };
+
+        const checkStatus = () => {
+            if (!evt?.enabled) {
+                setDiscountStatus('NONE');
+                return;
+            }
+            const now = Date.now();
+            const startsAt = evt.startsAt ? new Date(evt.startsAt).getTime() : now;
+            const endsAt = evt.endsAt ? new Date(evt.endsAt).getTime() : now;
+
+            if (now < startsAt) {
+                setDiscountStatus('WAITING');
+                setDiscountTimer(formatDiff(startsAt - now));
+            } else if (now < endsAt) {
+                setDiscountStatus('ACTIVE');
+                setDiscountTimer(formatDiff(endsAt - now));
+            } else {
+                setDiscountStatus('NONE');
+            }
+        };
+        checkStatus();
+        const interval = setInterval(checkStatus, 1000);
+        return () => clearInterval(interval);
+    }, [settings?.specialDiscountEvent]);
+
+    // --- MORNING INSIGHT ---
     useEffect(() => {
         const loadMorningInsight = async () => {
             const now = new Date();
-            if (now.getHours() >= 6) { // Active from 6 AM
+            if (now.getHours() >= 6) {
                 const today = now.toDateString();
                 const savedBanner = localStorage.getItem('nst_morning_banner');
-
                 if (savedBanner) {
                     const parsed = JSON.parse(savedBanner);
                     if (parsed.date === today) {
@@ -34,12 +70,8 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         return;
                     }
                 }
-                // If not found, we don't generate here to avoid double-generation if Dashboard does it.
-                // We assume Dashboard or a background service handles generation, or we just rely on what's there.
-                // Actually, let's allow generation here if missing, same as Dashboard.
                 const isGen = localStorage.getItem(`nst_insight_gen_${today}`);
                 if (!isGen) {
-                     // Trigger generation logic (simplified)
                      const logs = JSON.parse(localStorage.getItem('nst_universal_analysis_logs') || '[]');
                      if (logs.length > 0) {
                          try {
@@ -55,12 +87,11 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
         loadMorningInsight();
     }, [settings]);
 
-    // --- LOAD CHALLENGES ---
+    // --- CHALLENGES ---
     useEffect(() => {
         const loadChallenges = async () => {
             if (user.classLevel) {
                 const active = await getActiveChallenges(user.classLevel);
-                // Filter strict active status
                 setChallenges20(active.filter(c => c.isActive));
             }
         };
@@ -84,18 +115,30 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
         if (onStartWeeklyTest) onStartWeeklyTest(mappedTest);
     };
 
-    const handleBannerAction = (banner: any) => {
-        if (!banner.actionUrl) return;
-        if (banner.actionUrl.startsWith('http')) {
-            window.open(banner.actionUrl, '_blank');
-        } else {
-            // Assume Tab ID
-            onTabChange(banner.actionUrl as StudentTab);
-        }
-    };
+    // --- BANNER RENDERING HELPERS ---
+    const renderSimpleBanner = (title: string, subtitle: string, bgClass: string, icon: React.ReactNode, onClick: () => void) => (
+        <div
+            onClick={onClick}
+            className={`w-full h-48 p-6 relative overflow-hidden flex flex-col justify-center text-white cursor-pointer ${bgClass} rounded-none`}
+        >
+            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -mr-10 -mb-10"></div>
+            <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-3">
+                    <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                        {icon}
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest opacity-80">Featured</span>
+                </div>
+                <h2 className="text-2xl font-black mb-1 leading-tight">{title}</h2>
+                <p className="text-sm opacity-90 font-medium max-w-[85%]">{subtitle}</p>
+            </div>
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 p-3 rounded-full backdrop-blur-md border border-white/20">
+                <ArrowRight size={20} />
+            </div>
+        </div>
+    );
 
     const userTier = user.subscriptionTier === 'FREE' ? 'FREE' : user.subscriptionTier === 'LIFETIME' ? 'PREMIUM' : 'PREMIUM';
-
     const customBanners = (settings?.exploreBanners || [])
         .filter(b => b.enabled)
         .filter(b => b.targetAudience === 'ALL' || b.targetAudience === userTier)
@@ -104,16 +147,15 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
     return (
         <div className="space-y-8 pb-24 animate-in fade-in slide-in-from-bottom-4">
 
-            {/* 1. BANNERS SECTION */}
             <section>
-                <div className="flex items-center gap-2 mb-4 px-2">
+                <div className="flex items-center gap-2 mb-4 px-4 pt-4">
                     <Sparkles className="text-yellow-500" />
                     <h2 className="text-xl font-black text-slate-800">Discover</h2>
                 </div>
 
-                <BannerCarousel className="shadow-xl mx-2 min-h-[192px]">
+                <BannerCarousel className="shadow-xl mx-4 rounded-3xl overflow-hidden min-h-[192px]">
 
-                    {/* A. MORNING INSIGHT (Priority) */}
+                    {/* 1. MORNING INSIGHT */}
                     {morningBanner && settings?.showMorningInsight !== false && (
                         <div className="w-full h-48 bg-gradient-to-r from-orange-100 to-amber-100 p-6 relative overflow-hidden flex flex-col justify-center">
                              <div className="relative z-10">
@@ -129,16 +171,102 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                                     <span className="text-xs font-bold text-orange-700">Listen to Daily Wisdom</span>
                                 </div>
                             </div>
-                            {/* Decoration */}
-                            <div className="absolute right-0 bottom-0 w-32 h-32 bg-orange-300/20 rounded-full blur-2xl"></div>
                         </div>
                     )}
 
-                    {/* B. DYNAMIC BANNERS (ADMIN) */}
+                    {/* 2. DISCOUNT EVENT */}
+                    {discountStatus !== 'NONE' && (
+                        <div
+                            onClick={() => onTabChange('STORE')}
+                            className="w-full h-48 bg-gradient-to-r from-red-600 to-rose-600 p-6 relative overflow-hidden flex flex-col justify-center text-white cursor-pointer"
+                        >
+                            <div className="relative z-10">
+                                <div className="inline-block px-3 py-1 bg-yellow-400 text-red-900 rounded-full text-[10px] font-black tracking-widest mb-2 shadow-lg animate-pulse">
+                                    {discountStatus === 'WAITING' ? 'COMING SOON' : 'LIMITED OFFER'}
+                                </div>
+                                <h3 className="text-2xl font-black mb-1">{settings?.specialDiscountEvent?.eventName || 'Special Offer'}</h3>
+                                <p className="text-white/90 text-sm font-bold flex items-center gap-2">
+                                    <Zap size={16} className="text-yellow-300" />
+                                    {discountStatus === 'WAITING' ? `Starts in ${discountTimer}` : `Ends in ${discountTimer}`}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 3. ACTIVE CHALLENGES */}
+                    {settings?.showChallengesBanner !== false && challenges20.map(c => (
+                        <div key={c.id} className="w-full h-48 bg-slate-900 p-6 relative overflow-hidden flex flex-col justify-center text-white">
+                            <div className="relative z-10">
+                                <div className="inline-block px-3 py-1 bg-indigo-500/20 rounded-full text-[10px] font-black tracking-widest mb-2 border border-indigo-500/30 text-indigo-300">
+                                    🚀 LIVE CHALLENGE
+                                </div>
+                                <h3 className="text-2xl font-black mb-1">{c.title}</h3>
+                                <p className="text-slate-400 text-xs mb-4">{c.questions.length} Questions • {c.durationMinutes} Mins</p>
+                                <button
+                                    onClick={() => startChallenge20(c)}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg transition-transform active:scale-95"
+                                >
+                                    Accept Challenge
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* 4. PREMIUM VIDEO SLOT */}
+                    {settings?.contentVisibility?.VIDEO !== false && renderSimpleBanner(
+                        "Premium Video Lectures",
+                        "Watch high-quality animated lessons & concepts.",
+                        "bg-gradient-to-r from-blue-600 to-indigo-600",
+                        <VideoIcon className="text-white" size={20} />,
+                        () => onTabChange('VIDEO')
+                    )}
+
+                    {/* 5. NOTES SLOT */}
+                    {settings?.contentVisibility?.PDF !== false && renderSimpleBanner(
+                        "Smart Notes Library",
+                        "Concise, exam-oriented notes for quick revision.",
+                        "bg-gradient-to-r from-emerald-500 to-teal-600",
+                        <FileText className="text-white" size={20} />,
+                        () => onTabChange('PDF')
+                    )}
+
+                    {/* 6. MCQ SLOT */}
+                    {settings?.contentVisibility?.MCQ !== false && renderSimpleBanner(
+                        "MCQ Practice Zone",
+                        "Test your knowledge and improve your speed.",
+                        "bg-gradient-to-r from-violet-600 to-purple-600",
+                        <CheckCircle className="text-white" size={20} />,
+                        () => onTabChange('MCQ')
+                    )}
+
+                    {/* 7. AUDIO SLOT */}
+                    {settings?.contentVisibility?.AUDIO !== false && renderSimpleBanner(
+                        "Audio Learning",
+                        "Listen to podcasts and lectures on the go.",
+                        "bg-gradient-to-r from-pink-500 to-rose-500",
+                        <Headphones className="text-white" size={20} />,
+                        () => onTabChange('AUDIO')
+                    )}
+
+                    {/* 8. AI TOUR SLOT */}
+                    {settings?.isAiEnabled && renderSimpleBanner(
+                        "AI Personal Tutor",
+                        "Stuck? Ask your doubts and get instant answers.",
+                        "bg-slate-900",
+                        <BrainCircuit className="text-blue-400" size={20} />,
+                        onOpenAiChat
+                    )}
+
+                    {/* 9. CUSTOM ADMIN BANNERS */}
                     {customBanners.map(banner => (
                         <div
                             key={banner.id}
-                            onClick={() => handleBannerAction(banner)}
+                            onClick={() => {
+                                if (banner.actionUrl) {
+                                    if (banner.actionUrl.startsWith('http')) window.open(banner.actionUrl, '_blank');
+                                    else onTabChange(banner.actionUrl as StudentTab);
+                                }
+                            }}
                             className={`w-full h-48 p-6 relative overflow-hidden flex flex-col justify-center text-white cursor-pointer ${banner.backgroundStyle || 'bg-slate-800'}`}
                         >
                             {banner.imageUrl ? (
@@ -162,51 +290,12 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         </div>
                     ))}
 
-                    {/* C. ACTIVE CHALLENGES */}
-                    {settings?.showChallengesBanner !== false && challenges20.map(c => (
-                        <div key={c.id} className="w-full h-48 bg-slate-900 p-6 relative overflow-hidden flex flex-col justify-center text-white">
-                            <div className="relative z-10">
-                                <div className="inline-block px-3 py-1 bg-indigo-500/20 rounded-full text-[10px] font-black tracking-widest mb-2 border border-indigo-500/30 text-indigo-300">
-                                    🚀 LIVE CHALLENGE
-                                </div>
-                                <h3 className="text-2xl font-black mb-1">{c.title}</h3>
-                                <p className="text-slate-400 text-xs mb-4">{c.questions.length} Questions • {c.durationMinutes} Mins</p>
-                                <button
-                                    onClick={() => startChallenge20(c)}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg transition-transform active:scale-95"
-                                >
-                                    Accept Challenge
-                                </button>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
-                        </div>
-                    ))}
-
-                    {/* D. AI PROMO (If Enabled & Not Covered by Custom) */}
-                    {settings?.isAiEnabled && settings?.showAiPromo !== false && !customBanners.some(b => b.actionUrl === 'AI_CHAT') && (
-                        <div
-                            onClick={onOpenAiChat}
-                            className="w-full h-48 bg-gradient-to-r from-violet-600 to-indigo-600 p-6 relative overflow-hidden cursor-pointer flex flex-col justify-center text-white"
-                        >
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <BrainCircuit className="text-yellow-300" size={24} />
-                                    <span className="text-xs font-black bg-white/20 px-2 py-0.5 rounded backdrop-blur-sm">AI TUTOR</span>
-                                </div>
-                                <h3 className="text-2xl font-black italic">{settings?.aiName || 'AI Assistant'}</h3>
-                                <p className="text-indigo-100 text-sm mt-1 max-w-[80%]">Ask any doubt and get instant answers.</p>
-                            </div>
-                            <div className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 p-4 rounded-full backdrop-blur-md border border-white/20">
-                                <ArrowRight size={24} />
-                            </div>
-                        </div>
-                    )}
                 </BannerCarousel>
             </section>
 
-            {/* 2. ASK YOUR DOUBTS SECTION */}
+            {/* ASK YOUR DOUBTS */}
             {settings?.isAiEnabled && (
-                <section className="px-2">
+                <section className="px-4">
                     <div className="bg-white rounded-3xl p-6 shadow-lg border border-indigo-100 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full -translate-y-1/2 translate-x-1/2 z-0"></div>
 
@@ -235,24 +324,6 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                     </div>
                 </section>
             )}
-
-             {/* 3. CUSTOM PAGE ENTRY */}
-             <section className="px-2">
-                 <div
-                    onClick={() => onTabChange('CUSTOM_PAGE')}
-                    className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-3xl p-6 shadow-lg text-white relative overflow-hidden cursor-pointer group"
-                >
-                    <div className="relative z-10 flex justify-between items-center">
-                        <div>
-                            <h3 className="text-xl font-black mb-1">More Features</h3>
-                            <p className="text-pink-100 text-sm">Explore extra content & updates</p>
-                        </div>
-                        <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm group-hover:scale-110 transition-transform">
-                            <ArrowRight size={24} />
-                        </div>
-                    </div>
-                 </div>
-             </section>
         </div>
     );
 };
