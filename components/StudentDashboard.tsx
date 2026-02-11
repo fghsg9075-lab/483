@@ -44,6 +44,7 @@ import { CustomBloggerPage } from './CustomBloggerPage';
 import { ReferralPopup } from './ReferralPopup';
 import { StudentAiAssistant } from './StudentAiAssistant';
 import { SpeakButton } from './SpeakButton';
+import { PerformanceGraph } from './PerformanceGraph';
 
 interface Props {
   user: User;
@@ -158,6 +159,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   // Monthly Report
   const [showMonthlyReport, setShowMonthlyReport] = useState(false);
   const [showReferralPopup, setShowReferralPopup] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   // --- REFERRAL POPUP CHECK ---
   useEffect(() => {
@@ -1056,208 +1058,158 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
           const isPremium = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
 
           return (
-              <div className="space-y-6 pb-24">
-                {/* NEW: USER PROFILE DASHBOARD HEADER */}
-                <DashboardSectionWrapper id="section_profile_header" label="Profile Header">
-                <div 
-                    onClick={() => onTabChange('ANALYTICS')}
-                    className="mx-1 bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-3xl shadow-2xl border border-white/10 relative overflow-hidden cursor-pointer hover:scale-[1.01] transition-transform"
-                >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-                    
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="relative">
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white/30 flex items-center justify-center shadow-xl">
-                                    <UserIcon size={32} className="text-white" />
-                                </div>
-                                {user.isPremium && (
-                                    <div className="absolute -top-2 -right-2 bg-yellow-400 text-slate-900 p-1 rounded-lg shadow-lg border-2 border-slate-900 animate-bounce">
-                                        <Crown size={12} />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-xl font-black text-white leading-tight flex items-center gap-2">
-                                    {user.name}
-                                    {user.subscriptionLevel === 'ULTRA' && <Zap size={16} className="text-yellow-400 fill-yellow-400" />}
-                                </h2>
-                                <div className="flex items-center gap-2">
-                                    <p className="text-white/60 text-xs font-bold uppercase tracking-wider">
-                                        {user.role} • {user.board} {user.classLevel}
-                                    </p>
-                                    {user.streak >= 5 && (
-                                        <span className="bg-blue-500/20 text-blue-300 text-[9px] font-black px-2 py-0.5 rounded border border-blue-500/30 flex items-center gap-1">
-                                            <Crown size={10} /> CONSISTENCY KING
-                                        </span>
-                                    )}
-                                    {/* Check if any recent test > 90% */}
-                                    {(user.mcqHistory || []).slice(0, 5).some(h => h.totalQuestions > 0 && (h.score/h.totalQuestions) >= 0.9) && (
-                                        <span className="bg-yellow-500/20 text-yellow-300 text-[9px] font-black px-2 py-0.5 rounded border border-yellow-500/30 flex items-center gap-1">
-                                            <Star size={10} /> SCHOLARSHIP WINNER
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditMode(true);
-                                }}
-                                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl border border-white/20 transition-all active:scale-95"
-                            >
-                                <Settings size={20} className="text-white" />
-                            </button>
-                        </div>
-
-                        {/* TOPIC STRENGTH & TRENDS */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* PERFORMANCE TREND */}
-                            <div 
-                                className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 cursor-default"
-                            >
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                                        <TrendingUp size={14} /> Growth Chart
-                                    </h4>
-                                </div>
-                                {homeTrendData.length > 0 ? (
-                                    <div className="w-full overflow-hidden pt-2">
-                                        <svg viewBox="0 0 300 100" className="w-full h-24">
-                                            {/* Background Lines */}
-                                            <line x1="10" y1="10" x2="290" y2="10" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
-                                            <line x1="10" y1="50" x2="290" y2="50" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4" />
-                                            <line x1="10" y1="90" x2="290" y2="90" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
-                                            
-                                            {/* The Line */}
-                                            <polyline
-                                                points={homeTrendData.map((d, i) => {
-                                                    const x = (i / (Math.max(1, homeTrendData.length - 1))) * 280 + 10;
-                                                    const y = 90 - (d.score / 100) * 80;
-                                                    return `${x},${y}`;
-                                                }).join(' ')}
-                                                fill="none"
-                                                stroke="#60a5fa"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            />
-
-                                            {/* Dots & Labels */}
-                                            {homeTrendData.map((d, i) => {
-                                                const x = (i / (Math.max(1, homeTrendData.length - 1))) * 280 + 10;
-                                                const y = 90 - (d.score / 100) * 80;
-                                                return (
-                                                    <g key={i} className="group cursor-pointer">
-                                                        <circle cx={x} cy={y} r="4" fill="#60a5fa" className="transition-all group-hover:r-6" />
-                                                        <circle cx={x} cy={y} r="2" fill="#1e293b" />
-
-                                                        {/* Tooltip (Visible on Hover) */}
-                                                        <text
-                                                            x={x}
-                                                            y={y - 12}
-                                                            textAnchor="middle"
-                                                            fontSize="10"
-                                                            fontWeight="bold"
-                                                            fill="white"
-                                                            className="opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md"
-                                                        >
-                                                            {d.score}%
-                                                        </text>
-                                                    </g>
-                                                );
-                                            })}
-                                        </svg>
-                                    </div>
-                                ) : (
-                                    <p className="text-[10px] text-white/40 italic py-4 text-center">No test history yet</p>
-                                )}
-                            </div>
-
-                            {/* TOPIC STRENGTH */}
-                            <div 
-                                className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 cursor-default opacity-80"
-                            >
-                                {(() => {
-                                    const totalTopics = user.topicStrength ? Object.keys(user.topicStrength).length : 0;
-                                    const topicStats = Object.values(user.topicStrength || {}).reduce((acc: any, curr: any) => {
-                                        const pct = curr.total > 0 ? (curr.correct / curr.total) * 100 : 0;
-                                        if (pct >= 80) acc.strong++;
-                                        else if (pct < 60) acc.weak++;
-                                        else acc.avg++;
-                                        return acc;
-                                    }, { strong: 0, avg: 0, weak: 0 });
-
-                                    return (
-                                        <>
-                                            <div className="flex justify-between items-center mb-3">
-                                                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <BookOpen size={14} /> Topic Analysis
-                                                </h4>
-                                                {totalTopics > 0 && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setShowAllTopics(!showAllTopics); }}
-                                                        className="text-[9px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-white transition-colors border border-white/10"
-                                                    >
-                                                        {showAllTopics ? 'Hide' : 'Details'}
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            {totalTopics > 0 ? (
-                                                <div>
-                                                    {/* Summary Bar */}
-                                                    <div className="flex h-2 w-full rounded-full overflow-hidden mb-2 bg-slate-800">
-                                                        <div style={{ width: `${(topicStats.strong / totalTopics) * 100}%` }} className="bg-green-500 h-full" />
-                                                        <div style={{ width: `${(topicStats.avg / totalTopics) * 100}%` }} className="bg-yellow-500 h-full" />
-                                                        <div style={{ width: `${(topicStats.weak / totalTopics) * 100}%` }} className="bg-red-500 h-full" />
-                                                    </div>
-                                                    <div className="flex justify-between text-[8px] font-bold text-white/60 mb-3">
-                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>Strong ({topicStats.strong})</div>
-                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>Avg ({topicStats.avg})</div>
-                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>Weak ({topicStats.weak})</div>
-                                                    </div>
-
-                                                    {/* Detailed List (Collapsible) */}
-                                                    {showAllTopics && (
-                                                        <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-1 scrollbar-hide">
-                                                            {Object.entries(user.topicStrength || {})
-                                                                .sort(([,a]: any, [,b]: any) => {
-                                                                    const pctA = a.total > 0 ? (a.correct/a.total) : 0;
-                                                                    const pctB = b.total > 0 ? (b.correct/b.total) : 0;
-                                                                    return pctA - pctB; // Weakest first
-                                                                })
-                                                                .map(([topic, stats]: any) => {
-                                                                    const pct = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
-                                                                    return (
-                                                                        <div key={topic} className="space-y-1">
-                                                                            <div className="flex justify-between text-[9px] font-bold">
-                                                                                <span className="text-white/60 truncate mr-2">{topic}</span>
-                                                                                <span className="text-white">{pct}%</span>
-                                                                            </div>
-                                                                            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                                                                <div
-                                                                                    className={`h-full transition-all duration-1000 ${pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                                    style={{ width: `${pct}%` }}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <p className="text-[10px] text-white/40 italic py-4 text-center">Analyze topics by taking tests</p>
-                                            )}
-                                        </>
-                                    );
-                                })()}
+              <div className="space-y-4 pb-24">
+                {/* NEW HEADER DESIGN */}
+                <div className="bg-white p-4 rounded-b-3xl shadow-sm border-b border-slate-200 mb-2 flex items-center justify-between sticky top-0 z-40">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowSidebar(true)}
+                            className="bg-slate-50 p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                        >
+                            <List size={24} className="text-slate-600" />
+                        </button>
+                        <div>
+                            <h2 className="text-lg font-black text-slate-800 leading-none">
+                                {settings?.appName || 'Student App'}
+                            </h2>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{user.displayId || user.id.slice(0,6)}</span>
+                                {user.role === 'ADMIN' && <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-bold">ADMIN</span>}
                             </div>
                         </div>
                     </div>
+                    <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-end">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Credits</span>
+                            <span className="font-black text-blue-600 flex items-center gap-1">
+                                <Crown size={14} className="fill-blue-600"/> {user.credits}
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-end border-l pl-3 border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Streak</span>
+                            <span className="font-black text-orange-500 flex items-center gap-1">
+                                <Zap size={14} className="fill-orange-500"/> {user.streak}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => setEditMode(true)}
+                            className="bg-slate-50 p-2 rounded-full hover:bg-slate-100"
+                        >
+                            <Settings size={20} className="text-slate-400"/>
+                        </button>
+                    </div>
                 </div>
+
+                {/* PERFORMANCE GRAPH */}
+                <DashboardSectionWrapper id="section_performance" label="Performance">
+                    <PerformanceGraph
+                        history={user.mcqHistory || []}
+                        user={user}
+                        onViewNotes={(topic) => {
+                            // Find note by topic logic or open PDF tab
+                            // For simplicity, switch to PDF tab and trigger search if possible
+                            onTabChange('PDF');
+                            // We can't auto-search yet without a search context in PDF view, but this navigates user.
+                        }}
+                    />
+                </DashboardSectionWrapper>
+
+                {/* STUDY GOAL TIMER */}
+                <DashboardSectionWrapper id="section_timer" label="Study Goal">
+                    <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                                    <Timer size={20} className="text-orange-500" /> Daily Goal
+                                </h3>
+                                <p className="text-xs text-slate-500">Set your study target</p>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-2xl font-black text-slate-800">
+                                    {Math.floor(dailyTargetSeconds / 3600)}h {Math.floor((dailyTargetSeconds % 3600) / 60)}m
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            {[0.5, 1, 2].map(h => (
+                                <button
+                                    key={h}
+                                    onClick={() => {
+                                        setDailyTargetSeconds(h * 3600);
+                                        localStorage.setItem(`nst_goal_${user.id}`, h.toString());
+                                    }}
+                                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${dailyTargetSeconds === h * 3600 ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                                >
+                                    {h} Hour{h > 1 ? 's' : ''}
+                                </button>
+                            ))}
+                            <button 
+                                onClick={() => {
+                                    setDailyTargetSeconds(3 * 3600);
+                                    localStorage.setItem(`nst_goal_${user.id}`, '3');
+                                }}
+                                className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${dailyTargetSeconds === 3 * 3600 ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                            >
+                                Default (3h)
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const custom = prompt("Enter hours (1-12):");
+                                    if (custom) {
+                                        const h = parseFloat(custom);
+                                        if (h > 0 && h <= 12) {
+                                            setDailyTargetSeconds(h * 3600);
+                                            localStorage.setItem(`nst_goal_${user.id}`, h.toString());
+                                        }
+                                    }
+                                }}
+                                className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200"
+                            >
+                                Custom
+                            </button>
+                        </div>
+                    </div>
+                </DashboardSectionWrapper>
+
+                {/* STUDY HUB LINKS (MOVED FROM BOTTOM) */}
+                <DashboardSectionWrapper id="section_hub_links" label="Study Hub">
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Videos Button */}
+                        {hasPermission('f1') && (
+                            <button
+                                onClick={() => {
+                                    setSelectedSubject({ id: 'universal', name: 'Special' } as any);
+                                    setSelectedChapter({ id: 'UNIVERSAL', title: 'Featured Lectures' } as any);
+                                    setContentViewStep('PLAYER');
+                                    setFullScreen(true);
+                                    onTabChange('VIDEO');
+                                    localStorage.setItem('nst_last_read_update', Date.now().toString());
+                                    setHasNewUpdate(false);
+                                }}
+                                className="bg-gradient-to-br from-red-500 to-rose-600 p-6 rounded-3xl shadow-lg shadow-red-200 flex flex-col items-center justify-center gap-3 group active:scale-95 transition-all relative overflow-hidden"
+                            >
+                                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="bg-white/20 p-4 rounded-full text-white backdrop-blur-sm">
+                                    <Play size={32} fill="currentColor" />
+                                </div>
+                                <span className="font-black text-white text-lg tracking-wide uppercase">Videos</span>
+                                {hasNewUpdate && <span className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full animate-pulse"></span>}
+                            </button>
+                        )}
+
+                        {/* Courses Button */}
+                        <button
+                            onClick={() => { onTabChange('COURSES'); setContentViewStep('SUBJECTS'); }}
+                            className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl shadow-lg shadow-blue-200 flex flex-col items-center justify-center gap-3 group active:scale-95 transition-all relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="bg-white/20 p-4 rounded-full text-white backdrop-blur-sm">
+                                <Book size={32} />
+                            </div>
+                            <span className="font-black text-white text-lg tracking-wide uppercase">Courses</span>
+                        </button>
+                    </div>
                 </DashboardSectionWrapper>
 
                 {/* HERO SECTION */}
@@ -1299,70 +1251,71 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                           </div>
                       )}
 
-                      {/* NEW: QUICK ACTION GRID (REPLACES BANNERS) */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 mx-1">
-                          {/* Ultra Sub */}
-                          {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-32 bg-gradient-to-r from-purple-900 to-indigo-900 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-purple-500/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Crown size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-purple-300">SUBSCRIPTION</span></h3><p className="text-xs text-purple-200 font-medium mt-1">Unlock All Premium Features</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-purple-900 transition-colors">GO TO STORE &rarr;</div>
-                          </button>}
+                      {/* NEW: STACKED ACTION GRID */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 mx-1">
+                          {/* 1. Subscription Buttons */}
+                          <div className="grid grid-cols-2 gap-3">
+                              {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-24 bg-gradient-to-br from-purple-800 to-indigo-900 rounded-2xl overflow-hidden shadow-lg flex flex-col items-center justify-center border border-purple-500/30 p-2 group">
+                                  <div className="absolute right-0 top-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity"><Crown size={48} className="text-white"/></div>
+                                  <Crown size={24} className="text-yellow-400 mb-1"/>
+                                  <span className="text-sm font-black text-white italic">ULTRA SUB</span>
+                                  <span className="text-[8px] text-purple-200">Unlock Everything</span>
+                              </button>}
 
-                          {/* Basic Sub */}
-                          {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-32 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-blue-400/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Star size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">BASIC <span className="text-cyan-200">SUBSCRIPTION</span></h3><p className="text-xs text-blue-100 font-medium mt-1">Essential Learning Tools</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-blue-600 transition-colors">GO TO STORE &rarr;</div>
-                          </button>}
+                              {hasPermission('f11') && <button onClick={() => onTabChange('STORE')} className="relative h-24 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl overflow-hidden shadow-lg flex flex-col items-center justify-center border border-blue-400/30 p-2 group">
+                                  <div className="absolute right-0 top-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity"><Star size={48} className="text-white"/></div>
+                                  <Star size={24} className="text-white mb-1"/>
+                                  <span className="text-sm font-black text-white italic">BASIC SUB</span>
+                                  <span className="text-[8px] text-blue-100">Starter Pack</span>
+                              </button>}
+                          </div>
 
-                          {/* Ultra PDF */}
-                          {hasPermission('f2') && <button onClick={() => onTabChange('PDF')} className="relative h-32 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-emerald-400/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><FileText size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-emerald-200">PDF</span></h3><p className="text-xs text-emerald-100 font-medium mt-1">Premium Notes Library</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-emerald-600 transition-colors">READ NOTES &rarr;</div>
-                          </button>}
+                          {/* 2. Auto-Sliding Ultra Media Banner (Non-Clickable) */}
+                          <div className="h-32 rounded-2xl overflow-hidden shadow-lg relative border-2 border-slate-900">
+                              {/* Overlay controls disabled */}
+                              <div className="absolute inset-0 z-20 bg-transparent"></div>
 
-                          {/* Ultra Video */}
-                          {hasPermission('f1') && <button onClick={() => onTabChange('VIDEO')} className="relative h-32 bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-red-400/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Video size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-rose-200">VIDEO</span></h3><p className="text-xs text-rose-100 font-medium mt-1">HD Video Lectures</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-red-600 transition-colors">WATCH NOW &rarr;</div>
-                          </button>}
+                              <BannerCarousel
+                                  slides={[
+                                      { id: '1', image: 'https://img.freepik.com/free-vector/gradient-education-poster-template_23-2150338779.jpg', title: 'ULTRA VIDEO', subtitle: 'HD Lectures', link: '' },
+                                      { id: '2', image: 'https://img.freepik.com/free-vector/gradient-education-flyer-template_23-2150338784.jpg', title: 'ULTRA PDF', subtitle: 'Premium Notes', link: '' },
+                                      { id: '3', image: 'https://img.freepik.com/free-vector/online-tutorials-concept_52683-37480.jpg', title: 'ULTRA MCQ', subtitle: 'Test Series', link: '' },
+                                      { id: '4', image: 'https://img.freepik.com/free-vector/audiobook-concept-illustration_114360-6070.jpg', title: 'ULTRA AUDIO', subtitle: 'Listen & Learn', link: '' }
+                                  ]}
+                                  interval={2000} // Fast Auto Skip
+                                  autoPlay={true}
+                                  showDots={false}
+                                  showArrows={false}
+                              />
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 flex justify-between items-center z-10 backdrop-blur-sm">
+                                  <span className="text-xs font-black text-white flex items-center gap-1"><Crown size={12} className="text-yellow-400"/> PREMIUM CONTENT</span>
+                                  <span className="text-[9px] text-slate-300 uppercase tracking-widest">Auto-Preview</span>
+                              </div>
+                          </div>
 
-                          {/* Ultra Audio */}
-                          {hasPermission('f65') && <button onClick={() => onTabChange('AUDIO')} className="relative h-32 bg-gradient-to-r from-pink-500 to-fuchsia-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-pink-400/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Headphones size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-fuchsia-200">AUDIO</span></h3><p className="text-xs text-fuchsia-100 font-medium mt-1">Audiobooks & Podcasts</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-pink-600 transition-colors">LISTEN NOW &rarr;</div>
-                          </button>}
+                          {/* 3. AI & Custom Buttons */}
+                          <div className="grid grid-cols-3 gap-3 md:col-span-2">
+                              {hasPermission('f101') && <button onClick={() => onTabChange('AI_CHAT')} className="h-24 bg-indigo-600 rounded-2xl shadow-lg flex flex-col items-center justify-center text-white relative overflow-hidden group">
+                                  <div className="absolute inset-0 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                  <MessageSquare size={28} className="mb-1 relative z-10"/>
+                                  <span className="text-xs font-black relative z-10">AI CHAT</span>
+                                  <span className="text-[8px] opacity-70 relative z-10">Ask Anything</span>
+                              </button>}
 
-                          {/* Ultra MCQ */}
-                          {hasPermission('f3') && <button onClick={() => onTabChange('MCQ')} className="relative h-32 bg-gradient-to-r from-orange-400 to-amber-500 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-orange-400/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><CheckSquare size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">ULTRA <span className="text-amber-100">MCQ</span></h3><p className="text-xs text-amber-100 font-medium mt-1">Test Series & Practice</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-orange-500 transition-colors">START TEST &rarr;</div>
-                          </button>}
+                              {hasPermission('f36') && <button onClick={() => setShowAiModal(true)} className="h-24 bg-sky-500 rounded-2xl shadow-lg flex flex-col items-center justify-center text-white relative overflow-hidden group">
+                                  <div className="absolute inset-0 bg-sky-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                  <BrainCircuit size={28} className="mb-1 relative z-10"/>
+                                  <span className="text-xs font-black relative z-10">AI NOTES</span>
+                                  <span className="text-[8px] opacity-70 relative z-10">Generate</span>
+                              </button>}
 
-                          {/* AI Chat */}
-                          {hasPermission('f101') && <button onClick={() => onTabChange('AI_CHAT')} className="relative h-32 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-indigo-400/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><MessageCircle size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">AI <span className="text-indigo-200">CHAT</span></h3><p className="text-xs text-indigo-100 font-medium mt-1">Ask Anything, Anytime</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-indigo-600 transition-colors">CHAT NOW &rarr;</div>
-                          </button>}
-
-                          {/* AI Notes */}
-                          {hasPermission('f36') && <button onClick={() => setShowAiModal(true)} className="relative h-32 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-sky-400/30">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><BrainCircuit size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">AI <span className="text-sky-200">NOTES</span></h3><p className="text-xs text-sky-100 font-medium mt-1">Instant Note Generator</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-sky-600 transition-colors">CREATE NOTES &rarr;</div>
-                          </button>}
-
-                          {/* Custom Page */}
-                          {hasPermission('f32') && <button onClick={() => onTabChange('CUSTOM_PAGE')} className="relative h-32 bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl overflow-hidden shadow-lg p-4 flex flex-col justify-between group text-left border border-slate-700">
-                              <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Layout size={80} className="text-white"/></div>
-                              <div className="relative z-10"><h3 className="text-xl font-black text-white italic">CUSTOM <span className="text-slate-400">PAGE</span></h3><p className="text-xs text-slate-400 font-medium mt-1">Special Updates & Content</p></div>
-                              <div className="relative z-10 self-start bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white group-hover:bg-white group-hover:text-slate-900 transition-colors">EXPLORE &rarr;</div>
-                          </button>}
+                              {hasPermission('f32') && <button onClick={() => onTabChange('CUSTOM_PAGE')} className="h-24 bg-slate-800 rounded-2xl shadow-lg flex flex-col items-center justify-center text-white relative overflow-hidden group">
+                                  <div className="absolute inset-0 bg-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                  <Layout size={28} className="mb-1 relative z-10"/>
+                                  <span className="text-xs font-black relative z-10">CUSTOM</span>
+                                  <span className="text-[8px] opacity-70 relative z-10">Explore Page</span>
+                              </button>}
+                          </div>
                       </div>
                   </div>
 
@@ -1530,10 +1483,44 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
           return (
               <div className="space-y-6 pb-24">
                       <div className="flex items-center justify-between">
-                          <h2 className="text-2xl font-black text-slate-800">My Study Hub</h2>
+                          <h2 className="text-2xl font-black text-slate-800">Explore</h2>
                           <button onClick={() => onTabChange('LEADERBOARD')} className="bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-yellow-200 transition">
                               <Trophy size={14} /> Rank List
                           </button>
+                      </div>
+
+                      {/* ADMIN BANNERS */}
+                      {settings?.exploreBanners && settings.exploreBanners.filter(b => b.isActive).length > 0 && (
+                          <div className="mb-6">
+                              <BannerCarousel
+                                  slides={settings.exploreBanners.filter(b => b.isActive).map(b => ({
+                                      id: b.id,
+                                      image: b.imageUrl,
+                                      title: '',
+                                      subtitle: '',
+                                      link: b.actionUrl || ''
+                                  }))}
+                                  interval={3000}
+                                  autoPlay={true}
+                                  showDots={true}
+                                  showArrows={false}
+                              />
+                          </div>
+                      )}
+
+                      {/* ASK DOUBTS (AI CHAT) */}
+                      <div className="bg-indigo-600 rounded-2xl p-6 shadow-lg shadow-indigo-200 relative overflow-hidden mb-6">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                          <div className="relative z-10">
+                              <h3 className="text-xl font-black text-white mb-1 flex items-center gap-2"><MessageCircle size={24}/> Ask Your Doubts</h3>
+                              <p className="text-indigo-100 text-xs mb-4">Stuck on a question? Ask our AI Tutor for instant help!</p>
+                              <button
+                                  onClick={() => onTabChange('AI_CHAT')}
+                                  className="bg-white text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm shadow hover:bg-indigo-50 transition-colors"
+                              >
+                                  Chat Now &rarr;
+                              </button>
+                          </div>
                       </div>
 
                       {/* RECOMMENDED NOTES (Universal) */}
@@ -2278,6 +2265,73 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
 
         {showMonthlyReport && <MonthlyMarksheet user={user} settings={settings} onClose={() => setShowMonthlyReport(false)} />}
         {showReferralPopup && <ReferralPopup user={user} onClose={() => setShowReferralPopup(false)} onUpdateUser={handleUserUpdate} />}
+
+        {/* SIDEBAR OVERLAY */}
+        {showSidebar && (
+            <div className="fixed inset-0 z-[100] flex animate-in fade-in duration-200">
+                {/* Backdrop */}
+                <div
+                    className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                    onClick={() => setShowSidebar(false)}
+                ></div>
+
+                {/* Sidebar Panel */}
+                <div className="w-64 bg-white h-full shadow-2xl relative z-10 flex flex-col slide-in-from-left duration-300">
+                    <div className="p-6 bg-slate-900 text-white rounded-br-3xl">
+                        <h2 className="text-2xl font-black italic mb-1">{settings?.appName || 'App'}</h2>
+                        <p className="text-xs text-slate-400">Student Menu</p>
+                        <button onClick={() => setShowSidebar(false)} className="absolute top-4 right-4 text-white/50 hover:text-white">
+                            <X size={24} />
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        {hasPermission('f6') && (
+                            <button onClick={() => { onTabChange('REDEEM'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                <div className="bg-indigo-100 text-indigo-600 p-2 rounded-lg"><Gift size={20} /></div>
+                                Redeem
+                            </button>
+                        )}
+                        {hasPermission('f9') && isGameEnabled && (
+                            <button onClick={() => { onTabChange('GAME'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                <div className="bg-purple-100 text-purple-600 p-2 rounded-lg"><Gamepad2 size={20} /></div>
+                                Play Game
+                            </button>
+                        )}
+                        {hasPermission('f11') && (
+                            <button onClick={() => { onTabChange('SUB_HISTORY'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><CreditCard size={20} /></div>
+                                My Plan
+                            </button>
+                        )}
+                        {hasPermission('f12') && (
+                            <button onClick={() => { onTabChange('STORE'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                <div className="bg-yellow-100 text-yellow-600 p-2 rounded-lg"><Crown size={20} /></div>
+                                Premium Store
+                            </button>
+                        )}
+                        {hasPermission('f35') && (
+                            <button onClick={() => { onTabChange('HISTORY'); setShowSidebar(false); }} className="w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                <div className="bg-slate-100 text-slate-600 p-2 rounded-lg"><History size={20} /></div>
+                                History
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="p-4 border-t border-slate-100">
+                        <div className="bg-slate-50 p-4 rounded-xl flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold">
+                                {user.name.charAt(0)}
+                            </div>
+                            <div className="overflow-hidden">
+                                <p className="font-bold text-sm truncate text-slate-800">{user.name}</p>
+                                <p className="text-xs text-slate-500 truncate">{user.id}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
         <StudentAiAssistant 
             user={user} 

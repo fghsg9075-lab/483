@@ -13,7 +13,6 @@ import { SimpleRichTextEditor } from './SimpleRichTextEditor';
 import { ImageCropper } from './ImageCropper';
 import { DEFAULT_SYLLABUS, MonthlySyllabus } from '../syllabus_data';
 import { CustomAlert } from './CustomDialogs';
-import { AdminAiAssistant } from './AdminAiAssistant';
 import { UniversalChat } from './UniversalChat';
 import { ChallengeCreator20 } from './admin/ChallengeCreator20';
 // @ts-ignore
@@ -80,8 +79,7 @@ type AdminTab =
   | 'CONFIG_CHALLENGE'
   | 'CHALLENGE_CREATOR_20'
   | 'APP_MODES'
-  | 'AI_STUDIO'
-  | 'AI_NOTES_MANAGER'
+  | 'EXPLORE_BANNERS'
   | 'BLOGGER_HUB'
   | 'CONFIG_GATING'
   | 'WHATSAPP_CONNECT'
@@ -2935,8 +2933,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={ShieldCheck} label="Security" onClick={() => setActiveTab('CONFIG_SECURITY')} color="red" />
                           <DashboardCard icon={Eye} label="Visibility" onClick={() => setActiveTab('CONFIG_VISIBILITY')} color="cyan" />
                           <DashboardCard icon={Settings} label="App Modes" onClick={() => setActiveTab('APP_MODES')} color="green" />
-                          {(hasPermission('MANAGE_AI_NOTES') || currentUser?.role === 'ADMIN') && <DashboardCard icon={BrainCircuit} label="AI Studio" onClick={() => setActiveTab('AI_STUDIO')} color="violet" />}
-                          {(hasPermission('MANAGE_AI_NOTES') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="AI Notes Manager" onClick={() => setActiveTab('AI_NOTES_MANAGER')} color="indigo" />}
+                          {(hasPermission('MANAGE_SETTINGS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="Feature Access" onClick={() => setActiveTab('FEATURE_TIERS')} color="violet" />}
+                          {(hasPermission('MANAGE_CONTENT') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="pink" />}
                           {currentUser?.role === 'ADMIN' && <DashboardCard icon={PenTool} label="Blogger Hub" onClick={() => setActiveTab('BLOGGER_HUB')} color="orange" />}
                           <DashboardCard icon={Sparkles} label="Ads Config" onClick={() => setActiveTab('CONFIG_ADS')} color="rose" />
               <DashboardCard icon={Layers} label="Feature Tiers" onClick={() => setActiveTab('FEATURE_TIERS')} color="orange" />
@@ -3777,9 +3775,22 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
               </div>
 
               <div className="space-y-6">
-                  {/* APP IDENTITY */}
+                  {/* APP IDENTITY & AI CHAT */}
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                      <h4 className="font-bold text-slate-700 mb-3">App Identity</h4>
+                      <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-bold text-slate-700">App Identity & Features</h4>
+                          {/* AI CHAT TOGGLE */}
+                          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm">
+                              <Bot size={16} className="text-indigo-600"/>
+                              <span className="text-xs font-bold text-slate-600">Student AI Chat</span>
+                              <div
+                                  onClick={() => toggleSetting('isChatEnabled')}
+                                  className={`w-8 h-4 rounded-full relative cursor-pointer transition-colors ${localSettings.isChatEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                              >
+                                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm ${localSettings.isChatEnabled ? 'left-4.5' : 'left-0.5'}`} style={{left: localSettings.isChatEnabled ? '18px' : '2px'}}></div>
+                              </div>
+                          </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="text-xs font-bold text-slate-500 uppercase block mb-1">App Name</label>
@@ -7314,163 +7325,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           <ChallengeCreator20 onBack={() => setActiveTab('DASHBOARD')} language={localSettings.aiModel?.includes('Hindi') ? 'Hindi' : 'English'} />
       )}
 
-      {activeTab === 'APP_MODES' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right space-y-6">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Global App Modes</h3>
-              </div>
-
-              {/* COMPETITION MODE TOGGLE */}
-              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex items-center justify-between">
-                  <div>
-                      <h4 className="font-bold text-blue-900 mb-1 flex items-center gap-2">
-                          <Trophy size={20} /> Enable Competition Mode (Class 6-12)
-                      </h4>
-                      <p className="text-xs text-blue-700">
-                          If OFF, the 'Competition' tab/button will be hidden from all students.<br/>
-                          Use this to disable competitive exams content temporarily or permanently.
-                      </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                      <span className={`text-xs font-bold uppercase ${localSettings.isCompetitionModeEnabled !== false ? 'text-blue-600' : 'text-slate-400'}`}>
-                          {localSettings.isCompetitionModeEnabled !== false ? 'Enabled' : 'Disabled'}
-                      </span>
-                      <button
-                          onClick={() => setLocalSettings({ ...localSettings, isCompetitionModeEnabled: localSettings.isCompetitionModeEnabled === false ? true : false })}
-                          className={`w-14 h-8 rounded-full transition-all relative ${localSettings.isCompetitionModeEnabled !== false ? 'bg-blue-600' : 'bg-slate-300'}`}
-                      >
-                          <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm ${localSettings.isCompetitionModeEnabled !== false ? 'left-7' : 'left-1'}`} />
-                      </button>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* ACCESS PERMISSIONS */}
-                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-6">
-                      <div className="flex items-center gap-3 mb-2">
-                          <div className="p-3 bg-blue-100 rounded-xl text-blue-600"><BookOpen size={24} /></div>
-                          <div>
-                              <h4 className="font-bold text-slate-800 text-lg">Mode Permissions</h4>
-                              <p className="text-xs text-slate-500">Decide who can access School/Competition modes.</p>
-                          </div>
-                      </div>
-
-                      {/* Free User Permissions */}
-                      <div className="bg-white p-4 rounded-xl border border-slate-100">
-                          <p className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">Free Users Can Access:</p>
-                          <div className="space-y-2">
-                              {['SCHOOL', 'COMPETITION'].map((mode) => {
-                                  const list = localSettings.appMode?.allowedModesForFree || ['SCHOOL'];
-                                  const isChecked = list.includes(mode as any);
-                                  return (
-                                      <label key={mode} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
-                                          <input
-                                              type="checkbox"
-                                              checked={isChecked}
-                                              onChange={(e) => {
-                                                  const newList = e.target.checked
-                                                      ? [...list, mode]
-                                                      : list.filter(m => m !== mode);
-                                                  setLocalSettings({
-                                                      ...localSettings,
-                                                      appMode: { ...localSettings.appMode!, allowedModesForFree: newList as any }
-                                                  });
-                                              }}
-                                              className="w-5 h-5 accent-blue-600"
-                                          />
-                                          <span className="font-bold text-slate-600 text-sm">
-                                              {mode === 'SCHOOL' ? 'School Mode (6-12)' : 'Competition Mode'}
-                                          </span>
-                                      </label>
-                                  );
-                              })}
-                          </div>
-                      </div>
-
-                      {/* Premium User Permissions */}
-                      <div className="bg-white p-4 rounded-xl border border-slate-100">
-                          <p className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">Premium Users Can Access:</p>
-                          <div className="space-y-2">
-                              {['SCHOOL', 'COMPETITION'].map((mode) => {
-                                  const list = localSettings.appMode?.allowedModesForPremium || ['SCHOOL', 'COMPETITION'];
-                                  const isChecked = list.includes(mode as any);
-                                  return (
-                                      <label key={mode} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
-                                          <input
-                                              type="checkbox"
-                                              checked={isChecked}
-                                              onChange={(e) => {
-                                                  const newList = e.target.checked
-                                                      ? [...list, mode]
-                                                      : list.filter(m => m !== mode);
-                                                  setLocalSettings({
-                                                      ...localSettings,
-                                                      appMode: { ...localSettings.appMode!, allowedModesForPremium: newList as any }
-                                                  });
-                                              }}
-                                              className="w-5 h-5 accent-purple-600"
-                                          />
-                                          <span className="font-bold text-slate-600 text-sm">
-                                              {mode === 'SCHOOL' ? 'School Mode (6-12)' : 'Competition Mode'}
-                                          </span>
-                                      </label>
-                                  );
-                              })}
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* BUSINESS MODEL CONFIG */}
-                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-4">
-                      <div className="flex items-center gap-3 mb-2">
-                          <div className="p-3 bg-purple-100 rounded-xl text-purple-600"><LayersIcon size={24} /></div>
-                          <div>
-                              <h4 className="font-bold text-slate-800 text-lg">Active Business Model</h4>
-                              <p className="text-xs text-slate-500">Define available subscription tiers globally.</p>
-                          </div>
-                      </div>
-
-                      <div className="space-y-3">
-                          {[
-                              { id: 'FREE_ONLY', label: 'Free Tier Only', desc: 'Premium content locked globally.' },
-                              { id: 'FREE_BASIC', label: 'Free + Basic', desc: 'Basic features available. Ultra locked.' },
-                              { id: 'ALL_ACCESS', label: 'Free + Basic + Ultra', desc: 'Full business model active.' }
-                          ].map((tier) => (
-                              <button
-                                  key={tier.id}
-                                  onClick={() => setLocalSettings({
-                                      ...localSettings,
-                                      appMode: {
-                                          allowedModesForFree: localSettings.appMode?.allowedModesForFree || ['SCHOOL'],
-                                          allowedModesForPremium: localSettings.appMode?.allowedModesForPremium || ['SCHOOL', 'COMPETITION'],
-                                          accessTier: tier.id as any
-                                      }
-                                  })}
-                                  className={`w-full p-4 rounded-xl border-2 text-left transition-all flex justify-between items-center ${localSettings.appMode?.accessTier === tier.id ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                              >
-                                  <div>
-                                      <p className={`font-bold ${localSettings.appMode?.accessTier === tier.id ? 'text-purple-700' : 'text-slate-700'}`}>{tier.label}</p>
-                                      <p className="text-xs text-slate-400">{tier.desc}</p>
-                                  </div>
-                                  {localSettings.appMode?.accessTier === tier.id && <CheckCircle className="text-purple-600" size={20} />}
-                              </button>
-                          ))}
-                      </div>
-                  </div>
-              </div>
-
-              <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 text-yellow-800 text-sm flex items-center gap-3">
-                  <AlertTriangle size={24} />
-                  <p><strong>Warning:</strong> Changing these modes updates the app for <strong>ALL USERS</strong> immediately. Ensure you have content ready for the selected mode.</p>
-              </div>
-
-              <button onClick={handleSaveSettings} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2">
-                  <Save size={20} /> Save Global Modes
-              </button>
-          </div>
-      )}
-
       {activeTab === 'CONFIG_CHALLENGE' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right space-y-6">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -7620,915 +7474,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
       )}
 
       {/* --- AI STUDIO TAB --- */}
-      {activeTab === 'AI_STUDIO' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-violet-800">AI Studio</h3>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* LEFT: SETTINGS */}
-                  <div className="space-y-6">
-                      <div className="bg-violet-50 p-6 rounded-2xl border border-violet-100">
-                          <h4 className="font-bold text-violet-900 mb-4 flex items-center gap-2"><Key size={20} /> API Configuration</h4>
-
-                          <div className="space-y-4">
-                              <div>
-                                  <div className="flex justify-between items-center mb-1">
-                                      <label className="text-xs font-bold text-violet-700 uppercase block">API Keys (Multiple Boxes)</label>
-                                      <button
-                                          onClick={testKeys}
-                                          disabled={isTestingKeys}
-                                          className="text-[10px] bg-violet-600 text-white px-2 py-1 rounded-full font-bold hover:bg-violet-700 disabled:opacity-50"
-                                      >
-                                          {isTestingKeys ? 'Testing...' : 'Test All Keys'}
-                                      </button>
-                                  </div>
-                                  <div className="space-y-2 max-h-48 overflow-y-auto p-2 bg-white border border-violet-200 rounded-xl">
-                                      {(localSettings.groqApiKeys || []).map((key, i) => (
-                                          <div key={i} className="flex gap-2 items-center">
-                                              <div className="flex-1 relative">
-                                                  <input
-                                                      type="text"
-                                                      value={key}
-                                                      onChange={(e) => {
-                                                          const newKeys = [...(localSettings.groqApiKeys || [])];
-                                                          newKeys[i] = e.target.value;
-                                                          setLocalSettings({...localSettings, groqApiKeys: newKeys});
-                                                          // Reset status on change
-                                                          const newStatus = {...keyStatus};
-                                                          delete newStatus[i];
-                                                          setKeyStatus(newStatus);
-                                                      }}
-                                                      className={`w-full p-2 border rounded-lg text-xs font-mono pr-16 ${keyStatus[i] === 'Valid' ? 'border-green-300 bg-green-50' : keyStatus[i] === 'Invalid' ? 'border-red-300 bg-red-50' : 'border-violet-100'}`}
-                                                      placeholder={`Groq API Key ${i+1}`}
-                                                  />
-                                                  {keyStatus[i] && (
-                                                      <span className={`absolute right-2 top-2 text-[10px] font-bold ${keyStatus[i] === 'Valid' ? 'text-green-600' : 'text-red-600'}`}>
-                                                          {keyStatus[i]}
-                                                      </span>
-                                                  )}
-                                              </div>
-                                              <button
-                                                  onClick={() => {
-                                                      const newKeys = (localSettings.groqApiKeys || []).filter((_, idx) => idx !== i);
-                                                      setLocalSettings({...localSettings, groqApiKeys: newKeys});
-                                                  }}
-                                                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                                              >
-                                                  <Trash2 size={14} />
-                                              </button>
-                                          </div>
-                                      ))}
-                                      <button
-                                          onClick={() => setLocalSettings({...localSettings, groqApiKeys: [...(localSettings.groqApiKeys || []), '']})}
-                                          className="w-full py-2 border-2 border-dashed border-violet-200 rounded-lg text-violet-400 text-xs font-bold hover:border-violet-300 hover:text-violet-500 flex items-center justify-center gap-2"
-                                      >
-                                          <Plus size={14} /> Add Another Groq Key
-                                      </button>
-                                  </div>
-                                  <p className="text-[10px] text-violet-600 mt-1">System will rotate keys automatically if one quota is exhausted.</p>
-                              </div>
-
-                              <div>
-                                  <label className="text-xs font-bold text-violet-700 uppercase mb-1 block">AI Model</label>
-                                  <select
-                                      value={localSettings.aiModel || 'llama3-8b-8192'}
-                                      onChange={e => setLocalSettings({...localSettings, aiModel: e.target.value})}
-                                      className="w-full p-3 border border-violet-200 rounded-xl bg-white"
-                                  >
-                                      <option value="llama3-8b-8192">Llama 3 (8B) - Fast & Cheap</option>
-                                      <option value="llama3-70b-8192">Llama 3 (70B) - High Quality</option>
-                                      <option value="mixtral-8x7b-32768">Mixtral 8x7B - Balanced</option>
-                                  </select>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                          <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><PenTool size={20} /> Prompt Engineering</h4>
-                          <p className="text-xs text-slate-500 mb-4">Use placeholders: <code>{`{board}, {class}, {subject}, {chapter}, {language}`}</code></p>
-
-                          <div className="space-y-4">
-                              <div>
-                                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Normal Notes Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotes || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotes: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs"
-                                      placeholder="Default: Write detailed study notes for {board} Class {class}..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Premium Notes Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotesPremium || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotesPremium: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs bg-amber-50 border-amber-200"
-                                      placeholder="Default: Write Premium notes with deep insights for..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">MCQ Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptMCQ || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptMCQ: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs bg-blue-50 border-blue-200"
-                                      placeholder="Default: Create {count} MCQs for {subject}..."
-                                  />
-                              </div>
-
-                              <div className="h-px bg-slate-200 my-4"></div>
-                              <h5 className="font-bold text-slate-800 mb-2">CBSE Board Prompts</h5>
-
-                              <div>
-                                  <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">CBSE Notes Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotesCBSE || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotesCBSE: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-blue-200 bg-blue-50"
-                                      placeholder="Prompt for CBSE Notes (English)..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">CBSE Premium Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotesPremiumCBSE || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotesPremiumCBSE: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-blue-200 bg-blue-50"
-                                      placeholder="Prompt for CBSE Premium Notes..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">CBSE MCQ Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptMCQCBSE || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptMCQCBSE: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-blue-200 bg-blue-50"
-                                      placeholder="Prompt for CBSE MCQs..."
-                                  />
-                              </div>
-
-                              <div className="h-px bg-slate-200 my-4"></div>
-                              <h5 className="font-bold text-slate-800 mb-2">Competition Mode Prompts</h5>
-
-                              <div>
-                                  <label className="text-xs font-bold text-purple-600 uppercase mb-1 block">Comp. Notes Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotesCompetition || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotesCompetition: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-purple-200 bg-purple-50"
-                                      placeholder="Prompt for Competition Mode Notes..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-purple-600 uppercase mb-1 block">Comp. Premium Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotesPremiumCompetition || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotesPremiumCompetition: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-purple-200 bg-purple-50"
-                                      placeholder="Prompt for Competition Mode Premium Notes..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-purple-600 uppercase mb-1 block">Comp. MCQ Prompt</label>
-                                  <textarea
-                                      value={localSettings.aiPromptMCQCompetition || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptMCQCompetition: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-purple-200 bg-purple-50"
-                                      placeholder="Prompt for Competition Mode MCQs..."
-                                  />
-                              </div>
-
-                              <div className="h-px bg-slate-200 my-4"></div>
-                              <h5 className="font-bold text-slate-800 mb-2">CBSE Competition Prompts</h5>
-
-                              <div>
-                                  <label className="text-xs font-bold text-indigo-600 uppercase mb-1 block">CBSE Comp. Notes</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotesCompetitionCBSE || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotesCompetitionCBSE: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-indigo-200 bg-indigo-50"
-                                      placeholder="Prompt for CBSE Competition Notes..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-indigo-600 uppercase mb-1 block">CBSE Comp. Premium</label>
-                                  <textarea
-                                      value={localSettings.aiPromptNotesPremiumCompetitionCBSE || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptNotesPremiumCompetitionCBSE: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-indigo-200 bg-indigo-50"
-                                      placeholder="Prompt for CBSE Competition Premium Notes..."
-                                  />
-                              </div>
-                              <div>
-                                  <label className="text-xs font-bold text-indigo-600 uppercase mb-1 block">CBSE Comp. MCQ</label>
-                                  <textarea
-                                      value={localSettings.aiPromptMCQCompetitionCBSE || ''}
-                                      onChange={e => setLocalSettings({...localSettings, aiPromptMCQCompetitionCBSE: e.target.value})}
-                                      className="w-full p-3 border rounded-xl h-24 text-xs border-indigo-200 bg-indigo-50"
-                                      placeholder="Prompt for CBSE Competition MCQs..."
-                                  />
-                              </div>
-                          </div>
-
-                          <button onClick={handleSaveSettings} className="mt-4 w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900">Save Prompts</button>
-                      </div>
-                  </div>
-
-                  {/* RIGHT: GENERATOR */}
-                  <div className="space-y-6">
-                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 h-full">
-                          <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Sparkles size={20} /> Content Generator</h4>
-
-                          {/* 1. Context Selectors */}
-                          <SubjectSelector />
-
-                          {/* 2. Chapter & Type */}
-                          {selSubject && (
-                              <div className="space-y-4 animate-in fade-in">
-                                  <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                      <p className="text-xs font-bold text-slate-500 uppercase mb-2">Target Chapter</p>
-                                      <select
-                                          value={editingChapterId || ''}
-                                          onChange={e => {
-                                              setEditingChapterId(e.target.value);
-                                              // Clear preview on chapter change
-                                              setAiPreview(null);
-                                          }}
-                                          className="w-full p-2 border rounded-lg text-sm font-bold text-slate-800"
-                                      >
-                                          <option value="">-- Select Chapter --</option>
-                                          {selChapters.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                                      </select>
-                                  </div>
-
-                                  <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                      <p className="text-xs font-bold text-slate-500 uppercase mb-2">Generation Type</p>
-                                      <div className="grid grid-cols-3 gap-2">
-                                          {[
-                                              {id: 'NOTES_SIMPLE', label: 'Notes'},
-                                              {id: 'NOTES_PREMIUM', label: 'Premium'},
-                                              {id: 'MCQ_SIMPLE', label: 'MCQs'}
-                                          ].map(t => (
-                                              <button
-                                                  key={t.id}
-                                                  onClick={() => setAiGenType(t.id as ContentType)}
-                                                  className={`py-2 rounded-lg text-xs font-bold transition-all ${aiGenType === t.id ? 'bg-violet-600 text-white shadow-lg' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                                              >
-                                                  {t.label}
-                                              </button>
-                                          ))}
-                                      </div>
-                                  </div>
-
-                                  {/* 3. Syllabus Mode (Conditional) */}
-                                  {['6','7','8','9','10','11','12'].includes(selClass) && (
-                                      <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                          <p className="text-xs font-bold text-slate-500 uppercase mb-2">Syllabus Mode</p>
-                                          <div className="flex gap-2">
-                                              <button
-                                                  onClick={() => setSyllabusMode('SCHOOL')}
-                                                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${syllabusMode === 'SCHOOL' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-600'}`}
-                                              >
-                                                  🏫 School
-                                              </button>
-                                              <button
-                                                  onClick={() => setSyllabusMode('COMPETITION')}
-                                                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${syllabusMode === 'COMPETITION' ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-100 text-slate-600'}`}
-                                              >
-                                                  🏆 Competition
-                                              </button>
-                                          </div>
-                                      </div>
-                                  )}
-
-                                  {/* 4. Action */}
-                                  <button
-                                      onClick={async () => {
-                                          if(!editingChapterId) { alert("Select a chapter!"); return; }
-                                          const ch = selChapters.find(c => c.id === editingChapterId);
-                                          if(!ch) return;
-
-                                          setIsAiGenerating(true);
-                                          setAiPreview(null); // Clear previous result
-                                          try {
-                                              // Determine Language based on Board
-                                              const genLanguage = selBoard === 'BSEB' ? 'Hindi' : 'English';
-
-                                              // RESOLVE CUSTOM PROMPT BASED ON CONTEXT
-                                              let customPrompt = "";
-                                              const isComp = syllabusMode === 'COMPETITION';
-
-                                              if (selBoard === 'CBSE') {
-                                                  if (isComp) {
-                                                      if (aiGenType === 'NOTES_SIMPLE') customPrompt = localSettings.aiPromptNotesCompetitionCBSE || "";
-                                                      else if (aiGenType === 'NOTES_PREMIUM') customPrompt = localSettings.aiPromptNotesPremiumCompetitionCBSE || "";
-                                                      else if (aiGenType === 'MCQ_SIMPLE') customPrompt = localSettings.aiPromptMCQCompetitionCBSE || "";
-                                                  } else {
-                                                      // Standard CBSE (Uses Default/Generic Keys)
-                                                      if (aiGenType === 'NOTES_SIMPLE') customPrompt = localSettings.aiPromptNotes || "";
-                                                      else if (aiGenType === 'NOTES_PREMIUM') customPrompt = localSettings.aiPromptNotesPremium || "";
-                                                      else if (aiGenType === 'MCQ_SIMPLE') customPrompt = localSettings.aiPromptMCQ || "";
-                                                  }
-                                              } else {
-                                                  // BSEB
-                                                  if (isComp) {
-                                                      if (aiGenType === 'NOTES_SIMPLE') customPrompt = localSettings.aiPromptNotesCompetition || "";
-                                                      else if (aiGenType === 'NOTES_PREMIUM') customPrompt = localSettings.aiPromptNotesPremiumCompetition || "";
-                                                      else if (aiGenType === 'MCQ_SIMPLE') customPrompt = localSettings.aiPromptMCQCompetition || "";
-                                                  } else {
-                                                      // Standard BSEB
-                                                      if (aiGenType === 'NOTES_SIMPLE') customPrompt = localSettings.aiPromptNotesBSEB || "";
-                                                      else if (aiGenType === 'NOTES_PREMIUM') customPrompt = localSettings.aiPromptNotesPremiumBSEB || "";
-                                                      else if (aiGenType === 'MCQ_SIMPLE') customPrompt = localSettings.aiPromptMCQBSEB || "";
-                                                  }
-                                              }
-
-                                              const content = await fetchLessonContent(
-                                                  selBoard, selClass, selStream, selSubject, ch, genLanguage, aiGenType, 0, true, 15, customPrompt, true, syllabusMode, true, true
-                                              );
-                                              setAiPreview(content);
-                                          } catch(e) {
-                                              alert("Generation Failed: " + e);
-                                          } finally {
-                                              setIsAiGenerating(false);
-                                          }
-                                      }}
-                                      disabled={isAiGenerating}
-                                      className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                  >
-                                      {isAiGenerating ? <RefreshCw className="animate-spin" /> : <Sparkles />}
-                                      {isAiGenerating ? "Generating..." : "Generate New Content"}
-                                  </button>
-
-                                  {/* UNPUBLISH BUTTON */}
-                                  <button
-                                      onClick={async () => {
-                                          if(!editingChapterId || !selSubject) { alert("Select Chapter First"); return; }
-                                          if(!confirm("Are you sure? This will DELETE existing AI Notes for this chapter.")) return;
-
-                                          const streamKey = (selClass === '11' || selClass === '12') && selStream ? `-${selStream}` : '';
-                                          const key = `nst_content_${selBoard}_${selClass}${streamKey}_${selSubject.name}_${editingChapterId}`;
-
-                                          const existing = localStorage.getItem(key);
-                                          if(existing) {
-                                              const data = JSON.parse(existing);
-                                              // Clear all note fields
-                                              data.freeNotesHtml = "";
-                                              data.premiumNotesHtml = "";
-                                              data.aiHtmlContent = "";
-
-                                              localStorage.setItem(key, JSON.stringify(data));
-                                              if(isFirebaseConnected) await saveChapterData(key, data);
-
-                                              alert("✅ Notes Unpublished/Deleted Successfully!");
-                                              setAiPreview(null); // Clear preview too
-                                          }
-                                      }}
-                                      className="w-full py-2 bg-red-50 text-red-600 font-bold rounded-xl border border-red-100 hover:bg-red-100 flex items-center justify-center gap-2"
-                                  >
-                                      <Trash2 size={16} /> Unpublish / Clear Existing Notes
-                                  </button>
-
-                                  {/* 4. Preview & Save */}
-                                  {aiPreview && (
-                                      <div className="bg-white p-4 rounded-xl border border-slate-200 animate-in slide-in-from-bottom-4">
-                                          <div className="flex justify-between items-center mb-2">
-                                              <h5 className="font-bold text-slate-700 text-xs uppercase">New Content Preview</h5>
-                                              <div className="flex gap-2">
-                                                  <button
-                                                      onClick={() => {
-                                                          const textToCopy = aiGenType.includes('MCQ')
-                                                              ? JSON.stringify(aiPreview.mcqData, null, 2)
-                                                              : aiPreview.content;
-                                                          navigator.clipboard.writeText(textToCopy);
-                                                          alert("Content Copied to Clipboard!");
-                                                      }}
-                                                      className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-xs font-bold hover:bg-slate-200 flex items-center gap-1"
-                                                  >
-                                                      <Copy size={12} /> Copy
-                                                  </button>
-                                                  <button
-                                                      onClick={() => {
-                                                          if(!aiPreview || !editingChapterId) return;
-                                                          // Save Logic similar to handleSaveChapter
-                                                          // We need to merge with existing data
-                                                          const streamKey = (selClass === '11' || selClass === '12') && selStream ? `-${selStream}` : '';
-                                                          const key = `nst_content_${selBoard}_${selClass}${streamKey}_${selSubject.name}_${editingChapterId}`;
-                                                          const existing = localStorage.getItem(key);
-                                                          const existingData = existing ? JSON.parse(existing) : {};
-
-                                                          let newData = { ...existingData };
-
-                                                          // MODE AWARE SAVE: Save to Draft (Manager) instead of Live
-                                                          if (aiGenType === 'NOTES_SIMPLE' || aiGenType === 'NOTES_PREMIUM') {
-                                                              // CHECK FOR DUAL CONTENT
-                                                              const hasDual = aiPreview.schoolFreeNotesHtml || aiPreview.schoolPremiumNotesHtml || aiPreview.competitionFreeNotesHtml;
-
-                                                              if (hasDual) {
-                                                                  if (syllabusMode === 'COMPETITION') {
-                                                                      if(aiPreview.competitionFreeNotesHtml) newData.draftCompetitionFreeNotesHtml = aiPreview.competitionFreeNotesHtml;
-                                                                      if(aiPreview.competitionPremiumNotesHtml) newData.draftCompetitionPremiumNotesHtml = aiPreview.competitionPremiumNotesHtml;
-                                                                  } else {
-                                                                      if(aiPreview.schoolFreeNotesHtml) newData.draftFreeNotesHtml = aiPreview.schoolFreeNotesHtml;
-                                                                      if(aiPreview.schoolPremiumNotesHtml) newData.draftPremiumNotesHtml = aiPreview.schoolPremiumNotesHtml;
-                                                                  }
-                                                              } else {
-                                                                  // Save to appropriate DRAFT field based on mode (Single)
-                                                                  if (syllabusMode === 'COMPETITION') {
-                                                                      if (aiGenType === 'NOTES_SIMPLE') {
-                                                                          newData.draftCompetitionFreeNotesHtml = aiPreview.content;
-                                                                      } else {
-                                                                          newData.draftCompetitionPremiumNotesHtml = aiPreview.content;
-                                                                      }
-                                                                  } else {
-                                                                      if (aiGenType === 'NOTES_SIMPLE') {
-                                                                          newData.draftFreeNotesHtml = aiPreview.content;
-                                                                      } else {
-                                                                          newData.draftPremiumNotesHtml = aiPreview.content;
-                                                                      }
-                                                                  }
-                                                              }
-                                                              alert("✅ Draft Saved to AI Notes Manager! Go there to Publish.");
-                                                          } else if (aiGenType === 'MCQ_SIMPLE') {
-                                                              // MCQs still go live/direct because they don't have a "draft" flow in manager yet
-                                                              const existingMcqs = Array.isArray(newData.manualMcqData) ? newData.manualMcqData : [];
-                                                              const newMcqs = aiPreview.mcqData || [];
-                                                              const combined = [...existingMcqs];
-                                                              newMcqs.forEach((nm: any) => {
-                                                                  if (!combined.some((em: any) => em.question === nm.question)) {
-                                                                      combined.push(nm);
-                                                                  }
-                                                              });
-                                                              newData.manualMcqData = combined;
-                                                              alert("✅ MCQs Added Successfully!");
-                                                          }
-
-                                                          localStorage.setItem(key, JSON.stringify(newData));
-                                                          if (isFirebaseConnected) saveChapterData(key, newData);
-
-                                                          setAiPreview(null);
-                                                      }}
-                                                      className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold shadow hover:bg-green-700 flex items-center gap-1"
-                                                  >
-                                                      <Save size={12} /> Save Draft to Manager
-                                                  </button>
-                                              </div>
-                                          </div>
-                                          <div className="max-h-60 overflow-y-auto p-2 bg-slate-50 rounded border border-slate-100 text-xs font-mono whitespace-pre-wrap select-text">
-                                              {aiGenType.includes('MCQ')
-                                                  ? JSON.stringify(aiPreview.mcqData, null, 2)
-                                                  : aiPreview.content}
-                                          </div>
-                                      </div>
-                                  )}
-                              </div>
-                          )}
-
-                          {!selSubject && (
-                              <div className="text-center py-10 text-slate-400 text-sm">
-                                  Select a subject to begin.
-                              </div>
-                          )}
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* --- AI NOTES MANAGER TAB --- */}
-      {activeTab === 'AI_NOTES_MANAGER' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-indigo-800">AI Notes Manager</h3>
-              </div>
-
-              <div className="mb-6 bg-indigo-50 p-4 rounded-xl border border-indigo-100 text-sm text-indigo-800">
-                  Manage your AI-generated notes here. You can publish drafts, unpublish live content back to drafts, or delete notes permanently.
-              </div>
-
-              <SubjectSelector />
-
-              {selSubject && (
-                  <div className="space-y-4">
-                      {/* SYLLABUS TRACKER */}
-                      <div className="flex justify-between items-center bg-indigo-100 p-3 rounded-lg border border-indigo-200">
-                          <h4 className="font-bold text-indigo-900 text-sm flex items-center gap-2">
-                              <BrainCircuit size={16} />
-                              {selSubject.name} Coverage
-                          </h4>
-                          {(() => {
-                              const total = selChapters.length;
-                              const covered = selChapters.filter(ch => {
-                                  const streamKey = (selClass === '11' || selClass === '12') && selStream ? `-${selStream}` : '';
-                                  const key = `nst_content_${selBoard}_${selClass}${streamKey}_${selSubject.name}_${ch.id}`;
-                                  const stored = localStorage.getItem(key);
-                                  const localData = stored ? JSON.parse(stored) : {};
-                                  const data = notesStatusMap[ch.id] || localData;
-                                  // Check for ANY Notes or MCQs
-                                  return (
-                                      (data.freeNotesHtml && data.freeNotesHtml.length > 0) ||
-                                      (data.premiumNotesHtml && data.premiumNotesHtml.length > 0) ||
-                                      (data.schoolFreeNotesHtml && data.schoolFreeNotesHtml.length > 0) ||
-                                      (data.schoolPremiumNotesHtml && data.schoolPremiumNotesHtml.length > 0) ||
-                                      (data.competitionFreeNotesHtml && data.competitionFreeNotesHtml.length > 0) ||
-                                      (data.competitionPremiumNotesHtml && data.competitionPremiumNotesHtml.length > 0) ||
-                                      (data.manualMcqData && data.manualMcqData.length > 0)
-                                  );
-                              }).length;
-                              const percent = total > 0 ? Math.round((covered / total) * 100) : 0;
-                              return (
-                                  <div className="flex items-center gap-3">
-                                      <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
-                                          <div className="h-full bg-indigo-600 transition-all duration-500" style={{ width: `${percent}%` }}></div>
-                                      </div>
-                                      <span className="text-xs font-bold text-indigo-800">{percent}% ({covered}/{total})</span>
-                                  </div>
-                              );
-                          })()}
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                          <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                              {managerMode} Content Manager
-                          </h4>
-
-                          <div className="flex gap-2">
-                              {/* SYNC BUTTON */}
-                              <button
-                                  onClick={async () => {
-                                      if (!selSubject || !selChapters.length) return;
-                                      setIsSyncingNotes(true);
-                                      const newMap: any = {};
-                                      const streamKey = (selClass === '11' || selClass === '12') && selStream ? `-${selStream}` : '';
-
-                                      // Batch fetch
-                                      await Promise.all(selChapters.map(async (ch) => {
-                                           const key = `nst_content_${selBoard}_${selClass}${streamKey}_${selSubject.name}_${ch.id}`;
-                                           try {
-                                               if (isFirebaseConnected) {
-                                                   const data = await getChapterData(key);
-                                                   if (data) newMap[ch.id] = data;
-                                               }
-                                           } catch (e) { console.warn("Fetch failed for", key); }
-                                      }));
-
-                                      setNotesStatusMap(prev => ({...prev, ...newMap}));
-                                      setIsSyncingNotes(false);
-                                      alert("Synced Status from Cloud!");
-                                  }}
-                                  disabled={isSyncingNotes}
-                                  className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 disabled:opacity-50 flex items-center gap-2"
-                              >
-                                  {isSyncingNotes ? <RefreshCw className="animate-spin" size={14} /> : <Cloud size={14} />}
-                                  {isSyncingNotes ? 'Checking...' : 'Check Status'}
-                              </button>
-
-                              {/* MODE TOGGLE */}
-                              <div className="flex bg-slate-100 p-1 rounded-xl">
-                                  <button
-                                      onClick={() => setManagerMode('SCHOOL')}
-                                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${managerMode === 'SCHOOL' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
-                                  >
-                                      School
-                                  </button>
-                                  <button
-                                      onClick={() => setManagerMode('COMPETITION')}
-                                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${managerMode === 'COMPETITION' ? 'bg-purple-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
-                                  >
-                                      Competition
-                                  </button>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="overflow-x-auto border rounded-xl">
-                          <table className="w-full text-left text-sm">
-                              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
-                                  <tr>
-                                      <th className="p-4">Chapter</th>
-                                      <th className="p-4 text-center">Drafts</th>
-                                      <th className="p-4 text-center">Live Content</th>
-                                      <th className="p-4 text-right">Actions</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                  {selChapters.map((ch) => {
-                                      // Load Data
-                                      const streamKey = (selClass === '11' || selClass === '12') && selStream ? `-${selStream}` : '';
-                                      const key = `nst_content_${selBoard}_${selClass}${streamKey}_${selSubject.name}_${ch.id}`;
-
-                                      // MERGE LOCAL & CLOUD STATUS
-                                      const stored = localStorage.getItem(key);
-                                      const localData = stored ? JSON.parse(stored) : {};
-                                      const cloudData = notesStatusMap[ch.id]; // From Sync
-                                      const data = cloudData || localData;
-
-                                      // Determine Keys based on Manager Mode
-                                      const freeKey = managerMode === 'SCHOOL' ? 'schoolFreeNotesHtml' : 'competitionFreeNotesHtml';
-                                      const premiumKey = managerMode === 'SCHOOL' ? 'schoolPremiumNotesHtml' : 'competitionPremiumNotesHtml';
-                                      // Fallback for legacy
-                                      const legacyFreeKey = 'freeNotesHtml';
-                                      const legacyPremiumKey = 'premiumNotesHtml';
-
-                                      const draftFreeKey = managerMode === 'SCHOOL' ? 'draftFreeNotesHtml' : 'draftCompetitionFreeNotesHtml';
-                                      const draftPremiumKey = managerMode === 'SCHOOL' ? 'draftPremiumNotesHtml' : 'draftCompetitionPremiumNotesHtml';
-
-                                      const hasDraftFree = data[draftFreeKey] && data[draftFreeKey].length > 0;
-                                      const hasDraftPremium = data[draftPremiumKey] && data[draftPremiumKey].length > 0;
-
-                                      const hasFree = (data[freeKey] && data[freeKey].length > 0) || (managerMode === 'SCHOOL' && data[legacyFreeKey] && data[legacyFreeKey].length > 0);
-                                      const hasPremium = (data[premiumKey] && data[premiumKey].length > 0) || (managerMode === 'SCHOOL' && data[legacyPremiumKey] && data[legacyPremiumKey].length > 0);
-
-                                      const mcqCount = data.manualMcqData ? data.manualMcqData.length : 0;
-
-                                      return (
-                                          <tr key={ch.id} className="hover:bg-slate-50">
-                                              <td className="p-4 font-bold text-slate-700">
-                                                  {ch.title}
-                                                  {mcqCount > 0 && (
-                                                      <span className="ml-2 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                          {mcqCount} Qs
-                                                      </span>
-                                                  )}
-                                              </td>
-                                              <td className="p-4 text-center">
-                                                  <div className="flex flex-col gap-1 items-center">
-                                                      {hasDraftFree && (
-                                                          <div className="flex items-center gap-1">
-                                                              <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Draft: Free</span>
-                                                              <button title="View Free Draft" onClick={() => setAiPreview({...data, content: data[draftFreeKey], title: ch.title, id: ch.id, type: 'NOTES_SIMPLE'})} className="p-1 hover:bg-yellow-200 rounded"><Eye size={14} className="text-yellow-600"/></button>
-                                                          </div>
-                                                      )}
-                                                      {hasDraftPremium && (
-                                                          <div className="flex items-center gap-1">
-                                                              <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">Draft: Premium</span>
-                                                              <button title="View Premium Draft" onClick={() => setAiPreview({...data, content: data[draftPremiumKey], title: ch.title, id: ch.id, type: 'NOTES_PREMIUM'})} className="p-1 hover:bg-orange-200 rounded"><Eye size={14} className="text-orange-600"/></button>
-                                                          </div>
-                                                      )}
-                                                      {!hasDraftFree && !hasDraftPremium && <span className="text-slate-300 text-xs">—</span>}
-                                                  </div>
-                                              </td>
-                                              <td className="p-4 text-center">
-                                                  <div className="flex flex-col gap-1 items-center">
-                                                      {hasFree && (
-                                                          <div className="flex items-center gap-1">
-                                                              <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">FREE LIVE</span>
-                                                              <button title="View Free Live" onClick={() => setAiPreview({...data, content: data[freeKey], title: ch.title, id: ch.id, type: 'NOTES_SIMPLE'})} className="p-1 hover:bg-green-200 rounded"><Eye size={14} className="text-green-600"/></button>
-                                                          </div>
-                                                      )}
-                                                      {hasPremium && (
-                                                          <div className="flex items-center gap-1">
-                                                              <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">PREMIUM LIVE</span>
-                                                              <button title="View Premium Live" onClick={() => setAiPreview({...data, content: data[premiumKey], title: ch.title, id: ch.id, type: 'NOTES_PREMIUM'})} className="p-1 hover:bg-purple-200 rounded"><Eye size={14} className="text-purple-600"/></button>
-                                                          </div>
-                                                      )}
-                                                      {!hasFree && !hasPremium && <span className="text-slate-300 text-xs">Unpublished</span>}
-                                                  </div>
-                                              </td>
-                                              <td className="p-4 text-right">
-                                                  <div className="flex justify-end gap-2">
-
-                                                      {/* TRANSLATE BUTTON */}
-                                                      <button
-                                                          onClick={async () => {
-                                                              if (!confirm("Translate existing content to Hindi? This will overwrite existing Hindi fields.")) return;
-
-                                                              const contentToTranslate = data[draftFreeKey] || data[freeKey] || data[draftPremiumKey] || data[premiumKey];
-
-                                                              if (!contentToTranslate) {
-                                                                  setAlertConfig({ isOpen: true, message: "No English content found to translate." });
-                                                                  return;
-                                                              }
-
-                                                              try {
-                                                                  setIsSyncingNotes(true);
-
-                                                                  const { translateToHindi } = await import('../services/groq');
-                                                                  const hindiContent = await translateToHindi(contentToTranslate, false);
-
-                                                                  const newData = {
-                                                                      ...data,
-                                                                      schoolPremiumNotesHtml_HI: managerMode === 'SCHOOL' ? hindiContent : data.schoolPremiumNotesHtml_HI,
-                                                                      competitionPremiumNotesHtml_HI: managerMode === 'COMPETITION' ? hindiContent : data.competitionPremiumNotesHtml_HI
-                                                                  };
-
-                                                                  localStorage.setItem(key, JSON.stringify(newData));
-                                                                  if(isFirebaseConnected) await saveChapterData(key, newData);
-                                                                  setAlertConfig({ isOpen: true, message: "✅ Translation Complete!" });
-                                                              } catch(e: any) {
-                                                                  setAlertConfig({ isOpen: true, message: "Translation Failed: " + e.message });
-                                                              } finally {
-                                                                  setIsSyncingNotes(false);
-                                                              }
-                                                          }}
-                                                          className="p-2 text-slate-400 hover:text-green-600 bg-slate-50 rounded-lg"
-                                                          title="Translate to Hindi"
-                                                      >
-                                                          <Globe size={16} />
-                                                      </button>
-
-                                                      {/* UNPUBLISH BUTTON */}
-                                                      {(hasFree || hasPremium) && (
-                                                          <button
-                                                              onClick={async () => {
-                                                                  if (!confirm("Unpublish content? (Drafts will be saved, but content will go offline)")) return;
-                                                                  const newData = {
-                                                                      ...data,
-                                                                      [freeKey]: "", [premiumKey]: "",
-                                                                      is_free: false, is_premium: false
-                                                                  };
-                                                                  // Preserve Legacy keys if present? Maybe clear them too to be safe.
-                                                                  if(managerMode === 'SCHOOL') {
-                                                                      // @ts-ignore
-                                                                      newData['freeNotesHtml'] = "";
-                                                                      // @ts-ignore
-                                                                      newData['premiumNotesHtml'] = "";
-                                                                  }
-
-                                                                  localStorage.setItem(key, JSON.stringify(newData));
-                                                                  if(isFirebaseConnected) await saveChapterData(key, newData);
-                                                                  setNotesStatusMap(prev => ({...prev, [ch.id]: newData}));
-                                                                  setAlertConfig({ isOpen: true, message: "Content Unpublished (Offline)" });
-                                                              }}
-                                                              className="p-2 text-slate-400 hover:text-orange-600 bg-slate-50 rounded-lg"
-                                                              title="Unpublish (Take Offline)"
-                                                          >
-                                                              <WifiOff size={16} />
-                                                          </button>
-                                                      )}
-
-                                                      {/* DELETE BUTTON */}
-                                                      <button
-                                                          onClick={async () => {
-                                                              if (!confirm("PERMANENTLY DELETE content for this chapter?")) return;
-                                                              const newData = {
-                                                                  ...data,
-                                                                  [freeKey]: "", [premiumKey]: "",
-                                                                  [draftFreeKey]: "", [draftPremiumKey]: "",
-                                                                  schoolPremiumNotesHtml_HI: "", competitionPremiumNotesHtml_HI: "",
-                                                                  manualMcqData: [], manualMcqData_HI: [],
-                                                                  is_free: false, is_premium: false
-                                                              };
-                                                              localStorage.setItem(key, JSON.stringify(newData));
-                                                              if(isFirebaseConnected) await saveChapterData(key, newData);
-                                                              setNotesStatusMap(prev => ({...prev, [ch.id]: newData})); // Update UI
-                                                          }}
-                                                          className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 rounded-lg"
-                                                          title="Delete Content"
-                                                      >
-                                                          <Trash2 size={16} />
-                                                      </button>
-
-                                                      {/* PUBLISH BUTTONS */}
-                                                      {hasDraftFree && (
-                                                          <button
-                                                              onClick={async () => {
-                                                                  if(!confirm(`Publish ${managerMode} Draft to FREE Notes for ${ch.title}?`)) return;
-                                                                  const newData = {
-                                                                      ...data,
-                                                                      [freeKey]: data[draftFreeKey],
-                                                                      is_free: true
-                                                                  };
-                                                                  localStorage.setItem(key, JSON.stringify(newData));
-                                                                  if(isFirebaseConnected) await saveChapterData(key, newData);
-                                                                  setAlertConfig({ isOpen: true, message: "Published to Free!" });
-                                                                  setLocalSettings({...localSettings});
-                                                              }}
-                                                              className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-700 shadow"
-                                                              title="Publish as Free Content"
-                                                          >
-                                                              Pub Free
-                                                          </button>
-                                                      )}
-
-                                                      {hasDraftPremium && (
-                                                          <button
-                                                              onClick={async () => {
-                                                                  if(!confirm(`Publish ${managerMode} Draft to PREMIUM Notes for ${ch.title}?`)) return;
-                                                                  const newData = {
-                                                                      ...data,
-                                                                      [premiumKey]: data[draftPremiumKey],
-                                                                      is_premium: true
-                                                                  };
-                                                                  localStorage.setItem(key, JSON.stringify(newData));
-                                                                  if(isFirebaseConnected) await saveChapterData(key, newData);
-                                                                  setAlertConfig({ isOpen: true, message: "Published to Premium!" });
-                                                                  setLocalSettings({...localSettings});
-                                                              }}
-                                                              className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-700 shadow"
-                                                              title="Publish as Premium Content"
-                                                          >
-                                                              Pub Premium
-                                                          </button>
-                                                      )}
-
-                                                      {/* UNPUBLISH BUTTON */}
-                                                      {(hasFree || hasPremium) && (
-                                                          <button
-                                                              onClick={async () => {
-                                                                  if(!confirm(`Unpublish ${ch.title} (${managerMode})? Live content will be moved to Draft.`)) return;
-                                                                  // Move Free to Free Draft, Premium to Premium Draft
-                                                                  const newData = { ...data };
-
-                                                                  if (data[freeKey]) {
-                                                                      newData[draftFreeKey] = data[freeKey];
-                                                                      newData[freeKey] = "";
-                                                                      newData.is_free = false;
-                                                                  }
-
-                                                                  if (data[premiumKey]) {
-                                                                      newData[draftPremiumKey] = data[premiumKey];
-                                                                      newData[premiumKey] = "";
-                                                                      newData.is_premium = false;
-                                                                  }
-
-                                                                  localStorage.setItem(key, JSON.stringify(newData));
-                                                                  if(isFirebaseConnected) await saveChapterData(key, newData);
-                                                                  setAlertConfig({ isOpen: true, message: "Unpublished! Moved to Draft." });
-                                                                  setLocalSettings({...localSettings});
-                                                              }}
-                                                              className="bg-yellow-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-600 shadow"
-                                                              title="Unpublish (Move to Draft)"
-                                                          >
-                                                              Unpublish
-                                                          </button>
-                                                      )}
-
-                                                      {/* DELETE BUTTON */}
-                                                      <button
-                                                          onClick={async () => {
-                                                              if(!confirm(`PERMANENTLY DELETE ${managerMode} Notes for ${ch.title}? This cannot be undone.`)) return;
-                                                              const newData = {
-                                                                  ...data,
-                                                                  [draftFreeKey]: "",
-                                                                  [draftPremiumKey]: "",
-                                                                  [freeKey]: "",
-                                                                  [premiumKey]: "",
-                                                                  is_free: false,
-                                                                  is_premium: false
-                                                              };
-                                                              localStorage.setItem(key, JSON.stringify(newData));
-                                                              if(isFirebaseConnected) await saveChapterData(key, newData);
-                                                                  setAlertConfig({ isOpen: true, message: "Deleted!" });
-                                                              setLocalSettings({...localSettings});
-                                                          }}
-                                                          className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 border border-red-200"
-                                                          title={`Permanently Delete ${managerMode} Content`}
-                                                      >
-                                                          <Trash2 size={16} />
-                                                      </button>
-                                                  </div>
-                                              </td>
-                                          </tr>
-                                      );
-                                  })}
-                              </tbody>
-                          </table>
-                          {selChapters.length === 0 && (
-                              <div className="p-8 text-center text-slate-400 text-sm">No chapters found.</div>
-                          )}
-                      </div>
-                  </div>
-              )}
-              {!selSubject && (
-                  <div className="text-center py-12 text-slate-400">
-                      Select a Subject above to view notes.
-                  </div>
-              )}
-
-              {/* AI PREVIEW MODAL */}
-              {aiPreview && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-                      <div className="bg-white p-6 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[80vh] overflow-y-auto">
-                          <div className="flex justify-between items-center mb-4 border-b pb-4">
-                              <h3 className="text-xl font-black text-slate-800">Preview: {aiPreview.title}</h3>
-                              <button onClick={() => setAiPreview(null)} className="p-2 hover:bg-slate-100 rounded-full">
-                                  <X size={24} className="text-slate-400" />
-                              </button>
-                          </div>
-                          <div className="prose prose-sm max-w-none">
-                              {aiPreview.content && <div dangerouslySetInnerHTML={{ __html: aiPreview.content }} />}
-                              {!aiPreview.content && <pre className="text-xs bg-slate-100 p-4 rounded-lg overflow-x-auto">{JSON.stringify(aiPreview, null, 2)}</pre>}
-                          </div>
-                          <div className="mt-6 flex justify-end gap-2">
-                              <button
-                                  onClick={() => setAiPreview(null)}
-                                  className="px-6 py-2 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900"
-                              >
-                                  Close Preview
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-              )}
-          </div>
-      )}
-
-      {/* --- DEPLOYMENT TAB (New) --- */}
       {activeTab === 'DEPLOY' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6">
@@ -10308,430 +9253,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           </div>
       )}
 
-      {activeTab === 'APP_MODES' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Global App Modes & Automation</h3>
-              </div>
-
-              {/* STUDENT AI TUTOR SECTION (NEW) */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 mb-8">
-                  <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                              <Bot size={32} />
-                          </div>
-                          <div>
-                              <h4 className="text-xl font-black text-slate-800">Student AI Tutor</h4>
-                              <p className="text-sm text-slate-500 font-medium">Enable/Disable the AI Chatbot for students.</p>
-                          </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                          <span className={`text-xs font-bold uppercase ${localSettings.isAiEnabled !== false ? 'text-green-600' : 'text-slate-400'}`}>
-                              {localSettings.isAiEnabled !== false ? 'Active' : 'Disabled'}
-                          </span>
-                          <button
-                              onClick={() => toggleSetting('isAiEnabled')}
-                              className={`w-12 h-7 rounded-full transition-all relative ${localSettings.isAiEnabled !== false ? 'bg-green-500' : 'bg-slate-200'}`}
-                          >
-                              <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${localSettings.isAiEnabled !== false ? 'left-6' : 'left-1'}`} />
-                          </button>
-                      </div>
-                  </div>
-              </div>
-
-              {/* AI AUTO-PILOT SECTION */}
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-3xl border border-purple-100 mb-8 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200 rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
-
-                  <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-purple-600">
-                              <BrainCircuit size={32} />
-                          </div>
-                          <div>
-                              <h4 className="text-xl font-black text-slate-800">AI Auto-Pilot</h4>
-                              <p className="text-sm text-slate-500 font-medium">Automatically detects gaps and generates content.</p>
-                          </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-purple-100">
-                          <span className={`text-xs font-bold uppercase ${localSettings.isAutoPilotEnabled ? 'text-green-600' : 'text-slate-400'}`}>
-                              {localSettings.isAutoPilotEnabled ? 'Active' : 'Disabled'}
-                          </span>
-                          <button
-                              onClick={() => toggleSetting('isAutoPilotEnabled')}
-                              className={`w-12 h-7 rounded-full transition-all relative ${localSettings.isAutoPilotEnabled ? 'bg-green-500' : 'bg-slate-200'}`}
-                          >
-                              <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${localSettings.isAutoPilotEnabled ? 'left-6' : 'left-1'}`} />
-                          </button>
-                      </div>
-
-                      {/* NEW KILL SWITCH */}
-                      <button
-                          onClick={() => {
-                              const newLockState = !localSettings.aiSafetyLock;
-                              if (newLockState) {
-                                  if (!confirm("⚠️ EMERGENCY STOP?\n\nThis will immediately HALT all AI operations (Pilot & Admin Commands).")) return;
-                              }
-                              const updated = { ...localSettings, aiSafetyLock: newLockState };
-                              setLocalSettings(updated);
-                              localStorage.setItem('nst_system_settings', JSON.stringify(updated));
-                              if(onUpdateSettings) onUpdateSettings(updated);
-                              if(checkFirebaseConnection()) saveSystemSettings(updated);
-                          }}
-                          className={`ml-4 px-4 py-2 rounded-xl text-xs font-black shadow-lg border-2 flex items-center gap-2 transition-all ${
-                              localSettings.aiSafetyLock
-                              ? 'bg-red-600 text-white border-red-700 animate-pulse'
-                              : 'bg-white text-slate-400 border-slate-200 hover:border-red-400 hover:text-red-500'
-                          }`}
-                      >
-                          <AlertOctagon size={16} />
-                          {localSettings.aiSafetyLock ? "⛔ AI STOPPED" : "STOP AI"}
-                      </button>
-                  </div>
-
-                  {/* CONFIGURATION */}
-                  <div className={`space-y-6 transition-all ${localSettings.isAutoPilotEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                      {/* BOARDS */}
-                      <div>
-                          <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Target Boards</label>
-                          <div className="flex gap-2">
-                              {['CBSE', 'BSEB'].map(b => (
-                                  <button
-                                      key={b}
-                                      onClick={() => {
-                                          const current = localSettings.autoPilotConfig?.targetBoards || [];
-                                          const updated = current.includes(b) ? current.filter(x => x !== b) : [...current, b];
-                                          setLocalSettings({
-                                              ...localSettings,
-                                              autoPilotConfig: { ...(localSettings.autoPilotConfig || {targetClasses:[], targetBoards:[], contentTypes:[]}), targetBoards: updated }
-                                          });
-                                      }}
-                                      className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all ${localSettings.autoPilotConfig?.targetBoards?.includes(b) ? 'border-purple-600 bg-purple-600 text-white' : 'border-slate-200 bg-white text-slate-500'}`}
-                                  >
-                                      {b}
-                                  </button>
-                              ))}
-                          </div>
-                      </div>
-
-                      {/* CLASSES */}
-                      <div>
-                          <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Target Classes</label>
-                          <div className="flex flex-wrap gap-2">
-                              {['6', '7', '8', '9', '10', '11', '12', 'COMPETITION'].map(c => (
-                                  <button
-                                      key={c}
-                                      onClick={() => {
-                                          const current = localSettings.autoPilotConfig?.targetClasses || [];
-                                          const updated = current.includes(c) ? current.filter(x => x !== c) : [...current, c];
-                                          setLocalSettings({
-                                              ...localSettings,
-                                              autoPilotConfig: { ...(localSettings.autoPilotConfig || {targetClasses:[], targetBoards:[], contentTypes:[]}), targetClasses: updated }
-                                          });
-                                      }}
-                                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-xs font-bold border-2 transition-all ${localSettings.autoPilotConfig?.targetClasses?.includes(c) ? 'border-purple-600 bg-purple-600 text-white' : 'border-slate-200 bg-white text-slate-500'}`}
-                                  >
-                                      {c === 'COMPETITION' ? '🏆' : c}
-                                  </button>
-                              ))}
-                          </div>
-                      </div>
-
-                      {/* TARGET SUBJECTS */}
-                      <div>
-                          <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Target Subjects</label>
-                          <div className="flex flex-wrap gap-2">
-                              {['Math', 'Science', 'Social Science', 'English', 'Hindi', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Polity', 'Economics'].map(sub => (
-                                  <button
-                                      key={sub}
-                                      onClick={() => {
-                                          const current = localSettings.autoPilotConfig?.targetSubjects || [];
-                                          const updated = current.includes(sub) ? current.filter(x => x !== sub) : [...current, sub];
-                                          setLocalSettings({
-                                              ...localSettings,
-                                              autoPilotConfig: { ...(localSettings.autoPilotConfig || {targetClasses:[], targetBoards:[], contentTypes:[]}), targetSubjects: updated } as any
-                                          });
-                                      }}
-                                      className={`px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${localSettings.autoPilotConfig?.targetSubjects?.includes(sub) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-500'}`}
-                                  >
-                                      {sub}
-                                  </button>
-                              ))}
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-1">* If empty, all subjects are scanned.</p>
-                      </div>
-
-                      {/* CONTENT TYPES */}
-                      <div>
-                          <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Target Content</label>
-                          <div className="flex gap-2">
-                              {['NOTES', 'MCQ'].map(t => (
-                                  <button
-                                      key={t}
-                                      onClick={() => {
-                                          const current = localSettings.autoPilotConfig?.contentTypes || [];
-                                          const updated = current.includes(t as any) ? current.filter(x => x !== t) : [...current, t];
-                                          setLocalSettings({
-                                              ...localSettings,
-                                              autoPilotConfig: { ...(localSettings.autoPilotConfig || {targetClasses:[], targetBoards:[], contentTypes:[]}), contentTypes: updated } as any
-                                          });
-                                      }}
-                                      className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all flex items-center gap-2 ${localSettings.autoPilotConfig?.contentTypes?.includes(t as any) ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-500'}`}
-                                  >
-                                      {t === 'NOTES' ? <FileText size={14} /> : <CheckCircle size={14} />}
-                                      {t}
-                                  </button>
-                              ))}
-                          </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                          <button onClick={handleSaveSettings} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-purple-700 flex items-center gap-2">
-                              <Save size={18} /> Save Configuration
-                          </button>
-                      </div>
-
-                      {/* LIVE ACTION FEED & CONTROLS */}
-                      <div className="mt-8 border-t border-purple-100 pt-6">
-                          <div className="flex items-center justify-between mb-4">
-                              <h5 className="font-bold text-slate-700 flex items-center gap-2">
-                                  🔴 Live Action Log
-                                  {(isAutoPilotRunning || isAutoPilotForceRunning) && <span className="animate-pulse text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">ACTIVE</span>}
-                              </h5>
-                              <button
-                                  onClick={handleRunAutoPilotOnce}
-                                  disabled={isAutoPilotRunning || isAutoPilotForceRunning || !localSettings.isAutoPilotEnabled}
-                                  className={`px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center gap-2 transition-all ${
-                                      isAutoPilotRunning || isAutoPilotForceRunning || !localSettings.isAutoPilotEnabled
-                                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                      : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105'
-                                  }`}
-                              >
-                                  {isAutoPilotForceRunning ? <RefreshCw size={14} className="animate-spin" /> : <Rocket size={14} />}
-                                  Run Auto-Pilot Once
-                              </button>
-                          </div>
-
-                          <div className="bg-slate-900 rounded-xl p-4 h-48 overflow-y-auto font-mono text-xs text-green-400 border border-slate-800 shadow-inner flex flex-col-reverse">
-                              {liveFeed.length === 0 && <span className="text-slate-600 italic">Waiting for activity...</span>}
-                              {liveFeed.map((log, i) => (
-                                  <div key={i} className="mb-1 border-b border-slate-800/50 pb-1 last:border-0">
-                                      <span className="text-slate-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                                      {log}
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              {/* LIVE API MONITOR */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 mb-8">
-                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Activity size={20} className="text-blue-600"/> Live API Monitor</h4>
-
-                  {apiStats ? (
-                      <div className="space-y-6">
-                          {/* OVERALL USAGE */}
-                          <div className="grid grid-cols-2 gap-4">
-                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                  <p className="text-xs font-bold text-slate-500 uppercase">Pilot Usage (Admin)</p>
-                                  <p className="text-2xl font-black text-indigo-600">{apiStats.pilotCount || 0}</p>
-                                  <div className="w-full bg-slate-200 h-2 rounded-full mt-2 overflow-hidden">
-                                      <div className="bg-indigo-600 h-full" style={{ width: `${Math.min(((apiStats.pilotCount || 0) / ((localSettings.groqApiKeys?.length || 1) * 1500 * 0.8)) * 100, 100)}%` }}></div>
-                                  </div>
-                              </div>
-                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                  <p className="text-xs font-bold text-slate-500 uppercase">Student Usage</p>
-                                  <p className="text-2xl font-black text-blue-600">{apiStats.studentCount || 0}</p>
-                                  <div className="w-full bg-slate-200 h-2 rounded-full mt-2 overflow-hidden">
-                                      <div className="bg-blue-600 h-full" style={{ width: `${Math.min(((apiStats.studentCount || 0) / ((localSettings.groqApiKeys?.length || 1) * 1500 * 0.2)) * 100, 100)}%` }}></div>
-                                  </div>
-                              </div>
-                          </div>
-
-                          {/* PER KEY USAGE */}
-                          <div>
-                              <p className="text-xs font-bold text-slate-400 uppercase mb-2">Key Utilization (Live)</p>
-                              <div className="grid grid-cols-5 gap-2">
-                                  {(localSettings.groqApiKeys || []).map((_, idx) => {
-                                      const usage = apiStats[`key_${idx}`] || 0;
-                                      const limit = localSettings.aiDailyLimitPerKey || 1500;
-                                      const percent = Math.min((usage / limit) * 100, 100);
-                                      const color = percent > 90 ? 'bg-red-500' : percent > 50 ? 'bg-yellow-500' : 'bg-green-500';
-
-                                      return (
-                                          <div key={idx} className="bg-slate-50 p-2 rounded border border-slate-100 text-center" title={`Key ${idx+1}: ${usage}/${limit}`}>
-                                              <p className="text-[9px] font-bold text-slate-500">K{idx+1}</p>
-                                              <div className="w-full bg-slate-200 h-1.5 rounded-full mt-1 overflow-hidden">
-                                                  <div className={`${color} h-full transition-all`} style={{ width: `${percent}%` }}></div>
-                                              </div>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                      </div>
-                  ) : (
-                      <p className="text-slate-400 text-sm italic">Waiting for live stats...</p>
-                  )}
-              </div>
-
-              {/* APPROVAL QUEUE */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                          <ListChecks size={20} className="text-orange-600"/> Approval Queue
-                          {drafts.length > 0 && <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold">{drafts.length}</span>}
-                      </h4>
-                      {drafts.length > 0 && (
-                          <button
-                              onClick={async () => {
-                                  if(!confirm(`Approve ALL ${drafts.length} items?`)) return;
-                                  for(const d of drafts) {
-                                      const updates = { ...d, isDraft: false, isComingSoon: false };
-                                      delete updates.key;
-                                      await saveChapterData(d.key, updates);
-                                  }
-                                  setDrafts([]); // Optimistic clear
-                                  alert("All Approved!");
-                              }}
-                              className="text-xs font-bold text-blue-600 hover:underline"
-                          >
-                              Approve All
-                          </button>
-                      )}
-                  </div>
-
-                  {drafts.length === 0 ? (
-                      <p className="text-slate-400 text-sm text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">No pending drafts.</p>
-                  ) : (
-                      <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                          {drafts.map((d) => (
-                              <div key={d.key} className="p-4 rounded-xl border border-slate-200 flex justify-between items-center bg-white shadow-sm">
-                                  <div>
-                                      <p className="font-bold text-slate-800 text-sm">{d.title || 'Untitled'}</p>
-                                      <p className="text-[10px] text-slate-500 font-mono uppercase">{d.type} • {d.subjectName}</p>
-                                  </div>
-                                  <div className="flex gap-2">
-                                      <button
-                                          onClick={async () => {
-                                              const updates = { ...d, isDraft: false, isComingSoon: false };
-                                              delete updates.key;
-                                              await saveChapterData(d.key, updates);
-                                              setDrafts(prev => prev.filter(x => x.key !== d.key));
-                                          }}
-                                          className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold shadow hover:bg-green-700"
-                                      >
-                                          Approve
-                                      </button>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  )}
-              </div>
-
-              {/* COMPETITION MODE TOGGLE (Existing Feature) */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <h4 className="font-bold text-slate-800">Competition Mode (Global)</h4>
-                          <p className="text-xs text-slate-500">Enable "Competitive Exam" section for all students.</p>
-                      </div>
-                      <input
-                          type="checkbox"
-                          checked={localSettings.isCompetitionModeEnabled !== false}
-                          onChange={() => toggleSetting('isCompetitionModeEnabled')}
-                          className="w-6 h-6 accent-blue-600"
-                      />
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {activeTab === 'CONFIG_AI' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">AI Tutor Configuration</h3>
-              </div>
-
-              <div className="space-y-6">
-                  {/* LIMITS */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                          <Bot size={20} className="text-indigo-600"/> Daily Usage Limits
-                      </h4>
-                      <div className="grid grid-cols-3 gap-4">
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Free Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.free ?? 5} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, free: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Basic Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.basic ?? 50} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, basic: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Ultra Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.ultra ?? 99999} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, ultra: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* INSTRUCTIONS */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                          <BrainCircuit size={20} className="text-purple-600"/> AI Persona & Instructions
-                      </h4>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">System Prompt (Persona)</label>
-                      <textarea 
-                          value={localSettings.aiInstruction || ''}
-                          onChange={(e) => setLocalSettings({...localSettings, aiInstruction: e.target.value})}
-                          placeholder="You are a helpful tutor..."
-                          className="w-full h-32 p-4 rounded-xl border border-slate-200 text-sm font-mono leading-relaxed"
-                      />
-                      <p className="text-[10px] text-slate-400 mt-2">
-                          This instruction will guide the AI's behavior. If empty, it uses the default friendly tutor persona.
-                      </p>
-                  </div>
-
-                  <div className="flex justify-end">
-                      <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                          <Save size={20} /> Save Configuration
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
       {activeTab === 'BLOGGER_HUB' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -10790,18 +9311,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           onClose={() => setAlertConfig({...alertConfig, isOpen: false})} 
       />
 
-      {/* ADMIN AI ASSISTANT BUTTON */}
-      <div className="fixed bottom-6 right-6 z-50">
-          <button
-              onClick={() => setShowAdminAi(true)}
-              className="w-14 h-14 bg-slate-900 text-green-400 rounded-full shadow-2xl flex items-center justify-center border-2 border-green-500 hover:scale-110 transition-transform animate-pulse"
-              title="Admin AI Agent"
-          >
-              <BrainCircuit size={28} />
-          </button>
-      </div>
-
-      {showAdminAi && <AdminAiAssistant onClose={() => setShowAdminAi(false)} users={users} settings={localSettings} onUpdateSettings={(s) => { setLocalSettings(s); if(onUpdateSettings) onUpdateSettings(s); }} />}
       
       {showChat && <UniversalChat user={{id: 'ADMIN', name: 'Admin', role: 'ADMIN'} as any} onClose={() => setShowChat(false)} isAdmin={true} />}
 
@@ -10902,6 +9411,206 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                   <div className="mt-6 text-right">
                        <button onClick={() => setViewingSubAdminReport(null)} className="px-6 py-2 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900">Close Report</button>
                   </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- FEATURE CONTROL MATRIX --- */}
+      {activeTab === 'FEATURE_TIERS' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Feature Access Control</h3>
+                  <div className="ml-auto">
+                      <button onClick={handleSaveSettings} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center gap-2">
+                          <Save size={18} /> Save Changes
+                      </button>
+                  </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                      <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
+                              <th className="p-4 w-1/3">Feature</th>
+                              <th className="p-4 text-center">Free Tier</th>
+                              <th className="p-4 text-center">Basic Tier</th>
+                              <th className="p-4 text-center">Ultra Tier</th>
+                              <th className="p-4 text-center">Badge</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {ALL_APP_FEATURES
+                              .filter(f => !['f17', 'f18', 'f19', 'f20', 'f30', 'f33', 'f37', 'f43', 'f44', 'f45', 'f46', 'f47'].includes(f.id) && !f.title.includes('Admin'))
+                              .map(feature => {
+                                  const isFree = localSettings.tierPermissions?.FREE?.includes(feature.id);
+                                  const isBasic = localSettings.tierPermissions?.BASIC?.includes(feature.id);
+                                  const isUltra = localSettings.tierPermissions?.ULTRA?.includes(feature.id);
+                                  const badge = localSettings.featureBadges?.[feature.id] || 'NORMAL';
+
+                                  const togglePermission = (tier: 'FREE' | 'BASIC' | 'ULTRA') => {
+                                      const current = localSettings.tierPermissions?.[tier] || [];
+                                      const updated = current.includes(feature.id)
+                                          ? current.filter(id => id !== feature.id)
+                                          : [...current, feature.id];
+
+                                      setLocalSettings({
+                                          ...localSettings,
+                                          tierPermissions: {
+                                              ...localSettings.tierPermissions,
+                                              [tier]: updated
+                                          } as any
+                                      });
+                                  };
+
+                                  return (
+                                      <tr key={feature.id} className="hover:bg-slate-50 transition-colors">
+                                          <td className="p-4">
+                                              <p className="font-bold text-slate-800">{feature.title}</p>
+                                              <p className="text-[10px] text-slate-400 font-mono">{feature.id}</p>
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <input
+                                                  type="checkbox"
+                                                  checked={isFree}
+                                                  onChange={() => togglePermission('FREE')}
+                                                  className="w-5 h-5 accent-blue-600 cursor-pointer"
+                                              />
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <input
+                                                  type="checkbox"
+                                                  checked={isBasic}
+                                                  onChange={() => togglePermission('BASIC')}
+                                                  className="w-5 h-5 accent-blue-600 cursor-pointer"
+                                              />
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <input
+                                                  type="checkbox"
+                                                  checked={isUltra}
+                                                  onChange={() => togglePermission('ULTRA')}
+                                                  className="w-5 h-5 accent-purple-600 cursor-pointer"
+                                              />
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <select
+                                                  value={badge}
+                                                  onChange={(e) => setLocalSettings({
+                                                      ...localSettings,
+                                                      featureBadges: {
+                                                          ...localSettings.featureBadges,
+                                                          [feature.id]: e.target.value as any
+                                                      }
+                                                  })}
+                                                  className={`p-1 rounded text-xs font-bold border ${badge === 'NEW' ? 'bg-green-100 text-green-700 border-green-200' : badge === 'UPGRADE' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-white border-slate-200 text-slate-500'}`}
+                                              >
+                                                  <option value="NORMAL">Normal</option>
+                                                  <option value="NEW">New</option>
+                                                  <option value="UPGRADE">Upgrade</option>
+                                              </select>
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+      )}
+
+      {/* --- EXPLORE BANNERS MANAGER --- */}
+      {activeTab === 'EXPLORE_BANNERS' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Explore Page Banners</h3>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-8">
+                  <h4 className="font-bold text-slate-800 mb-4">Add New Banner</h4>
+                  <div className="flex gap-4">
+                      <input
+                          type="text"
+                          id="new-banner-img"
+                          placeholder="Image URL"
+                          className="flex-1 p-3 rounded-xl border border-slate-200"
+                      />
+                      <input
+                          type="text"
+                          id="new-banner-link"
+                          placeholder="Action Link (Optional)"
+                          className="flex-1 p-3 rounded-xl border border-slate-200"
+                      />
+                      <button
+                          onClick={() => {
+                              const img = (document.getElementById('new-banner-img') as HTMLInputElement).value;
+                              const link = (document.getElementById('new-banner-link') as HTMLInputElement).value;
+                              if (!img) return alert("Image URL is required");
+
+                              const newBanner = {
+                                  id: Date.now().toString(),
+                                  imageUrl: img,
+                                  actionUrl: link,
+                                  isActive: true
+                              };
+
+                              setLocalSettings({
+                                  ...localSettings,
+                                  exploreBanners: [...(localSettings.exploreBanners || []), newBanner]
+                              });
+
+                              (document.getElementById('new-banner-img') as HTMLInputElement).value = '';
+                              (document.getElementById('new-banner-link') as HTMLInputElement).value = '';
+                          }}
+                          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700"
+                      >
+                          Add Banner
+                      </button>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(localSettings.exploreBanners || []).map((banner, idx) => (
+                      <div key={banner.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm relative group">
+                          <img src={banner.imageUrl} alt="Banner" className="w-full h-32 object-cover" />
+                          <div className="p-3 flex items-center justify-between bg-white">
+                              <span className={`text-xs font-bold px-2 py-1 rounded ${banner.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  {banner.isActive ? 'ACTIVE' : 'HIDDEN'}
+                              </span>
+                              <div className="flex gap-2">
+                                  <button
+                                      onClick={() => {
+                                          const updated = [...(localSettings.exploreBanners || [])];
+                                          updated[idx].isActive = !updated[idx].isActive;
+                                          setLocalSettings({...localSettings, exploreBanners: updated});
+                                      }}
+                                      className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"
+                                      title={banner.isActive ? "Hide" : "Show"}
+                                  >
+                                      {banner.isActive ? <EyeOff size={16} /> : <Eye size={16} />}
+                                  </button>
+                                  <button
+                                      onClick={() => {
+                                          if(!confirm("Delete this banner?")) return;
+                                          const updated = localSettings.exploreBanners!.filter((_, i) => i !== idx);
+                                          setLocalSettings({...localSettings, exploreBanners: updated});
+                                      }}
+                                      className="p-2 bg-red-50 rounded-lg hover:bg-red-100 text-red-600"
+                                      title="Delete"
+                                  >
+                                      <Trash2 size={16} />
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+
+              <div className="mt-8 flex justify-end">
+                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
+                      <Save size={20} /> Save All Changes
+                  </button>
               </div>
           </div>
       )}

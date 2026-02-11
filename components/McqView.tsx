@@ -133,27 +133,33 @@ export const McqView: React.FC<Props> = ({
   };
 
   const triggerMcqStart = (mode: 'PRACTICE' | 'TEST', data: any) => {
-    // MCQ LIMIT LOGIC
-    const today = new Date().toISOString().split('T')[0];
-    const mcqKey = `mcq_count_${user.id}_${today}`;
-    const dailyCount = parseInt(localStorage.getItem(mcqKey) || '0');
+    // 1. Process Questions (Shuffle & Slice based on Tier)
+    let processedQuestions = [...(data.manualMcqData || [])];
     
-    let limit = 50; // Default Free
-    if (user.subscriptionLevel === 'ULTRA') limit = 999999;
-    else if (user.subscriptionLevel === 'BASIC') limit = 100;
-    
-    if (user.role !== 'ADMIN' && dailyCount >= limit) {
-        setAlertConfig({isOpen: true, title: "Limit Reached", message: `Daily MCQ limit reached (${limit}). Upgrade for more!`});
-        setLoading(false);
-        return;
+    // Shuffle Questions (Fisher-Yates)
+    for (let i = processedQuestions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [processedQuestions[i], processedQuestions[j]] = [processedQuestions[j], processedQuestions[i]];
     }
-    
-    if (data.manualMcqData && data.manualMcqData.length > 0) {
-        // Increment count
-        localStorage.setItem(mcqKey, (dailyCount + 1).toString());
-    }
-    
-    setPendingStart({mode, data});
+
+    // Apply Tier Limits (Per Test Limit)
+    // Free: 30, Basic: 50, Ultra: All
+    let questionLimit = 30;
+    if (user.subscriptionLevel === 'BASIC') questionLimit = 50;
+    if (user.subscriptionLevel === 'ULTRA') questionLimit = 999999;
+
+    // Admin Override
+    if (user.role === 'ADMIN') questionLimit = 999999;
+
+    processedQuestions = processedQuestions.slice(0, questionLimit);
+
+    // Update data object with processed questions
+    const processedData = {
+        ...data,
+        manualMcqData: processedQuestions
+    };
+
+    setPendingStart({mode, data: processedData});
     setShowInterstitial(true);
   };
 
