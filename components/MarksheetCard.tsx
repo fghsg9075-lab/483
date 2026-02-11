@@ -493,13 +493,13 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
       return text;
   };
 
-  const handlePlayAll = (questionsToPlay: any[], includeExplanation: boolean) => {
+  const handlePlayAll = (questionsToPlay: any[], includeExplanation: boolean, customPlaylist?: string[]) => {
       if (isPlayingAll) {
           stopPlaylist();
           return;
       }
 
-      const newPlaylist = questionsToPlay.map((q, i) => generateQuestionText(q, includeExplanation, i));
+      const newPlaylist = customPlaylist || questionsToPlay.map((q, i) => generateQuestionText(q, includeExplanation, i));
       setPlaylist(newPlaylist);
       setCurrentTrack(0);
       setIsPlayingAll(true);
@@ -586,25 +586,6 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                               </div>
 
                               <div className="p-4 space-y-4">
-                                  {/* 1. WRONG QUESTIONS FIRST - SIMPLIFIED */}
-                                  {topicWrongQs.length > 0 && (
-                                      <div className="space-y-2 mb-4">
-                                          <p className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1">
-                                              <XCircle size={12} /> Mistakes in this Topic
-                                          </p>
-                                          <div className="flex flex-wrap gap-2">
-                                              {topicWrongQs.map((q, qIdx) => {
-                                                  const originalIndex = questions ? questions.indexOf(q) + 1 : qIdx + 1;
-                                                  return (
-                                                      <span key={`wq-${qIdx}`} className="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded border border-red-200">
-                                                          Q{originalIndex}
-                                                      </span>
-                                                  );
-                                              })}
-                                          </div>
-                                      </div>
-                                  )}
-
                                   {/* 2. RECOMMENDED NOTES */}
                                   {relevantRecs.length > 0 && (
                                       <div className="space-y-2">
@@ -875,8 +856,9 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
     const totalTopics = (data.topics || []).length;
 
     // Professional Box Layout
-    // Gather all questions for playlist (Premium View - No Explanation)
-    const allTopicQuestions: any[] = [];
+    // Gather Mixed Playlist (Questions + Notes) for Premium View
+    const mixedPlaylist: string[] = [];
+
     if (questions && data.topics) {
         data.topics.forEach((topic: any) => {
              const topicQs = questions.filter((q: any) =>
@@ -884,7 +866,24 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
                 (q.topic && topic.name.toLowerCase().includes(q.topic.toLowerCase())) ||
                 (q.topic && q.topic.toLowerCase().includes(topic.name.toLowerCase()))
             );
-            allTopicQuestions.push(...topicQs);
+
+            // Add Questions Text
+            topicQs.forEach((q: any) => {
+                const qIndex = questions.indexOf(q);
+                mixedPlaylist.push(generateQuestionText(q, true, qIndex)); // Include Explanation in Playlist
+            });
+
+            // Add Notes Text
+            const topicNotes = recommendations.filter(rec =>
+                rec.topic && topic.name &&
+                (rec.topic.toLowerCase().trim() === topic.name.toLowerCase().trim() ||
+                 rec.topic.toLowerCase().includes(topic.name.toLowerCase()))
+            );
+
+            topicNotes.forEach(note => {
+                const content = note.content || note.html || note.description;
+                if(content) mixedPlaylist.push(`Note for ${topic.name}. ${note.title}. ${stripHtml(content)}`);
+            });
         });
     }
 
@@ -892,11 +891,11 @@ export const MarksheetCard: React.FC<Props> = ({ result, user, settings, onClose
         <div className="space-y-6">
             <div className="flex justify-end">
                 <button
-                    onClick={() => handlePlayAll(allTopicQuestions, false)}
+                    onClick={() => handlePlayAll([], false, mixedPlaylist)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-colors ${isPlayingAll ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-900 text-white shadow-lg hover:bg-slate-800'}`}
                 >
                     {isPlayingAll ? <StopCircle size={16} /> : <Play size={16} />}
-                    {isPlayingAll ? 'Stop Listening' : 'Listen All Questions'}
+                    {isPlayingAll ? 'Stop Listening' : 'Listen All'}
                 </button>
             </div>
             
