@@ -45,14 +45,24 @@ export const PerformanceGraph: React.FC<Props> = ({ user, onViewNotes, onViewAna
 
     // MINI GRAPH VIEW
     if (!isFullScreen) {
+        // Calculate Overall Stats for Pie Chart
+        const totalQs = user.mcqHistory?.reduce((acc, t) => acc + t.totalQuestions, 0) || 0;
+        const totalCorrect = user.mcqHistory?.reduce((acc, t) => acc + t.correctCount, 0) || 0;
+        const overallAccuracy = totalQs > 0 ? Math.round((totalCorrect / totalQs) * 100) : 0;
+
+        // Donut Chart Calculations
+        const radius = 30;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (overallAccuracy / 100) * circumference;
+
         return (
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 relative overflow-hidden">
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start mb-2">
                     <div>
                         <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
                             <TrendingUp className="text-blue-600" size={20} /> Performance
                         </h3>
-                        <p className="text-xs text-slate-500 font-bold">Last 5 Tests Analysis</p>
+                        <p className="text-xs text-slate-500 font-bold">Accuracy & Trends</p>
                     </div>
                     <button
                         onClick={() => setIsFullScreen(true)}
@@ -62,26 +72,48 @@ export const PerformanceGraph: React.FC<Props> = ({ user, onViewNotes, onViewAna
                     </button>
                 </div>
 
-                <div className="flex items-end justify-between gap-2 h-32 pt-4">
-                    {recentTests.map((test, i) => {
-                        const pct = test.totalQuestions > 0 ? Math.round((test.score / test.totalQuestions) * 100) : 0;
-                        return (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-                                <div className="text-[10px] font-black text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity absolute -mt-6">
-                                    {pct}%
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-t-lg relative h-full flex items-end overflow-hidden group-hover:bg-slate-200 transition-colors">
-                                    <div
-                                        className={`w-full ${getBarColor(pct)} transition-all duration-1000 ease-out rounded-t-lg opacity-80 group-hover:opacity-100`}
-                                        style={{ height: `${pct > 0 ? pct : 2}%` }}
-                                    ></div>
-                                </div>
-                                <span className="text-[9px] font-bold text-slate-400 truncate w-full text-center">
-                                    {test.chapterTitle.slice(0, 6)}..
-                                </span>
+                <div className="flex gap-4 h-32 pt-2">
+                    {/* LEFT: DONUT CHART (Accuracy) */}
+                    <div className="w-1/3 flex flex-col items-center justify-center relative">
+                        <div className="relative w-20 h-20">
+                            <svg className="w-full h-full transform -rotate-90">
+                                <circle cx="40" cy="40" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="8" />
+                                <circle
+                                    cx="40" cy="40" r={radius} fill="none"
+                                    stroke={overallAccuracy >= 80 ? "#22c55e" : overallAccuracy >= 50 ? "#3b82f6" : "#ef4444"}
+                                    strokeWidth="8"
+                                    strokeLinecap="round"
+                                    strokeDasharray={circumference}
+                                    strokeDashoffset={offset}
+                                    className="transition-all duration-1000 ease-in-out"
+                                />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-xs font-black text-slate-800">{overallAccuracy}%</span>
+                                <span className="text-[8px] font-bold text-slate-400">ACCURACY</span>
                             </div>
-                        );
-                    })}
+                        </div>
+                    </div>
+
+                    {/* RIGHT: BAR CHART (Recent Tests) */}
+                    <div className="flex-1 flex items-end justify-between gap-1 border-l pl-4 border-slate-50">
+                        {recentTests.map((test, i) => {
+                            const pct = test.totalQuestions > 0 ? Math.round((test.score / test.totalQuestions) * 100) : 0;
+                            return (
+                                <div key={i} className="flex-1 flex flex-col items-center gap-1 group cursor-pointer" title={`${test.chapterTitle}: ${pct}%`}>
+                                    <div className="w-full bg-slate-100 rounded-t relative h-full flex items-end overflow-hidden group-hover:bg-slate-200 transition-colors">
+                                        <div
+                                            className={`w-full ${getBarColor(pct)} transition-all duration-1000 ease-out rounded-t opacity-80 group-hover:opacity-100`}
+                                            style={{ height: `${pct > 0 ? pct : 5}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="text-[8px] font-bold text-slate-400 truncate w-full text-center">
+                                        T{i+1}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         );

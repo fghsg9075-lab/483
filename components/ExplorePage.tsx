@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SystemSettings, WeeklyTest, Challenge20, StudentTab } from '../types';
 import { BannerCarousel } from './BannerCarousel';
-import { Sparkles, BrainCircuit, Rocket, Zap, ArrowRight, Crown, Headphones, FileText, CheckCircle, Video as VideoIcon, MessageCircle, Lock, Layout } from 'lucide-react';
+import { Sparkles, BrainCircuit, Rocket, Zap, ArrowRight, Crown, Headphones, FileText, CheckCircle, Video as VideoIcon, MessageCircle, Lock, Layout, Star } from 'lucide-react';
 import { SpeakButton } from './SpeakButton';
 import { generateMorningInsight } from '../services/morningInsight';
 import { getActiveChallenges } from '../services/questionBank';
