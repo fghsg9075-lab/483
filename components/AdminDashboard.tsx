@@ -6183,6 +6183,8 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                   )}
 
                   {activeTab === 'CONFIG_WATERMARK' && renderWatermarkConfig()}
+                  {activeTab === 'CONFIG_GAME' && (
+                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
                            <h4 className="font-bold text-slate-800 flex items-center gap-2"><Gamepad2 size={18} /> Spin Wheel Configuration</h4>
                            
                            <div>
@@ -6778,9 +6780,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
       {/* --- EXPLORE BANNERS --- */}
 
       {/* --- AI STUDIO TAB --- */}
-      {activeTab === 'DEPLOY' && 
-      {/* --- FEATURE CONTROL & COSTS --- */}
-      {activeTab === 'FEATURE_CONTROL' &&
+      {activeTab === 'DEPLOY' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6">
                   <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
@@ -6797,6 +6797,16 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           <h4 className="text-xl font-black text-green-900 mb-2">Configure App Update</h4>
                           <p className="text-xs text-green-700 mb-4">Manage Force Updates and version notifications.</p>
                       </div>
+              </div>
+          </div>
+          </div>
+      )}
+
+      {/* --- FEATURE CONTROL & COSTS --- */}
+      {activeTab === 'FEATURE_CONTROL' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
                   <h3 className="text-xl font-black text-slate-800">Feature Access & Costs</h3>
               </div>
 
@@ -7344,6 +7354,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                       </div>
                   </div>
               </div>
+          </div>
           </div>
       )}
 
@@ -9084,4 +9095,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
       )}
 
       {/* --- EXPLORE BANNERS MANAGER --- */}
+    </div>
+  );
 };
