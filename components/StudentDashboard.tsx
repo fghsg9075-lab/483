@@ -740,10 +740,17 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   const claimDailyReward = () => {
       if (!canClaimReward) return;
       
-      // DYNAMIC REWARD LOGIC: 10 for Basic, 20 for Ultra, Default for Free
-      let finalReward = REWARD_AMOUNT; // Default (e.g. 3)
-      if (user.subscriptionLevel === 'BASIC' && user.isPremium) finalReward = 10;
-      if (user.subscriptionLevel === 'ULTRA' && user.isPremium) finalReward = 20;
+      // DYNAMIC REWARD LOGIC (ADMIN CONTROLLED)
+      let finalReward = settings?.loginBonusConfig?.freeBonus ?? 3;
+      if (user.subscriptionTier !== 'FREE') {
+          if (user.subscriptionLevel === 'BASIC') finalReward = settings?.loginBonusConfig?.basicBonus ?? 5;
+          if (user.subscriptionLevel === 'ULTRA') finalReward = settings?.loginBonusConfig?.ultraBonus ?? 10;
+      }
+
+      // STRICT STREAK LOGIC
+      // If Strict Mode is ON and User missed yesterday, they might get reduced reward or no reward next time
+      // Here we just grant the reward for hitting the goal TODAY.
+      // But we update streak logic elsewhere.
 
       const updatedUser = {
           ...user,
@@ -1056,6 +1063,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                       onViewNotes={(topic) => {
                           onTabChange('PDF');
                       }}
+                      onViewAnalytics={() => onTabChange('ANALYTICS')}
                   />
 
                   {/* Study Timer */}

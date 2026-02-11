@@ -5,9 +5,10 @@ import { BarChart3, Maximize2, X, ChevronRight, TrendingUp, AlertCircle, BookOpe
 interface Props {
     user: User;
     onViewNotes?: (topic: string) => void;
+    onViewAnalytics?: () => void;
 }
 
-export const PerformanceGraph: React.FC<Props> = ({ user, onViewNotes }) => {
+export const PerformanceGraph: React.FC<Props> = ({ user, onViewNotes, onViewAnalytics }) => {
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
 
@@ -95,12 +96,25 @@ export const PerformanceGraph: React.FC<Props> = ({ user, onViewNotes }) => {
                     <h2 className="text-lg font-black text-slate-900 uppercase tracking-wide">Performance Analysis</h2>
                     <p className="text-xs text-slate-500 font-bold">Detailed Report & Topic Breakdown</p>
                 </div>
-                <button
-                    onClick={() => setIsFullScreen(false)}
-                    className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
-                >
-                    <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                    {onViewAnalytics && (
+                        <button
+                            onClick={() => {
+                                setIsFullScreen(false);
+                                onViewAnalytics();
+                            }}
+                            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                        >
+                            <BarChart3 size={16} /> Full Report
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setIsFullScreen(false)}
+                        className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
@@ -165,6 +179,19 @@ export const PerformanceGraph: React.FC<Props> = ({ user, onViewNotes }) => {
                                                     </div>
                                                 ) : (
                                                     <p className="text-xs text-slate-400 italic text-center">No mistakes recorded or perfect score!</p>
+                                                )}
+
+                                                {/* CTA TO FULL ANALYSIS */}
+                                                {onViewAnalytics && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsFullScreen(false);
+                                                            onViewAnalytics(); // Ideally pass test ID but Analytics Page handles selection well enough
+                                                        }}
+                                                        className="w-full mt-4 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 flex items-center justify-center gap-2"
+                                                    >
+                                                        <BarChart3 size={14} /> View Detailed Solution
+                                                    </button>
                                                 )}
                                             </div>
                                         )}

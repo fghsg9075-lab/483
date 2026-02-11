@@ -84,10 +84,22 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
         if (onStartWeeklyTest) onStartWeeklyTest(mappedTest);
     };
 
-    const slides = [
-        { id: 1, title: "Ultra Subscription", subtitle: "Unlock Everything: Videos, PDFs & Tests", icon: <Crown className="text-yellow-400" size={40} />, btnText: "Get Access", action: () => onTabChange('STORE') },
-        // Add more static slides if needed
-    ];
+    const handleBannerAction = (banner: any) => {
+        if (!banner.actionUrl) return;
+        if (banner.actionUrl.startsWith('http')) {
+            window.open(banner.actionUrl, '_blank');
+        } else {
+            // Assume Tab ID
+            onTabChange(banner.actionUrl as StudentTab);
+        }
+    };
+
+    const userTier = user.subscriptionTier === 'FREE' ? 'FREE' : user.subscriptionTier === 'LIFETIME' ? 'PREMIUM' : 'PREMIUM';
+
+    const customBanners = (settings?.exploreBanners || [])
+        .filter(b => b.enabled)
+        .filter(b => b.targetAudience === 'ALL' || b.targetAudience === userTier)
+        .sort((a,b) => a.priority - b.priority);
 
     return (
         <div className="space-y-8 pb-24 animate-in fade-in slide-in-from-bottom-4">
@@ -122,7 +134,35 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         </div>
                     )}
 
-                    {/* B. ACTIVE CHALLENGES */}
+                    {/* B. DYNAMIC BANNERS (ADMIN) */}
+                    {customBanners.map(banner => (
+                        <div
+                            key={banner.id}
+                            onClick={() => handleBannerAction(banner)}
+                            className={`w-full h-48 p-6 relative overflow-hidden flex flex-col justify-center text-white cursor-pointer ${banner.backgroundStyle || 'bg-slate-800'}`}
+                        >
+                            {banner.imageUrl ? (
+                                <div className="absolute inset-0">
+                                    <img src={banner.imageUrl} className="w-full h-full object-cover opacity-50" alt="Banner" />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
+                                </div>
+                            ) : (
+                                <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -mr-10 -mb-10"></div>
+                            )}
+
+                            <div className="relative z-10">
+                                <h2 className="text-3xl font-black mb-2 leading-tight">{banner.title}</h2>
+                                {banner.subtitle && <p className="text-sm opacity-90 mb-4 font-medium max-w-[80%]">{banner.subtitle}</p>}
+                                {banner.actionLabel && (
+                                    <button className="bg-white text-slate-900 px-5 py-2 rounded-xl font-bold text-xs shadow-lg uppercase tracking-wider hover:scale-105 transition-transform">
+                                        {banner.actionLabel}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* C. ACTIVE CHALLENGES */}
                     {challenges20.map(c => (
                         <div key={c.id} className="w-full h-48 bg-slate-900 p-6 relative overflow-hidden flex flex-col justify-center text-white">
                             <div className="relative z-10">
@@ -142,8 +182,8 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                         </div>
                     ))}
 
-                    {/* C. AI PROMO (If Enabled) */}
-                    {settings?.isAiEnabled && (
+                    {/* D. AI PROMO (If Enabled & Not Covered by Custom) */}
+                    {settings?.isAiEnabled && !customBanners.some(b => b.actionUrl === 'AI_CHAT') && (
                         <div
                             onClick={onOpenAiChat}
                             className="w-full h-48 bg-gradient-to-r from-violet-600 to-indigo-600 p-6 relative overflow-hidden cursor-pointer flex flex-col justify-center text-white"
@@ -161,19 +201,6 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                             </div>
                         </div>
                     )}
-
-                    {/* D. HERO SLIDERS */}
-                    {slides.map(slide => (
-                         <div key={slide.id} className="w-full h-48 bg-blue-600 p-6 relative overflow-hidden flex flex-col justify-center text-white">
-                             <div className="relative z-10">
-                                 <h2 className="text-3xl font-black mb-2">{slide.title}</h2>
-                                 <p className="text-sm opacity-90 mb-4">{slide.subtitle}</p>
-                                 <button onClick={slide.action} className="bg-white text-blue-600 px-5 py-2 rounded-xl font-bold text-sm shadow-lg uppercase">
-                                     {slide.btnText}
-                                 </button>
-                             </div>
-                         </div>
-                    ))}
                 </BannerCarousel>
             </section>
 

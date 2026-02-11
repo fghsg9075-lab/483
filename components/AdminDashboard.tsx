@@ -84,7 +84,9 @@ type AdminTab =
   | 'AI_NOTES_MANAGER'
   | 'BLOGGER_HUB'
   | 'CONFIG_GATING'
-  | 'WHATSAPP_CONNECT';
+  | 'WHATSAPP_CONNECT'
+  | 'EXPLORE_BANNERS'
+  | 'FEATURE_CONTROL';
 
 interface ContentConfig {
     freeLink?: string;
@@ -2948,6 +2950,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Rocket} label="Challenge 2.0" onClick={() => setActiveTab('CHALLENGE_CREATOR_20')} color="violet" />
                           <DashboardCard icon={Video} label="Universal Playlist" onClick={() => setActiveTab('UNIVERSAL_PLAYLIST')} color="rose" />
                           <DashboardCard icon={ShoppingBag} label="💰 Pricing" onClick={() => setActiveTab('PRICING_MGMT')} color="yellow" />
+                          <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="blue" />
+                          <DashboardCard icon={Layout} label="Feature Control" onClick={() => setActiveTab('FEATURE_CONTROL')} color="purple" />
                       </>
                   )}
                   
@@ -7371,6 +7375,328 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
               <button onClick={handleSaveSettings} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2">
                   <Save size={20} /> Save Global Modes
               </button>
+          </div>
+      )}
+
+      {/* --- EXPLORE BANNERS --- */}
+      {activeTab === 'EXPLORE_BANNERS' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Explore Page Banners</h3>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                      <p className="text-sm text-blue-800 font-bold">
+                          Create custom banners for the Explore page. These can link to internal tabs (e.g., STORE, GAME) or external URLs.
+                      </p>
+                  </div>
+
+                  <button
+                      onClick={() => {
+                          const newBanner: any = {
+                              id: `banner-${Date.now()}`,
+                              title: 'New Banner',
+                              subtitle: 'Awesome Subtitle',
+                              backgroundStyle: 'bg-gradient-to-r from-blue-500 to-indigo-600',
+                              actionLabel: 'Click Me',
+                              actionUrl: 'STORE',
+                              targetAudience: 'ALL',
+                              enabled: true,
+                              priority: (localSettings.exploreBanners?.length || 0) + 1
+                          };
+                          const updated = [...(localSettings.exploreBanners || []), newBanner];
+                          setLocalSettings({ ...localSettings, exploreBanners: updated });
+                      }}
+                      className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
+                  >
+                      <Plus size={18} /> Add New Banner
+                  </button>
+
+                  <div className="grid gap-4">
+                      {(localSettings.exploreBanners || []).sort((a,b) => a.priority - b.priority).map((banner, idx) => (
+                          <div key={banner.id} className="border rounded-xl p-4 bg-slate-50 relative group">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                      <label className="text-xs font-bold text-slate-500 uppercase">Title</label>
+                                      <input
+                                          type="text"
+                                          value={banner.title}
+                                          onChange={(e) => {
+                                              const updated = [...(localSettings.exploreBanners || [])];
+                                              updated[idx].title = e.target.value;
+                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                          }}
+                                          className="w-full p-2 border rounded-lg font-bold"
+                                      />
+
+                                      <label className="text-xs font-bold text-slate-500 uppercase">Subtitle</label>
+                                      <input
+                                          type="text"
+                                          value={banner.subtitle || ''}
+                                          onChange={(e) => {
+                                              const updated = [...(localSettings.exploreBanners || [])];
+                                              updated[idx].subtitle = e.target.value;
+                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                          }}
+                                          className="w-full p-2 border rounded-lg text-sm"
+                                      />
+
+                                      <label className="text-xs font-bold text-slate-500 uppercase">Background Style (Tailwind CSS)</label>
+                                      <input
+                                          type="text"
+                                          value={banner.backgroundStyle || ''}
+                                          onChange={(e) => {
+                                              const updated = [...(localSettings.exploreBanners || [])];
+                                              updated[idx].backgroundStyle = e.target.value;
+                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                          }}
+                                          placeholder="e.g. bg-gradient-to-r from-red-500 to-orange-500"
+                                          className="w-full p-2 border rounded-lg text-xs font-mono text-blue-600"
+                                      />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                      <label className="text-xs font-bold text-slate-500 uppercase">Action Type/URL</label>
+                                      <input
+                                          type="text"
+                                          value={banner.actionUrl || ''}
+                                          onChange={(e) => {
+                                              const updated = [...(localSettings.exploreBanners || [])];
+                                              updated[idx].actionUrl = e.target.value;
+                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                          }}
+                                          placeholder="Tab ID (STORE) or https://..."
+                                          className="w-full p-2 border rounded-lg text-sm"
+                                      />
+
+                                      <label className="text-xs font-bold text-slate-500 uppercase">Button Label</label>
+                                      <input
+                                          type="text"
+                                          value={banner.actionLabel || ''}
+                                          onChange={(e) => {
+                                              const updated = [...(localSettings.exploreBanners || [])];
+                                              updated[idx].actionLabel = e.target.value;
+                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                          }}
+                                          className="w-full p-2 border rounded-lg text-sm"
+                                      />
+
+                                      <div className="flex gap-2">
+                                          <div className="flex-1">
+                                              <label className="text-xs font-bold text-slate-500 uppercase">Target Audience</label>
+                                              <select
+                                                  value={banner.targetAudience || 'ALL'}
+                                                  onChange={(e) => {
+                                                      const updated = [...(localSettings.exploreBanners || [])];
+                                                      updated[idx].targetAudience = e.target.value as any;
+                                                      setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                                  }}
+                                                  className="w-full p-2 border rounded-lg text-sm"
+                                              >
+                                                  <option value="ALL">All Users</option>
+                                                  <option value="FREE">Free Only</option>
+                                                  <option value="PREMIUM">Premium Only</option>
+                                              </select>
+                                          </div>
+                                          <div className="flex-1">
+                                              <label className="text-xs font-bold text-slate-500 uppercase">Priority</label>
+                                              <input
+                                                  type="number"
+                                                  value={banner.priority}
+                                                  onChange={(e) => {
+                                                      const updated = [...(localSettings.exploreBanners || [])];
+                                                      updated[idx].priority = parseInt(e.target.value);
+                                                      setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                                  }}
+                                                  className="w-full p-2 border rounded-lg text-sm"
+                                              />
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                      <input
+                                          type="checkbox"
+                                          checked={banner.enabled}
+                                          onChange={(e) => {
+                                              const updated = [...(localSettings.exploreBanners || [])];
+                                              updated[idx].enabled = e.target.checked;
+                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                          }}
+                                      />
+                                      Active
+                                  </label>
+                                  <button
+                                      onClick={() => {
+                                          if(confirm("Delete this banner?")) {
+                                              const updated = (localSettings.exploreBanners || []).filter((_, i) => i !== idx);
+                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
+                                          }
+                                      }}
+                                      className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
+                                  >
+                                      <Trash2 size={16} /> Delete
+                                  </button>
+                              </div>
+
+                              {/* Preview */}
+                              <div className={`mt-4 h-32 rounded-xl p-4 flex flex-col justify-center text-white ${banner.backgroundStyle || 'bg-slate-500'}`}>
+                                  <h3 className="text-xl font-black">{banner.title}</h3>
+                                  <p className="text-sm opacity-90">{banner.subtitle}</p>
+                                  {banner.actionLabel && <span className="mt-2 inline-block bg-white/20 px-3 py-1 rounded text-xs font-bold w-fit backdrop-blur-sm">{banner.actionLabel}</span>}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+              <div className="flex justify-end">
+                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
+                      <Save size={20} /> Save Changes
+                  </button>
+              </div>
+          </div>
+      )}
+
+      {/* --- FEATURE CONTROL & COSTS --- */}
+      {activeTab === 'FEATURE_CONTROL' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Feature Access & Costs</h3>
+              </div>
+
+              {/* LOGIN BONUS CONFIG */}
+              <div className="bg-green-50 p-6 rounded-2xl border border-green-200 mb-8">
+                  <h4 className="font-bold text-green-900 mb-4 flex items-center gap-2 text-lg">
+                      <Gift size={20} /> Login Bonus Configuration
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                          <label className="text-xs font-bold text-green-700 uppercase">Free User Bonus</label>
+                          <input
+                              type="number"
+                              value={localSettings.loginBonusConfig?.freeBonus ?? 2}
+                              onChange={(e) => setLocalSettings({
+                                  ...localSettings,
+                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), freeBonus: Number(e.target.value) }
+                              })}
+                              className="w-full p-2 border rounded-lg font-bold"
+                          />
+                      </div>
+                      <div>
+                          <label className="text-xs font-bold text-green-700 uppercase">Basic User Bonus</label>
+                          <input
+                              type="number"
+                              value={localSettings.loginBonusConfig?.basicBonus ?? 5}
+                              onChange={(e) => setLocalSettings({
+                                  ...localSettings,
+                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), basicBonus: Number(e.target.value) }
+                              })}
+                              className="w-full p-2 border rounded-lg font-bold"
+                          />
+                      </div>
+                      <div>
+                          <label className="text-xs font-bold text-green-700 uppercase">Ultra User Bonus</label>
+                          <input
+                              type="number"
+                              value={localSettings.loginBonusConfig?.ultraBonus ?? 10}
+                              onChange={(e) => setLocalSettings({
+                                  ...localSettings,
+                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), ultraBonus: Number(e.target.value) }
+                              })}
+                              className="w-full p-2 border rounded-lg font-bold"
+                          />
+                      </div>
+                      <div className="flex flex-col justify-end">
+                          <label className="flex items-center gap-2 bg-white p-2 rounded-lg border cursor-pointer">
+                              <input
+                                  type="checkbox"
+                                  checked={localSettings.loginBonusConfig?.strictStreak !== false}
+                                  onChange={(e) => setLocalSettings({
+                                      ...localSettings,
+                                      loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), strictStreak: e.target.checked }
+                                  })}
+                                  className="w-5 h-5 accent-green-600"
+                              />
+                              <span className="text-sm font-bold text-slate-700">Strict Streak Mode</span>
+                          </label>
+                          <p className="text-[10px] text-green-700 mt-1">If active, breaking streak forfeits next bonus.</p>
+                      </div>
+                  </div>
+              </div>
+
+              {/* FEATURE COSTS MATRIX */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg">
+                      <Banknote size={20} className="text-blue-600"/> Feature Costs & Access
+                  </h4>
+                  <p className="text-sm text-slate-500 mb-4">Set 0 for Free. Set -1 to Lock completely.</p>
+
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm border-collapse">
+                          <thead className="bg-slate-100 text-slate-500 uppercase text-xs font-bold">
+                              <tr>
+                                  <th className="p-3 border">Feature</th>
+                                  <th className="p-3 border text-center">Free User Cost</th>
+                                  <th className="p-3 border text-center">Basic User Cost</th>
+                                  <th className="p-3 border text-center">Ultra User Cost</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                              {[
+                                  { id: 'mcq_test', label: 'MCQ Test Entry' },
+                                  { id: 'mcq_analysis', label: 'Analysis Unlock' },
+                                  { id: 'ai_chat', label: 'AI Chat Message' },
+                                  { id: 'pdf_view', label: 'PDF View' },
+                                  { id: 'video_view', label: 'Video Play' },
+                                  { id: 'game_spin', label: 'Game Spin' },
+                              ].map((feat) => {
+                                  // Helper to get/set cost
+                                  const getCost = (tier: 'free' | 'basic' | 'ultra') => {
+                                      const entry = (localSettings.featureCosts || []).find(f => f.featureId === feat.id);
+                                      return entry ? entry[`${tier}Cost`] : 0;
+                                  };
+                                  const setCost = (tier: 'free' | 'basic' | 'ultra', val: number) => {
+                                      const current = localSettings.featureCosts || [];
+                                      const existingIdx = current.findIndex(f => f.featureId === feat.id);
+                                      const newEntry = existingIdx >= 0 ? { ...current[existingIdx] } : { featureId: feat.id, freeCost: 0, basicCost: 0, ultraCost: 0 };
+                                      newEntry[`${tier}Cost`] = val;
+
+                                      const updated = existingIdx >= 0
+                                          ? current.map((c, i) => i === existingIdx ? newEntry : c)
+                                          : [...current, newEntry];
+                                      setLocalSettings({ ...localSettings, featureCosts: updated });
+                                  };
+
+                                  return (
+                                      <tr key={feat.id} className="hover:bg-slate-50">
+                                          <td className="p-3 border font-bold text-slate-700">{feat.label}</td>
+                                          <td className="p-3 border text-center">
+                                              <input type="number" value={getCost('free')} onChange={e => setCost('free', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
+                                          </td>
+                                          <td className="p-3 border text-center">
+                                              <input type="number" value={getCost('basic')} onChange={e => setCost('basic', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
+                                          </td>
+                                          <td className="p-3 border text-center">
+                                              <input type="number" value={getCost('ultra')} onChange={e => setCost('ultra', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
+                      <Save size={20} /> Save Configuration
+                  </button>
+              </div>
           </div>
       )}
 

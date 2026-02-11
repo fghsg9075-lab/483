@@ -266,6 +266,39 @@ export interface BannerSettings {
     textColor?: string;
 }
 
+export interface ExploreBanner {
+    id: string;
+    title: string;
+    subtitle?: string;
+    imageUrl?: string;
+    backgroundStyle?: string; // CSS background property (gradient or color)
+    actionUrl?: string; // Internal tab ID or External URL
+    actionLabel?: string;
+    targetAudience?: 'ALL' | 'FREE' | 'PREMIUM';
+    enabled: boolean;
+    priority: number;
+}
+
+export interface FeatureAccessConfig {
+    featureId: string;
+    label: string;
+    allowedTiers: ('FREE' | 'BASIC' | 'ULTRA')[];
+}
+
+export interface FeatureCostConfig {
+    featureId: string;
+    freeCost: number;
+    basicCost: number;
+    ultraCost: number;
+}
+
+export interface LoginBonusConfig {
+    freeBonus: number;
+    basicBonus: number;
+    ultraBonus: number;
+    strictStreak: boolean; // If true, breaking streak forfeits next day bonus or resets heavily
+}
+
 export interface SystemSettings {
   appName: string; // Long Name
   mcqTestLimitFree?: number;
@@ -360,6 +393,10 @@ export interface SystemSettings {
       MCQ?: boolean;
       AUDIO?: boolean;
   };
+  exploreBanners?: ExploreBanner[]; // NEW: Dynamic Explore Banners
+  featureAccess?: FeatureAccessConfig[]; // NEW: Granular Feature Control
+  featureCosts?: FeatureCostConfig[]; // NEW: Granular Cost Control
+  loginBonusConfig?: LoginBonusConfig; // NEW: Login Bonus Settings
   storageCapacity?: string;
   isPaymentEnabled?: boolean;
   upiId?: string;

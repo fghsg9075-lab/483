@@ -15,6 +15,7 @@ export const StudentSidebar: React.FC<Props> = ({ isOpen, onClose, onNavigate, u
     const menuItems: { id: StudentTab, icon: any, label: string, color: string }[] = [
         { id: 'REDEEM', icon: Gift, label: 'Redeem', color: 'text-pink-600' },
         { id: 'GAME', icon: Gamepad2, label: 'Game', color: 'text-orange-600' },
+        { id: 'ANALYTICS', icon: Trophy, label: 'Test Analysis', color: 'text-teal-600' },
         { id: 'SUB_HISTORY', icon: CreditCard, label: 'My Plan', color: 'text-blue-600' },
         { id: 'STORE', icon: Crown, label: 'Premium Store', color: 'text-yellow-600' },
         { id: 'HISTORY', icon: History, label: 'History', color: 'text-slate-600' },
