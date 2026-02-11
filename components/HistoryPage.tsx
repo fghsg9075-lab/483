@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { LessonContent, User, SystemSettings, UsageHistoryEntry } from '../types';
-import { BookOpen, Calendar, ChevronDown, ChevronUp, Trash2, Search, FileText, CheckCircle2, Lock, AlertCircle, Folder } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LessonContent, User, SystemSettings, UsageHistoryEntry, SubscriptionHistoryEntry } from '../types';
+import { BookOpen, Calendar, ChevronDown, Trash2, Search, FileText, CheckCircle2, AlertCircle, Folder, History, CreditCard, LogIn, Clock, DollarSign, Crown } from 'lucide-react';
 import { LessonView } from './LessonView';
 import { saveUserToLive } from '../firebase';
 import { CustomAlert, CustomConfirm } from './CustomDialogs';
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) => {
-  const [activeTab, setActiveTab] = useState<'ACTIVITY' | 'SAVED'>('ACTIVITY');
+  const [activeTab, setActiveTab] = useState<'STUDY' | 'TRANSACTIONS' | 'LOGINS' | 'SAVED'>('STUDY');
   
   // SAVED NOTES STATE
   const [history, setHistory] = useState<LessonContent[]>([]);
@@ -21,6 +21,9 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) =
   
   // USAGE HISTORY STATE (ACTIVITY LOG)
   const [usageLog, setUsageLog] = useState<UsageHistoryEntry[]>([]);
+
+  // ONLINE DURATION HISTORY (From LocalStorage)
+  const [onlineHistory, setOnlineHistory] = useState<{date: string, seconds: number}[]>([]);
 
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string}>({isOpen: false, message: ''});
   const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, message: string, onConfirm: () => void}>({
@@ -42,39 +45,36 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) =
     if (user.usageHistory) {
         setUsageLog([...user.usageHistory].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
     }
-  }, [user.usageHistory]);
+
+    // Load Online Duration History from LocalStorage
+    const durationLogs: {date: string, seconds: number}[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`activity_${user.id}_`)) {
+            const dateStr = key.replace(`activity_${user.id}_`, '');
+            const seconds = parseInt(localStorage.getItem(key) || '0');
+            if (seconds > 0) {
+                durationLogs.push({ date: dateStr, seconds });
+            }
+        }
+    }
+    // Sort by Date Descending
+    durationLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setOnlineHistory(durationLogs);
+
+  }, [user.usageHistory, user.id]);
 
   const checkAvailability = (log: any) => {
-    // If it's a direct URL log (like from content generation), it's always available
     if (log.videoUrl || log.pdfUrl || log.content) return true;
-
     if (!settings?.subjects) return true;
     const subjectData = settings.subjects.find(s => s.name === log.subject);
     if (!subjectData) return false;
-
     const chapters = subjectData.chapters || [];
     const chapter = chapters.find(c => c.title === log.itemTitle || c.id === log.itemId);
     if (!chapter) return false;
-
     if (log.type === 'VIDEO') return !!chapter.videoPlaylist;
     if (log.type === 'PDF') return !!chapter.pdfLink;
     return true;
-  };
-
-  const recordUsage = (type: 'VIDEO' | 'PDF' | 'MCQ' | 'AUDIO', item: any) => {
-    const entry: any = {
-        id: `usage-${Date.now()}`,
-        type,
-        itemId: item.id,
-        itemTitle: item.title,
-        subject: item.subjectName || 'General',
-        durationSeconds: 0,
-        timestamp: new Date().toISOString()
-    };
-    const updatedHistory = [entry, ...(user.usageHistory || [])];
-    const updatedUser: User = { ...user, usageHistory: updatedHistory } as User;
-    onUpdateUser(updatedUser);
-    saveUserToLive(updatedUser);
   };
 
   const executeOpenItem = (item: LessonContent, cost: number) => {
@@ -88,19 +88,16 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) =
   };
 
   const handleOpenItem = (item: LessonContent) => {
-      // 1. Check Cost
-      // If it's a VIDEO or PDF coming from History, it should follow pricing too
       let cost = 0;
       if (item.type.includes('MCQ')) {
           cost = settings?.mcqHistoryCost ?? 1;
       } else if (item.type === 'VIDEO_LECTURE') {
-          cost = settings?.videoHistoryCost ?? 2; // Default to 2 if not set
+          cost = settings?.videoHistoryCost ?? 2;
       } else if (item.type === 'NOTES_SIMPLE' || item.type === 'NOTES_PREMIUM') {
-          cost = settings?.pdfHistoryCost ?? 1; // Default to 1 if not set
+          cost = settings?.pdfHistoryCost ?? 1;
       }
       
       if (cost > 0) {
-          // 2. Check Exemption (Admin or Premium)
           const isExempt = user.role === 'ADMIN' || 
                           (user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date());
           
@@ -109,7 +106,6 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) =
                   setAlertConfig({isOpen: true, message: `Insufficient Credits! Viewing ${item.title} costs ${cost} coins.`});
                   return;
               }
-
               setConfirmConfig({
                   isOpen: true,
                   message: `Re-opening ${item.title} will cost ${cost} Credits. Proceed?`,
@@ -118,7 +114,6 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) =
               return;
           }
       }
-
       executeOpenItem(item, 0);
   };
 
@@ -131,23 +126,155 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) =
       if (seconds < 60) return `${seconds}s`;
       const m = Math.floor(seconds / 60);
       const s = seconds % 60;
+      const h = Math.floor(m / 60);
+      if (h > 0) return `${h}h ${m % 60}m`;
       return `${m}m ${s}s`;
+  };
+
+  const renderStudyLog = () => {
+      const studyLogs = usageLog.filter(l => ['VIDEO', 'PDF', 'MCQ', 'AUDIO', 'GAME'].includes(l.type));
+
+      if (studyLogs.length === 0) return <p className="text-center py-12 text-slate-400">No study activity recorded yet.</p>;
+
+      return Object.entries(studyLogs.reduce((acc: any, log) => {
+          const d = new Date(log.timestamp);
+          const year = d.getFullYear();
+          const month = d.toLocaleString('default', { month: 'long' });
+          if (!acc[year]) acc[year] = {};
+          if (!acc[year][month]) acc[year][month] = [];
+          acc[year][month].push(log);
+          return acc;
+      }, {})).sort((a,b) => Number(b[0]) - Number(a[0])).map(([year, months]: any) => (
+          <div key={year} className="mb-4">
+              <h4 className="text-xs font-black text-slate-400 uppercase mb-2 ml-1">{year}</h4>
+              {Object.entries(months).map(([month, logs]: any) => (
+                  <div key={month} className="mb-3">
+                      <h5 className="font-bold text-slate-600 text-sm mb-2 sticky top-0 bg-slate-50 p-2 rounded-lg">{month}</h5>
+                      <div className="space-y-2 pl-2 border-l-2 border-slate-200">
+                          {logs.map((log: any, i: number) => (
+                               <div key={i} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+                                   <div className="flex items-center gap-3">
+                                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs ${
+                                            log.type === 'VIDEO' ? 'bg-red-500' :
+                                            log.type === 'PDF' ? 'bg-blue-500' :
+                                            log.type === 'AUDIO' ? 'bg-green-500' :
+                                            log.type === 'GAME' ? 'bg-orange-500' : 'bg-purple-500'
+                                        }`}>
+                                            {log.type === 'VIDEO' ? '▶' : log.type === 'PDF' ? '📄' : log.type === 'AUDIO' ? '🎵' : log.type === 'GAME' ? '🎰' : '📝'}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-slate-800 text-sm line-clamp-1">{log.itemTitle}</p>
+                                            <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                                        </div>
+                                   </div>
+                                   {log.type !== 'MCQ' && <span className="text-xs font-bold text-slate-600">{formatDuration(log.durationSeconds || 0)}</span>}
+                                   {log.type === 'MCQ' && log.score !== undefined && <span className="text-xs font-bold text-indigo-600">{Math.round((log.score/log.totalQuestions)*100)}%</span>}
+                               </div>
+                          ))}
+                      </div>
+                  </div>
+              ))}
+          </div>
+      ));
+  };
+
+  const renderTransactions = () => {
+      // Merge Subscription History & Credit Logs
+      const subLogs = (user.subscriptionHistory || []).map(s => ({
+          id: s.id,
+          type: 'SUBSCRIPTION',
+          title: `${s.tier} ${s.level} Plan`,
+          amount: s.price,
+          date: s.startDate,
+          details: `Granted by ${s.grantSource}`
+      }));
+
+      const creditLogs = usageLog.filter(l => ['PURCHASE', 'CREDIT_SPEND', 'CREDIT_ADD'].includes(l.type)).map(l => ({
+          id: l.id,
+          type: l.type,
+          title: l.itemTitle || (l.type === 'CREDIT_SPEND' ? 'Spent on Content' : 'Credits Added'),
+          amount: l.amount || 0,
+          date: l.timestamp,
+          details: l.subject
+      }));
+
+      const allTrans = [...subLogs, ...creditLogs].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      if (allTrans.length === 0) return <p className="text-center py-12 text-slate-400">No transaction history.</p>;
+
+      return (
+          <div className="space-y-3">
+              {allTrans.map((t, i) => (
+                  <div key={i} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
+                              t.type === 'SUBSCRIPTION' ? 'bg-purple-600' :
+                              t.type === 'CREDIT_ADD' || t.type === 'PURCHASE' ? 'bg-green-600' : 'bg-red-500'
+                          }`}>
+                              {t.type === 'SUBSCRIPTION' ? <Crown size={14} /> : <DollarSign size={14} />}
+                          </div>
+                          <div>
+                              <p className="font-bold text-slate-800 text-sm">{t.title}</p>
+                              <p className="text-[10px] text-slate-500">{new Date(t.date).toLocaleString()} • {t.details}</p>
+                          </div>
+                      </div>
+                      <div className={`text-sm font-bold ${
+                          t.type === 'CREDIT_SPEND' ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                          {t.type === 'CREDIT_SPEND' ? '-' : '+'}{t.amount} {t.type === 'SUBSCRIPTION' ? 'INR' : 'CR'}
+                      </div>
+                  </div>
+              ))}
+          </div>
+      );
+  };
+
+  const renderLogins = () => {
+      const logins = usageLog.filter(l => l.type === 'LOGIN');
+      const combined = [
+          ...logins.map(l => ({ type: 'LOGIN', date: l.timestamp, val: 0 })),
+          ...onlineHistory.map(h => ({ type: 'ONLINE', date: h.date, val: h.seconds }))
+      ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      if (combined.length === 0) return <p className="text-center py-12 text-slate-400">No login activity recorded.</p>;
+
+      return (
+          <div className="space-y-3">
+              {combined.map((item, i) => {
+                  const isLogin = item.type === 'LOGIN';
+                  // For Online Date, we might have just Date string "Fri Oct 20 2023", need to handle it.
+                  // Login has full ISO string.
+                  const displayDate = isLogin ? new Date(item.date).toLocaleString() : item.date;
+
+                  return (
+                      <div key={i} className={`p-3 rounded-xl border flex items-center justify-between ${isLogin ? 'bg-white border-slate-100' : 'bg-blue-50 border-blue-100'}`}>
+                          <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${isLogin ? 'bg-slate-600' : 'bg-blue-500'}`}>
+                                  {isLogin ? <LogIn size={14} /> : <Clock size={14} />}
+                              </div>
+                              <div>
+                                  <p className="font-bold text-slate-800 text-sm">{isLogin ? 'Login Detected' : 'Daily Online Duration'}</p>
+                                  <p className="text-[10px] text-slate-500">{displayDate}</p>
+                              </div>
+                          </div>
+                          {!isLogin && (
+                              <span className="text-xs font-black text-blue-600">{formatDuration(item.val)}</span>
+                          )}
+                      </div>
+                  );
+              })}
+          </div>
+      );
   };
 
   if (selectedLesson) {
       return (
           <div className="animate-in slide-in-from-right duration-300">
-              <button
-                onClick={() => setSelectedLesson(null)}
-                className="mb-4 text-blue-600 font-bold hover:underline flex items-center gap-1"
-              >
-                  &larr; Back to History
-              </button>
-              {/* Reuse LessonView but mock props usually passed from API */}
+              <button onClick={() => setSelectedLesson(null)} className="mb-4 text-blue-600 font-bold hover:underline flex items-center gap-1">&larr; Back to History</button>
               <LessonView 
                  content={selectedLesson}
                  subject={{id: 'hist', name: selectedLesson.subjectName, icon: 'book', color: 'bg-slate-100'} as any} 
-                 classLevel={'10' as any} // Display only
+                 classLevel={'10' as any}
                  chapter={{id: 'hist', title: selectedLesson.title} as any}
                  loading={false}
                  onBack={() => setSelectedLesson(null)}
@@ -159,299 +286,51 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings }) =
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <CustomAlert
-            isOpen={alertConfig.isOpen}
-            message={alertConfig.message}
-            onClose={() => setAlertConfig({...alertConfig, isOpen: false})}
-        />
-        <CustomConfirm
-            isOpen={confirmConfig.isOpen}
-            title="Confirm Action"
-            message={confirmConfig.message}
-            onConfirm={() => {
-                confirmConfig.onConfirm();
-                setConfirmConfig({...confirmConfig, isOpen: false});
-            }}
-            onCancel={() => setConfirmConfig({...confirmConfig, isOpen: false})}
-        />
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-20">
+        <CustomAlert isOpen={alertConfig.isOpen} message={alertConfig.message} onClose={() => setAlertConfig({...alertConfig, isOpen: false})} />
+        <CustomConfirm isOpen={confirmConfig.isOpen} title="Confirm Action" message={confirmConfig.message} onConfirm={() => {confirmConfig.onConfirm(); setConfirmConfig({...confirmConfig, isOpen: false});}} onCancel={() => setConfirmConfig({...confirmConfig, isOpen: false})} />
         
-        <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                 <FileText className="text-blue-600" /> Study History
+        <div className="flex justify-between items-center mb-4 px-1">
+            <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                 <History className="text-blue-600" /> History & Logs
             </h3>
         </div>
 
-        {/* TABS */}
-        <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
-            <button
-                onClick={() => setActiveTab('ACTIVITY')}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'ACTIVITY' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-                Activity Log
-            </button>
-            <button
-                onClick={() => setActiveTab('SAVED')}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'SAVED' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-                Saved Notes
-            </button>
+        {/* SCROLLABLE TABS */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide px-1">
+            <button onClick={() => setActiveTab('STUDY')} className={`flex-shrink-0 px-4 py-2 text-xs font-bold rounded-full border ${activeTab === 'STUDY' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>Study Log</button>
+            <button onClick={() => setActiveTab('SAVED')} className={`flex-shrink-0 px-4 py-2 text-xs font-bold rounded-full border ${activeTab === 'SAVED' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>Saved Notes</button>
+            <button onClick={() => setActiveTab('TRANSACTIONS')} className={`flex-shrink-0 px-4 py-2 text-xs font-bold rounded-full border ${activeTab === 'TRANSACTIONS' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>Transactions</button>
+            <button onClick={() => setActiveTab('LOGINS')} className={`flex-shrink-0 px-4 py-2 text-xs font-bold rounded-full border ${activeTab === 'LOGINS' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>Login & Usage</button>
         </div>
 
-        {activeTab === 'ACTIVITY' && (
-            <div className="space-y-4">
-                {usageLog.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
-                        <p>No study activity recorded yet.</p>
+        <div className="px-1">
+            {activeTab === 'STUDY' && renderStudyLog()}
+            {activeTab === 'TRANSACTIONS' && renderTransactions()}
+            {activeTab === 'LOGINS' && renderLogins()}
+            {activeTab === 'SAVED' && (
+                <>
+                    <div className="relative mb-6">
+                        <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+                        <input type="text" placeholder="Search your notes..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                     </div>
-                ) : (
-                    // GROUPED VIEW
-                    Object.entries(usageLog.reduce((acc: any, log) => {
-                        const d = new Date(log.timestamp);
-                        const year = d.getFullYear();
-                        const month = d.toLocaleString('default', { month: 'long' });
-                        if (!acc[year]) acc[year] = {};
-                        if (!acc[year][month]) acc[year][month] = [];
-                        acc[year][month].push(log);
-                        return acc;
-                    }, {})).sort((a,b) => Number(b[0]) - Number(a[0])).map(([year, months]: any) => (
-                        <div key={year} className="mb-4">
-                            <h4 className="text-sm font-black text-slate-400 uppercase mb-2 ml-1">{year} Files</h4>
-                            {Object.entries(months).map(([month, logs]: any) => (
-                                <div key={month} className="mb-3">
-                                    <details open className="group">
-                                        <summary className="flex items-center gap-2 cursor-pointer bg-slate-200 p-3 rounded-xl mb-2 list-none hover:bg-slate-300 transition-colors">
-                                            <Folder className="text-slate-600" size={18} />
-                                            <span className="font-bold text-slate-700 text-sm">{month}</span>
-                                            <span className="text-xs font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full ml-auto">{logs.length}</span>
-                                            <ChevronDown size={16} className="text-slate-500 group-open:rotate-180 transition-transform" />
-                                        </summary>
-                                        <div className="pl-2 space-y-2">
-                                            {logs.map((log: any, i: number) => (
-                                                <div
-                                                    key={i}
-                                                    onClick={() => {
-                                                        // Create a pseudo-item to trigger navigation logic
-                                                        // Find real data from settings to ensure content is available
-                                                        let pseudoItem: LessonContent = {
-                                                            id: log.itemId,
-                                                            title: log.itemTitle,
-                                                            subtitle: log.subject,
-                                                            content: log.content || '',
-                                                            type: log.type === 'VIDEO' ? 'VIDEO_LECTURE' : log.type === 'MCQ' ? 'MCQ_ANALYSIS' : log.type === 'PDF' ? 'PDF_VIEWER' : 'NOTES_SIMPLE',
-                                                            dateCreated: log.timestamp,
-                                                            subjectName: log.subject,
-                                                            mcqData: log.mcqData,
-                                                            videoUrl: log.videoUrl,
-                                                            pdfUrl: log.pdfUrl
-                                                        };
-
-                                                        // 1. Priority: Use data already in the log (especially for AI generated content)
-                                                        if (log.type === 'PDF' && log.pdfUrl) {
-                                                            pseudoItem.pdfUrl = log.pdfUrl;
-                                                            pseudoItem.content = log.pdfUrl;
-                                                            pseudoItem.type = 'PDF_VIEWER';
-                                                        } else if (log.type === 'VIDEO' && log.videoUrl) {
-                                                            pseudoItem.videoUrl = log.videoUrl;
-                                                            pseudoItem.content = log.videoUrl;
-                                                            pseudoItem.type = 'VIDEO_LECTURE';
-                                                        }
-
-                                                        // 2. Fallback: Try to find actual content links from settings to fix "No Content" error
-                                                        if (!pseudoItem.pdfUrl && !pseudoItem.videoUrl && settings?.subjects) {
-                                                            const subjectData = settings.subjects.find(s => s.name === log.subject);
-                                                            if (subjectData) {
-                                                                const chapter = subjectData.chapters?.find(c => c.title === log.itemTitle || c.id === log.itemId);
-                                                                if (chapter) {
-                                                                    if (log.type === 'VIDEO') {
-                                                                        pseudoItem.videoPlaylist = chapter.videoPlaylist;
-                                                                        // If it's a playlist, LessonView might need the first video
-                                                                        if (chapter.videoPlaylist && chapter.videoPlaylist.length > 0) {
-                                                                            pseudoItem.videoUrl = chapter.videoPlaylist[0].videoUrl;
-                                                                            pseudoItem.content = chapter.videoPlaylist[0].videoUrl;
-                                                                            // Add this for direct URL check in LessonView
-                                                                            pseudoItem.type = 'VIDEO_LECTURE';
-                                                                        } else if (chapter.videoUrl) {
-                                                                            pseudoItem.videoUrl = chapter.videoUrl;
-                                                                            pseudoItem.content = chapter.videoUrl;
-                                                                            pseudoItem.type = 'VIDEO_LECTURE';
-                                                                        }
-                                                                    }
-                                                                    if (log.type === 'PDF') {
-                                                                        pseudoItem.pdfUrl = chapter.pdfLink;
-                                                                        pseudoItem.content = chapter.pdfLink; // Used as fallback
-                                                                        pseudoItem.type = 'PDF_VIEWER'; // Match LessonView expectation
-                                                                    }
-                                                                    if (log.type === 'MCQ') {
-                                                                        pseudoItem.type = 'MCQ_ANALYSIS';
-                                                                        pseudoItem.mcqData = chapter.mcqData || log.mcqData;
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-
-                                                        handleOpenItem(pseudoItem);
-                                                    }}
-                                                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all group"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm ${
-                                                            log.type === 'VIDEO' ? 'bg-red-500' :
-                                                            log.type === 'PDF' ? 'bg-blue-500' :
-                                                            log.type === 'AUDIO' ? 'bg-green-500' :
-                                                            log.type === 'GAME' ? 'bg-orange-500' :
-                                                            log.type === 'PURCHASE' ? 'bg-emerald-500' :
-                                                            log.type === 'MCQ' ? 'bg-purple-500' : 'bg-slate-500'
-                                                        }`}>
-                                                            {log.type === 'VIDEO' ? '▶' : log.type === 'PDF' ? '📄' : log.type === 'AUDIO' ? '🎵' : log.type === 'GAME' ? '🎰' : log.type === 'PURCHASE' ? '💰' : '👁️'}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="font-bold text-slate-800 text-sm line-clamp-1 group-hover:text-blue-700">{log.itemTitle}</p>
-                                                                {log.type === 'MCQ' && log.score !== undefined && (
-                                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                                                                        (log.score / (log.totalQuestions || 1) * 100) >= 90 ? 'bg-green-100 text-green-700' :
-                                                                        (log.score / (log.totalQuestions || 1) * 100) >= 75 ? 'bg-blue-100 text-blue-700' :
-                                                                        (log.score / (log.totalQuestions || 1) * 100) >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                                                                        'bg-red-100 text-red-700'
-                                                                    }`}>
-                                                                        {(log.score / (log.totalQuestions || 1) * 100) >= 90 ? 'Excellent' :
-                                                                        (log.score / (log.totalQuestions || 1) * 100) >= 75 ? 'Good' :
-                                                                        (log.score / (log.totalQuestions || 1) * 100) >= 50 ? 'Average' : 'Bad'}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-xs text-slate-500">
-                                                                {log.type === 'PURCHASE' ? 'Transaction' : log.type === 'GAME' ? 'Play Zone' : log.subject} • {new Date(log.timestamp).toLocaleDateString()}
-                                                            </p>
-                                                            <div className="flex items-center gap-2 mt-1">
-                                                                {log.type !== 'PURCHASE' && log.type !== 'GAME' && (
-                                                                    <>
-                                                                        {checkAvailability(log) ? (
-                                                                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1 border border-emerald-100">
-                                                                                <CheckCircle2 size={10} /> Available
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded flex items-center gap-1 border border-rose-100">
-                                                                                <AlertCircle size={10} /> Not Available
-                                                                            </span>
-                                                                        ) || null}
-                                                                    </>
-                                                                )}
-                                                                {log.type === 'MCQ' && log.score !== undefined && (
-                                                                    <p className="text-[10px] font-black text-indigo-600">Score: {Math.round((log.score / (log.totalQuestions || 1)) * 100)}% ({log.score}/{log.totalQuestions})</p>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        {log.type === 'MCQ' ? (
-                                                            <div className="flex flex-col items-end gap-1">
-                                                                {!user.isPremium && user.role !== 'ADMIN' && (
-                                                                    <span className="text-[9px] font-black text-slate-400 italic">Cost: {settings?.mcqHistoryCost ?? 1} CR</span>
-                                                                )}
-                                                            </div>
-                                                        ) : log.type === 'GAME' ? (
-                                                            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full border border-orange-100">Played</span>
-                                                        ) : log.type === 'PURCHASE' ? (
-                                                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">Success</span>
-                                                        ) : (
-                                                            <div className="flex flex-col items-end">
-                                                                <p className="font-black text-slate-700 text-sm">{formatDuration(log.durationSeconds || 0)}</p>
-                                                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Time Spent</p>
-                                                                {!user.isPremium && user.role !== 'ADMIN' && (
-                                                                    <span className="text-[9px] font-black text-slate-400 italic">
-                                                                        Re-open: {log.type === 'VIDEO' ? (settings?.videoHistoryCost ?? 2) : (settings?.pdfHistoryCost ?? 1)} CR
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </details>
+                    {filteredHistory.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 bg-slate-50 rounded-xl border border-slate-200"><BookOpen size={48} className="mx-auto mb-3 opacity-30" /><p>No saved notes yet.</p></div>
+                    ) : (
+                        <div className="space-y-4">
+                            {filteredHistory.map((item) => (
+                                <div key={item.id} onClick={() => handleOpenItem(item)} className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-all cursor-pointer group relative">
+                                    <div className="p-4">
+                                        <h4 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">{item.title}</h4>
+                                        <p className="text-xs text-slate-500 mt-1">{item.subjectName} • {new Date(item.dateCreated).toLocaleDateString()}</p>
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                    ))
-                )}
-            </div>
-        )}
-
-        {activeTab === 'SAVED' && (
-            <>
-                <div className="relative mb-6">
-                    <Search className="absolute left-3 top-3 text-slate-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search your notes..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    />
-                </div>
-
-                {filteredHistory.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
-                        <BookOpen size={48} className="mx-auto mb-3 opacity-30" />
-                        <p>No saved notes yet. Start learning to build your library!</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {filteredHistory.map((item) => (
-                            <div
-                                key={item.id}
-                                onClick={() => handleOpenItem(item)}
-                                className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-all cursor-pointer group relative"
-                            >
-                                {/* COST BADGE */}
-                                {!user.isPremium && item.type.includes('MCQ') && (settings?.mcqHistoryCost ?? 1) > 0 && (
-                                    <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 text-[9px] font-bold px-2 py-1 rounded-full flex items-center gap-1 z-10 border border-yellow-200">
-                                        <Lock size={8} /> Pay {settings?.mcqHistoryCost ?? 1} CR
-                                    </div>
-                                )}
-
-                                <div className="p-4 flex justify-between items-start">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                                item.score >= 90 ? 'bg-green-100 text-green-700' :
-                                                item.score >= 75 ? 'bg-blue-100 text-blue-700' :
-                                                item.score >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                                                'bg-red-100 text-red-700'
-                                            }`}>
-                                                {item.score >= 90 ? 'Excellent' :
-                                                 item.score >= 75 ? 'Good' :
-                                                 item.score >= 50 ? 'Average' : 'Bad'}
-                                            </span>
-                                            <h4 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
-                                                {item.title}
-                                            </h4>
-                                        </div>
-                                        <div className="flex items-center gap-4 text-xs text-slate-400 mt-1">
-                                            <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.dateCreated).toLocaleDateString()}</div>
-                                            <div className="font-bold text-blue-600">{item.score}% Score</div>
-                                            <div className={`font-bold ${item.score >= 60 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {item.score >= 60 ? 'Passed' : 'Needs Review'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Preview Footer */}
-                                <div className="bg-slate-50 px-4 py-2 border-t border-slate-100 flex justify-between items-center">
-                                     <span className="text-xs text-slate-500 font-medium">Click to read full note</span>
-                                     <div className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                         <ChevronDown size={16} className="-rotate-90" />
-                                     </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </>
-        )}
+                    )}
+                </>
+            )}
+        </div>
     </div>
   );
 };

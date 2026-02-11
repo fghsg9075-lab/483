@@ -287,46 +287,20 @@ const App: React.FC = () => {
       let hasUpdates = false;
       let newReward: PendingReward | null = null;
 
-      // 1. Daily Login Bonus (Configurable)
+      // 1. Daily Login Bonus (10 Coins)
       const lastRewardDate = state.user.lastLoginRewardDate ? new Date(state.user.lastLoginRewardDate).toDateString() : '';
       if (lastRewardDate !== today && !activeReward) {
-          // Check Streak for Strict Mode
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const lastLogin = state.user.lastLoginDate ? new Date(state.user.lastLoginDate).toDateString() : '';
+          updatedUser.credits = (updatedUser.credits || 0) + 10;
+          updatedUser.lastLoginRewardDate = new Date().toISOString();
+          hasUpdates = true;
           
-          let streakBroken = false;
-          if (state.user.lastLoginDate && lastLogin !== yesterday.toDateString() && lastLogin !== today) {
-              streakBroken = true;
-          }
-
-          if (state.settings.loginBonusConfig?.strictStreak && streakBroken) {
-              // Reset Streak logic handled in updateUserStatus usually, but here we enforce penalty
-              // User request: "strict katega tab next day bonus nahi mikega" -> If streak broken, NO BONUS TODAY
-              console.log("Strict Mode: Streak Broken. No Bonus.");
-              updatedUser.lastLoginRewardDate = new Date().toISOString(); // Mark as checked
-              hasUpdates = true;
-              // No reward set
-          } else {
-              // Grant Bonus based on Tier
-              let bonusAmount = state.settings.loginBonusConfig?.freeBonus ?? 2;
-              if (state.user.subscriptionTier !== 'FREE') {
-                  if (state.user.subscriptionLevel === 'BASIC') bonusAmount = state.settings.loginBonusConfig?.basicBonus ?? 5;
-                  if (state.user.subscriptionLevel === 'ULTRA') bonusAmount = state.settings.loginBonusConfig?.ultraBonus ?? 10;
-              }
-
-              updatedUser.credits = (updatedUser.credits || 0) + bonusAmount;
-              updatedUser.lastLoginRewardDate = new Date().toISOString();
-              hasUpdates = true;
-
-              newReward = {
-                  id: `login-bonus-${today}`,
-                  type: 'COINS',
-                  amount: bonusAmount,
-                  label: 'Daily Login Bonus',
-                  expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
-              };
-          }
+          newReward = {
+              id: `login-bonus-${today}`,
+              type: 'COINS',
+              amount: 10,
+              label: 'Daily Login Bonus',
+              expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
+          };
       }
 
       // 2. Check Pending Unlocks (Prizes)
@@ -982,29 +956,12 @@ const App: React.FC = () => {
 
     // --- SPECIFIC CONTENT LAUNCH (FROM NEW DASHBOARD) ---
     if (specificContent) {
-        // 1. Determine Cost (Dynamic Check from Feature Config)
+        // 1. Determine Cost
         let cost = 0;
         if (specificContent.isPremium) {
-             // Fallback Defaults
-             cost = 5;
+             cost = 5; // Default Cost
              if (type === 'VIDEO_LECTURE') cost = state.settings.defaultVideoCost || 5;
              if (type === 'NOTES_PREMIUM' || type === 'NOTES_HTML_PREMIUM') cost = state.settings.defaultPdfCost || 5;
-
-             // Override with Granular Feature Cost if exists
-             if (state.settings.featureCosts) {
-                 // Map ContentType to Feature ID (approximate mapping)
-                 let featId = '';
-                 if (type === 'VIDEO_LECTURE') featId = 'video_view';
-                 else if (type.startsWith('NOTES') || type.startsWith('PDF')) featId = 'pdf_view';
-
-                 if (featId) {
-                     const costConfig = state.settings.featureCosts.find(f => f.featureId === featId);
-                     if (costConfig) {
-                         const tier = state.user.subscriptionTier === 'FREE' ? 'free' : state.user.subscriptionLevel === 'BASIC' ? 'basic' : 'ultra';
-                         cost = costConfig[`${tier}Cost`];
-                     }
-                 }
-             }
         }
 
         // 2. Check & Deduct

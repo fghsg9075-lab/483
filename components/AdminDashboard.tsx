@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { User, ViewState, SystemSettings, Subject, Chapter, MCQItem, RecoveryRequest, ActivityLogEntry, LeaderboardEntry, RecycleBinItem, Stream, Board, ClassLevel, GiftCode, SubscriptionPlan, CreditPackage, WatermarkConfig, SpinReward, HtmlModule, PremiumNoteSlot, ContentInfoConfig, ContentInfoItem, SubscriptionHistoryEntry, UniversalAnalysisLog, ContentType, LessonContent } from '../types';
 import { LayoutDashboard, Users, Search, Trash2, Save, X, Eye, EyeOff, Shield, Megaphone, CheckCircle, ListChecks, Database, FileText, Monitor, Sparkles, Banknote, BrainCircuit, AlertOctagon, ArrowLeft, Key, Bell, ShieldCheck, Lock, Globe, Layers, Zap, PenTool, RefreshCw, RotateCcw, Plus, LogOut, Download, Upload, CreditCard, Ticket, Video, Image as ImageIcon, Type, Link, FileJson, Activity, AlertTriangle, Gift, Book, Mail, Edit3, MessageSquare, ShoppingBag, Cloud, Rocket, Code2, Layers as LayersIcon, Wifi, WifiOff, Copy, Crown, Gamepad2, Calendar, BookOpen, Image, HelpCircle, Youtube, Play, Star, Trophy, Palette, Settings, Headphones, Layout, Bot, LayoutDashboard as DashboardIcon } from 'lucide-react';
-import { getSubjectsList, DEFAULT_SUBJECTS, DEFAULT_APP_FEATURES, ALL_APP_FEATURES, STUDENT_APP_FEATURES, DEFAULT_CONTENT_INFO_CONFIG, ADMIN_PERMISSIONS, APP_VERSION } from '../constants';
+import { getSubjectsList, DEFAULT_SUBJECTS, DEFAULT_APP_FEATURES, ALL_APP_FEATURES, DEFAULT_CONTENT_INFO_CONFIG, ADMIN_PERMISSIONS, APP_VERSION } from '../constants';
 import { fetchChapters, fetchLessonContent } from '../services/groq';
 import { runAutoPilot, runCommandMode } from '../services/autoPilot';
 import { saveChapterData, bulkSaveLinks, checkFirebaseConnection, saveSystemSettings, subscribeToUsers, rtdb, saveUserToLive, db, getChapterData, saveCustomSyllabus, deleteCustomSyllabus, subscribeToUniversalAnalysis, saveAiInteraction, saveSecureKeys, getSecureKeys, subscribeToApiUsage, subscribeToDrafts, resetAllContent } from '../firebase'; // IMPORT FIREBASE
@@ -78,17 +78,12 @@ type AdminTab =
   | 'UNIVERSAL_NOTES'
   | 'CONFIG_CHALLENGE'
   | 'CHALLENGE_CREATOR_20'
- feature-dashboard-redesign-cleanup-13635731507476622996
   | 'APP_MODES'
   | 'EXPLORE_BANNERS'
-
-
- main
   | 'BLOGGER_HUB'
   | 'CONFIG_GATING'
   | 'WHATSAPP_CONNECT'
-  | 'EXPLORE_BANNERS'
-  | 'FEATURE_CONTROL';
+  | 'FEATURE_TIERS';
 
 interface ContentConfig {
     freeLink?: string;
@@ -164,11 +159,16 @@ const MODELS = [
 const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSettings, onImpersonate, logActivity, isDarkMode, onToggleDarkMode, user }) => {
 
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
+  const [dashboardMode, setDashboardMode] = useState<'MASTER' | 'PILOT' | null>(null);
   const [customBloggerCode, setCustomBloggerCode] = useState('');
   const [showVisibilityControls, setShowVisibilityControls] = useState(false); // NEW: Master Visibility Toggle
   const [mcqGenCount, setMcqGenCount] = useState(20); // NEW: Custom MCQ Quantity
 
   // PILOT COMMAND STATE
+  const [pilotBoard, setPilotBoard] = useState<Board>('CBSE');
+  const [pilotClass, setPilotClass] = useState<ClassLevel>('10');
+  const [pilotStream, setPilotStream] = useState<Stream>('Science');
+  const [pilotSubject, setPilotSubject] = useState<Subject | null>(null);
 
   // CURRENT USER CONTEXT (From Props or LocalStorage if missing)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -196,6 +196,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [aiGenType, setAiGenType] = useState<ContentType>('NOTES_SIMPLE');
   const [aiPreview, setAiPreview] = useState<LessonContent | null>(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [keyStatus, setKeyStatus] = useState<Record<number, string>>({});
+  const [isTestingKeys, setIsTestingKeys] = useState(false);
 
   // --- SECURE KEYS STATE ---
   // const [secureKeys, setSecureKeys] = useState<string[]>([]); // Removed in favor of groqApiKeys
@@ -228,10 +230,23 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   }, [currentUser]);
 
   // --- AI AUTO-PILOT STATE ---
+  const [isAutoPilotRunning, setIsAutoPilotRunning] = useState(false);
+  const [liveFeed, setLiveFeed] = useState<string[]>([]);
+  const [isAutoPilotForceRunning, setIsAutoPilotForceRunning] = useState(false);
+  const autoPilotIntervalRef = useRef<any>(null);
 
   // --- AI API MONITOR STATE ---
+  const [apiStats, setApiStats] = useState<any>(null);
+  const [drafts, setDrafts] = useState<any[]>([]);
   
   useEffect(() => {
+      if (activeTab === 'APP_MODES') {
+          // Subscribe to Stats
+          const unsubStats = subscribeToApiUsage(setApiStats);
+          // Subscribe to Drafts
+          const unsubDrafts = subscribeToDrafts(setDrafts);
+          return () => { unsubStats(); unsubDrafts(); };
+      }
   }, [activeTab]);
 
   const testKeys = async () => {
@@ -305,6 +320,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       await saveChapterData('nst_universal_notes', { notesPlaylist: universalNotes });
       alert("Universal Notes Saved!");
   };
+  const [showAdminAi, setShowAdminAi] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1034,8 +1050,34 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   };
 
   // --- AI AUTO-PILOT LOGIC ---
+  const handleRunAutoPilotOnce = async () => {
+      if (isAutoPilotRunning || isAutoPilotForceRunning) return;
+      setIsAutoPilotForceRunning(true);
+      await runAutoPilot(localSettings, (msg) => setLiveFeed(prev => [msg, ...prev].slice(0, 50)), true, 5, []);
+      setIsAutoPilotForceRunning(false);
+  };
 
 
+  useEffect(() => {
+      if (localSettings.isAutoPilotEnabled) {
+          const runWrapper = async () => {
+              setIsAutoPilotRunning(true);
+              await runAutoPilot(localSettings, (msg) => setLiveFeed(prev => [msg, ...prev].slice(0, 50)), false, 5, []);
+              setIsAutoPilotRunning(false);
+          };
+
+          // Initial run after 5s
+          const timer = setTimeout(runWrapper, 5000);
+
+          // Periodic run every 60s
+          autoPilotIntervalRef.current = setInterval(runWrapper, 60000);
+
+          return () => {
+              clearTimeout(timer);
+              if (autoPilotIntervalRef.current) clearInterval(autoPilotIntervalRef.current);
+          }
+      }
+  }, [localSettings.isAutoPilotEnabled, localSettings.autoPilotConfig]);
 
   // --- SETTINGS HANDLERS ---
   // --- DRAGGABLE BUTTON STATE ---
@@ -2545,8 +2587,223 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   };
 
   // --- MAIN RENDER ---
+  if (!dashboardMode) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+              <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <button
+                      onClick={() => setDashboardMode('PILOT')}
+                      className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-8 rounded-3xl shadow-xl hover:scale-105 transition-transform flex flex-col items-center text-center group relative overflow-hidden"
+                  >
+                      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors backdrop-blur-sm">
+                          <BrainCircuit size={48} />
+                      </div>
+                      <h2 className="text-3xl font-black mb-2">AI Pilot Automation</h2>
+                      <p className="text-indigo-100 font-medium">Auto-generate content, manage syllabus, and run bulk operations.</p>
+                      <span className="mt-8 bg-white/20 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest backdrop-blur-sm">Enter Pilot Mode</span>
+                  </button>
+
+                  <button
+                      onClick={() => setDashboardMode('MASTER')}
+                      className="bg-white text-slate-800 p-8 rounded-3xl shadow-xl border border-slate-200 hover:scale-105 transition-transform flex flex-col items-center text-center group relative overflow-hidden"
+                  >
+                       <div className="absolute inset-0 bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-slate-600 group-hover:bg-slate-200 transition-colors">
+                          <Shield size={48} />
+                      </div>
+                      <h2 className="text-3xl font-black mb-2">Admin Master Panel</h2>
+                      <p className="text-slate-500 font-medium">Full control over users, subscriptions, database, and settings.</p>
+                      <span className="mt-8 bg-slate-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-slate-500">Enter Master Mode</span>
+                  </button>
+              </div>
+          </div>
+      );
+  }
 
   // PILOT VIEW
+  if (dashboardMode === 'PILOT') {
+       return (
+          <div className="min-h-screen bg-slate-900 text-white pb-20 relative font-mono">
+              {/* Floating Button */}
+              <div
+                  style={{
+                      transform: `translate(${buttonPos.x}px, ${buttonPos.y}px)`,
+                      position: 'fixed',
+                      zIndex: 9999,
+                      top: 100,
+                      left: 20,
+                      touchAction: 'none'
+                  }}
+                  onMouseDown={handleMouseDown}
+                  className="group cursor-move"
+              >
+                  <div className={`w-16 h-16 rounded-2xl bg-indigo-600 text-white shadow-[0_0_20px_rgba(99,102,241,0.5)] flex items-center justify-center border border-indigo-400 ${isDragging ? 'scale-95' : 'hover:scale-110'} transition-all`}>
+                      <BrainCircuit size={32} className="text-white" />
+                  </div>
+
+                  {/* Quick Menu */}
+                  <div className="absolute left-full top-0 ml-4 w-56 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none group-hover:pointer-events-auto">
+                      <button onClick={() => { setActiveTab('SYLLABUS_MANAGER'); setDashboardMode('MASTER'); }} className="px-4 py-3 text-left text-xs font-bold text-slate-300 hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2"><BookOpen size={14} /> Check Syllabus</button>
+                      <button onClick={() => { handleBulkGenerateMCQs(); }} className="px-4 py-3 text-left text-xs font-bold text-slate-300 hover:bg-slate-700 border-b border-slate-700 flex items-center gap-2"><CheckCircle size={14} /> Run Bulk MCQ</button>
+                      <button onClick={() => { setActiveTab('APP_MODES'); setDashboardMode('MASTER'); }} className="px-4 py-3 text-left text-xs font-bold text-slate-300 hover:bg-slate-700 flex items-center gap-2"><Activity size={14} /> AI Status</button>
+                  </div>
+              </div>
+
+              <div className="p-8">
+                  <header className="flex items-center justify-between mb-12">
+                      <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/50">
+                              <BrainCircuit size={32} className="text-white" />
+                          </div>
+                          <div>
+                              <h1 className="text-4xl font-black text-white tracking-tight">AI PILOT <span className="text-indigo-400">2.0</span></h1>
+                              <p className="text-indigo-200 font-bold uppercase tracking-widest text-xs mt-1">Autonomous Content Engine</p>
+                          </div>
+                      </div>
+                      <button
+                          onClick={() => setDashboardMode(null)}
+                          className="px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-sm text-slate-300 transition-colors border border-slate-700"
+                      >
+                          Switch Mode
+                      </button>
+                  </header>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      {/* LIVE FEED CONSOLE */}
+                      <div className="lg:col-span-2 space-y-6">
+                          <div className="bg-slate-950 rounded-3xl border border-slate-800 p-6 shadow-2xl relative overflow-hidden">
+                              <div className="absolute top-0 right-0 p-4 flex gap-2">
+                                  <div className="flex items-center gap-2 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                                      <div className={`w-2 h-2 rounded-full ${isAutoPilotRunning ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></div>
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase">{isAutoPilotRunning ? 'ONLINE' : 'IDLE'}</span>
+                                  </div>
+                              </div>
+                              <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-4 flex items-center gap-2"><Monitor size={14}/> System Logs</h3>
+                              <div className="h-96 overflow-y-auto font-mono text-xs space-y-2 pr-2 custom-scrollbar flex flex-col-reverse">
+                                  {liveFeed.length === 0 && <span className="text-slate-700 italic">...System Ready. Waiting for tasks...</span>}
+                                  {liveFeed.map((log, i) => (
+                                      <div key={i} className="border-b border-slate-900/50 pb-1 last:border-0 text-green-400/80">
+                                          <span className="text-slate-600 mr-2 opacity-50">[{new Date().toLocaleTimeString()}]</span>
+                                          {log}
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* CONTROLS */}
+                      <div className="space-y-6">
+                           <div className="bg-indigo-900/20 rounded-3xl border border-indigo-500/30 p-6">
+                               <h3 className="font-bold text-indigo-300 uppercase tracking-widest text-xs mb-4">Command Center</h3>
+                               <p className="text-[10px] text-indigo-200 mb-6 border-l-2 border-indigo-500 pl-2">
+                                   "Direct Order Execution Mode"<br/>
+                                   Select specific targets to save API quota.
+                               </p>
+
+                               <div className="space-y-4">
+                                   <div className="grid grid-cols-2 gap-2">
+                                       <div className="space-y-1">
+                                           <label className="text-[10px] text-slate-400 font-bold uppercase">Board</label>
+                                           <select
+                                               value={pilotBoard}
+                                               onChange={e => setPilotBoard(e.target.value as Board)}
+                                               className="w-full bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 font-bold"
+                                           >
+                                               <option value="CBSE">CBSE</option>
+                                               <option value="BSEB">BSEB</option>
+                                           </select>
+                                       </div>
+                                       <div className="space-y-1">
+                                           <label className="text-[10px] text-slate-400 font-bold uppercase">Class</label>
+                                           <select
+                                               value={pilotClass}
+                                               onChange={e => {
+                                                   setPilotClass(e.target.value as ClassLevel);
+                                                   setPilotSubject(null);
+                                               }}
+                                               className="w-full bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 font-bold"
+                                           >
+                                               {['6','7','8','9','10','11','12','COMPETITION'].map(c => <option key={c} value={c}>{c}</option>)}
+                                           </select>
+                                       </div>
+                                   </div>
+
+                                   {['11','12'].includes(pilotClass) && (
+                                       <div className="space-y-1">
+                                           <label className="text-[10px] text-slate-400 font-bold uppercase">Stream</label>
+                                           <div className="flex gap-1">
+                                               {['Science', 'Commerce', 'Arts'].map(s => (
+                                                   <button
+                                                       key={s}
+                                                       onClick={() => { setPilotStream(s as Stream); setPilotSubject(null); }}
+                                                       className={`flex-1 py-2 rounded-lg text-[10px] font-bold border ${pilotStream === s ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                                                   >
+                                                       {s}
+                                                   </button>
+                                               ))}
+                                           </div>
+                                       </div>
+                                   )}
+
+                                   <div className="space-y-1">
+                                       <label className="text-[10px] text-slate-400 font-bold uppercase">Subject</label>
+                                       <div className="flex flex-wrap gap-2">
+                                           {getSubjectsList(pilotClass, pilotStream).map(s => (
+                                               <button
+                                                   key={s.id}
+                                                   onClick={() => setPilotSubject(s)}
+                                                   className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-all ${pilotSubject?.id === s.id ? 'bg-indigo-500 text-white border-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                                               >
+                                                   {s.name}
+                                               </button>
+                                           ))}
+                                       </div>
+                                   </div>
+
+                                   <button
+                                       onClick={async () => {
+                                           if (!pilotSubject) {
+                                               alert("Please select a subject first!");
+                                               return;
+                                           }
+                                           setIsAiGenerating(true);
+                                           await runCommandMode(localSettings, (msg) => setLiveFeed(prev => [msg, ...prev].slice(0, 50)), {
+                                               board: pilotBoard,
+                                               classLevel: pilotClass,
+                                               stream: ['11','12'].includes(pilotClass) ? pilotStream : null,
+                                               subject: pilotSubject
+                                           });
+                                           setIsAiGenerating(false);
+                                       }}
+                                       disabled={isAutoPilotRunning || isAutoPilotForceRunning || isAiGenerating}
+                                       className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold shadow-lg shadow-green-900/50 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                                   >
+                                       {isAiGenerating ? <RefreshCw size={18} className="animate-spin" /> : <Rocket size={18} />}
+                                       EXECUTE COMMAND
+                                   </button>
+                               </div>
+                           </div>
+
+                           <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6">
+                               <h3 className="font-bold text-slate-500 uppercase tracking-widest text-xs mb-4">Stats</h3>
+                               <div className="grid grid-cols-2 gap-4">
+                                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                       <p className="text-[10px] text-slate-500 font-bold uppercase">Chapters Scanned</p>
+                                       <p className="text-2xl font-black text-white mt-1">--</p>
+                                   </div>
+                                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                       <p className="text-[10px] text-slate-500 font-bold uppercase">Content Generated</p>
+                                       <p className="text-2xl font-black text-green-400 mt-1">--</p>
+                                   </div>
+                               </div>
+                           </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+       );
+  }
 
   return (
     <div className="pb-20 bg-slate-50 min-h-screen">
@@ -2675,13 +2932,12 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Monitor} label="General" onClick={() => setActiveTab('CONFIG_GENERAL')} color="blue" />
                           <DashboardCard icon={ShieldCheck} label="Security" onClick={() => setActiveTab('CONFIG_SECURITY')} color="red" />
                           <DashboardCard icon={Eye} label="Visibility" onClick={() => setActiveTab('CONFIG_VISIBILITY')} color="cyan" />
-feature-dashboard-redesign-cleanup-13635731507476622996
                           <DashboardCard icon={Settings} label="App Modes" onClick={() => setActiveTab('APP_MODES')} color="green" />
                           {(hasPermission('MANAGE_SETTINGS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="Feature Access" onClick={() => setActiveTab('FEATURE_TIERS')} color="violet" />}
-                      {(hasPermission('MANAGE_CONTENT') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="pink" />}
-        main
+                          {(hasPermission('MANAGE_CONTENT') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="pink" />}
                           {currentUser?.role === 'ADMIN' && <DashboardCard icon={PenTool} label="Blogger Hub" onClick={() => setActiveTab('BLOGGER_HUB')} color="orange" />}
                           <DashboardCard icon={Sparkles} label="Ads Config" onClick={() => setActiveTab('CONFIG_ADS')} color="rose" />
+              <DashboardCard icon={Layers} label="Feature Tiers" onClick={() => setActiveTab('FEATURE_TIERS')} color="orange" />
                           <DashboardCard icon={Gamepad2} label="Game Config" onClick={() => setActiveTab('CONFIG_GAME')} color="orange" />
                           <DashboardCard icon={Banknote} label="Payment" onClick={() => setActiveTab('CONFIG_PAYMENT')} color="emerald" />
                           <DashboardCard icon={Globe} label="External Apps" onClick={() => setActiveTab('CONFIG_EXTERNAL_APPS')} color="indigo" />
@@ -2692,8 +2948,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
                           <DashboardCard icon={Rocket} label="Challenge 2.0" onClick={() => setActiveTab('CHALLENGE_CREATOR_20')} color="violet" />
                           <DashboardCard icon={Video} label="Universal Playlist" onClick={() => setActiveTab('UNIVERSAL_PLAYLIST')} color="rose" />
                           <DashboardCard icon={ShoppingBag} label="💰 Pricing" onClick={() => setActiveTab('PRICING_MGMT')} color="yellow" />
-                          <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="blue" />
-                          <DashboardCard icon={Layout} label="Feature Control" onClick={() => setActiveTab('FEATURE_CONTROL')} color="purple" />
                       </>
                   )}
                   
@@ -3156,6 +3410,101 @@ feature-dashboard-redesign-cleanup-13635731507476622996
       )}
 
       {/* --- AI CONFIG TAB --- */}
+      {activeTab === 'FEATURE_TIERS' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <h3 className="text-xl font-black text-slate-800">Feature Access Matrix</h3>
+              </div>
+
+              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-6">
+                  <p className="text-xs text-yellow-800 font-bold">
+                      Control exactly which features are visible to each user tier. Uncheck to hide features from specific users.
+                  </p>
+              </div>
+
+              <div className="overflow-x-auto border rounded-xl shadow-sm h-[70vh]">
+                  <table className="w-full text-left text-sm relative">
+                      <thead className="bg-slate-50 font-black text-slate-600 uppercase border-b sticky top-0 z-20 shadow-sm">
+                          <tr>
+                              <th className="p-4 bg-slate-50 sticky left-0 z-30 border-r">Feature Name</th>
+                              <th className="p-4 text-center text-slate-500 bg-slate-50">Free</th>
+                              <th className="p-4 text-center text-blue-600 bg-slate-50">Basic</th>
+                              <th className="p-4 text-center text-purple-600 bg-slate-50">Ultra</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {ALL_APP_FEATURES.map((feat) => {
+                              // Helper to check if enabled
+                              const isEnabled = (tier: 'FREE' | 'BASIC' | 'ULTRA') => {
+                                  // Default to TRUE if settings not yet initialized
+                                  if (!localSettings.tierPermissions) return true;
+                                  if (!localSettings.tierPermissions[tier]) return true;
+                                  return localSettings.tierPermissions[tier].includes(feat.id);
+                              };
+
+                              // Helper to toggle
+                              const togglePerm = (tier: 'FREE' | 'BASIC' | 'ULTRA') => {
+                                  const current = localSettings.tierPermissions?.[tier] || ALL_APP_FEATURES.map(f => f.id);
+                                  const newSet = current.includes(feat.id)
+                                      ? current.filter(id => id !== feat.id)
+                                      : [...current, feat.id];
+
+                                  setLocalSettings({
+                                      ...localSettings,
+                                      tierPermissions: {
+                                          ...(localSettings.tierPermissions || {
+                                              FREE: ALL_APP_FEATURES.map(f => f.id),
+                                              BASIC: ALL_APP_FEATURES.map(f => f.id),
+                                              ULTRA: ALL_APP_FEATURES.map(f => f.id)
+                                          }),
+                                          [tier]: newSet
+                                      }
+                                  });
+                              };
+
+                              return (
+                                  <tr key={feat.id} className="hover:bg-slate-50 group">
+                                      <td className="p-4 font-bold text-slate-700 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r text-xs">{feat.title} <span className="text-slate-400 font-mono ml-2">({feat.id})</span></td>
+                                      <td className="p-4 text-center">
+                                          <input
+                                              type="checkbox"
+                                              checked={isEnabled('FREE')}
+                                              onChange={() => togglePerm('FREE')}
+                                              className="w-5 h-5 accent-slate-600 cursor-pointer"
+                                          />
+                                      </td>
+                                      <td className="p-4 text-center bg-blue-50/30">
+                                          <input
+                                              type="checkbox"
+                                              checked={isEnabled('BASIC')}
+                                              onChange={() => togglePerm('BASIC')}
+                                              className="w-5 h-5 accent-blue-600 cursor-pointer"
+                                          />
+                                      </td>
+                                      <td className="p-4 text-center bg-purple-50/30">
+                                          <input
+                                              type="checkbox"
+                                              checked={isEnabled('ULTRA')}
+                                              onChange={() => togglePerm('ULTRA')}
+                                              className="w-5 h-5 accent-purple-600 cursor-pointer"
+                                          />
+                                      </td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
+
+              <div className="mt-6 flex justify-end sticky bottom-0 bg-white p-4 border-t z-30">
+                  <button onClick={handleSaveSettings} className="px-8 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 flex items-center gap-2">
+                      <Save size={20} /> Save Permissions
+                  </button>
+              </div>
+          </div>
+      )}
+
       {activeTab === 'CONFIG_AI' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -5545,43 +5894,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                         </div>
                       </div>
 
-                      {/* FEATURE TOGGLES (User Request) */}
-                      <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 mb-4">
-                          <h4 className="font-bold text-indigo-900 mb-3 flex items-center gap-2"><Settings size={18}/> Feature Toggles (Active/Inactive)</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="bg-white p-3 rounded-lg flex items-center justify-between border border-indigo-100">
-                                  <div>
-                                      <p className="font-bold text-slate-700 text-xs">Morning Test / Insight Banner</p>
-                                      <p className="text-[10px] text-slate-500">Show daily insight banner on Explore page.</p>
-                                  </div>
-                                  <input
-                                      type="checkbox"
-                                      checked={localSettings.showMorningInsight !== false}
-                                      onChange={() => setLocalSettings({
-                                          ...localSettings,
-                                          showMorningInsight: localSettings.showMorningInsight === false ? true : false
-                                      })}
-                                      className="w-5 h-5 accent-indigo-600 cursor-pointer"
-                                  />
-                              </div>
-                              <div className="bg-white p-3 rounded-lg flex items-center justify-between border border-indigo-100">
-                                  <div>
-                                      <p className="font-bold text-slate-700 text-xs">AI Chat / Ask Doubts</p>
-                                      <p className="text-[10px] text-slate-500">Enable 'Ask your doubts' feature globally.</p>
-                                  </div>
-                                  <input
-                                      type="checkbox"
-                                      checked={localSettings.isAiEnabled !== false}
-                                      onChange={() => setLocalSettings({
-                                          ...localSettings,
-                                          isAiEnabled: localSettings.isAiEnabled === false ? true : false
-                                      })}
-                                      className="w-5 h-5 accent-indigo-600 cursor-pointer"
-                                  />
-                              </div>
-                          </div>
-                      </div>
-
                       {/* VERSION CONTROL */}
                           <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
                               <label className="text-xs font-bold uppercase text-orange-800 mb-2 block">App Version Control (Timer Launch)</label>
@@ -5916,41 +6228,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                               </div>
                           </div>
 
-                          {/* AI & COMPETITION TOGGLES (NEW) */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
-                              <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                  <div>
-                                      <p className="font-bold text-indigo-900 flex items-center gap-2"><Bot size={16}/> Student AI Chat</p>
-                                      <p className="text-xs text-indigo-700">Enable AI Tutor for students</p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-bold text-indigo-400 uppercase">{localSettings.isAiEnabled !== false ? 'Active' : 'Off'}</span>
-                                      <input
-                                          type="checkbox"
-                                          checked={localSettings.isAiEnabled !== false}
-                                          onChange={() => toggleSetting('isAiEnabled')}
-                                          className="w-5 h-5 accent-indigo-600"
-                                      />
-                                  </div>
-                              </div>
-
-                              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                  <div>
-                                      <p className="font-bold text-blue-900 flex items-center gap-2"><Trophy size={16}/> Competition Mode</p>
-                                      <p className="text-xs text-blue-700">Show Competitive Exam section</p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-bold text-blue-400 uppercase">{localSettings.isCompetitionModeEnabled !== false ? 'Active' : 'Off'}</span>
-                                      <input
-                                          type="checkbox"
-                                          checked={localSettings.isCompetitionModeEnabled !== false}
-                                          onChange={() => toggleSetting('isCompetitionModeEnabled')}
-                                          className="w-5 h-5 accent-blue-600"
-                                      />
-                                  </div>
-                              </div>
-                          </div>
-
                           <div className="flex items-center justify-between bg-red-50 p-4 rounded-xl border border-red-100">
                               <div><p className="font-bold text-red-800">Maintenance Mode</p><p className="text-xs text-red-600">Lock app for users</p></div>
                               <input type="checkbox" checked={localSettings.maintenanceMode} onChange={() => toggleSetting('maintenanceMode')} className="w-6 h-6 accent-red-600" />
@@ -5972,30 +6249,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                               <div className="flex flex-wrap gap-2">
                                   {['6','7','8','9','10','11','12'].map(c => (
                                       <button key={c} onClick={() => setLocalSettings({...localSettings, allowedClasses: toggleItemInList(localSettings.allowedClasses, c as any)})} className={`px-4 py-2 rounded-lg border font-bold ${localSettings.allowedClasses?.includes(c as any) ? 'bg-blue-600 text-white' : 'bg-white'}`}>{c}</button>
-                                  ))}
-                              </div>
-                          </div>
-
-                          <div>
-                              <p className="font-bold text-slate-700 mb-2">Content Visibility</p>
-                              <div className="flex gap-4 flex-wrap">
-                                  {['VIDEO', 'PDF', 'MCQ', 'AUDIO'].map(type => (
-                                      <label key={type} className="flex items-center gap-2 bg-white p-3 rounded-lg border border-slate-200 cursor-pointer hover:border-blue-300">
-                                          <input
-                                              type="checkbox"
-                                              // @ts-ignore
-                                              checked={localSettings.contentVisibility?.[type] !== false}
-                                              onChange={() => {
-                                                  const current = localSettings.contentVisibility || {};
-                                                  // @ts-ignore
-                                                  const isVisible = current[type] !== false;
-                                                  // @ts-ignore
-                                                  setLocalSettings({...localSettings, contentVisibility: { ...current, [type]: !isVisible }});
-                                              }}
-                                              className="w-5 h-5 accent-blue-600"
-                                          />
-                                          <span className="text-xs font-bold text-slate-600">{type}</span>
-                                      </label>
                                   ))}
                               </div>
                           </div>
@@ -7072,429 +7325,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           <ChallengeCreator20 onBack={() => setActiveTab('DASHBOARD')} language={localSettings.aiModel?.includes('Hindi') ? 'Hindi' : 'English'} />
       )}
 
-feature-dashboard-redesign-cleanup-13635731507476622996
-      {activeTab === 'CONFIG_CHALLENGE' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right space-y-6">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Challenge Config (Legacy 1.0) & Theme</h3>
-              </div>
-
-      {/* --- EXPLORE BANNERS --- */}
-      {activeTab === 'EXPLORE_BANNERS' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Explore Page Banners</h3>
-              </div>
-
-              {/* BUILT-IN BANNERS TOGGLE */}
-              <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-200 mb-8">
-                  <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2 text-lg">
-                      <Settings size={20} /> Built-in Section Visibility
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                          <div>
-                              <p className="font-bold text-slate-800 text-sm">Morning Insight</p>
-                              <p className="text-[10px] text-slate-500">Daily Wisdom at Top</p>
-                          </div>
-                          <input
-                              type="checkbox"
-                              checked={localSettings.showMorningInsight !== false}
-                              onChange={() => toggleSetting('showMorningInsight')}
-                              className="w-5 h-5 accent-indigo-600"
-                          />
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                          <div>
-                              <p className="font-bold text-slate-800 text-sm">Active Challenges</p>
-                              <p className="text-[10px] text-slate-500">Live Quizzes Banner</p>
-                          </div>
-                          <input
-                              type="checkbox"
-                              checked={localSettings.showChallengesBanner !== false}
-                              onChange={() => toggleSetting('showChallengesBanner')}
-                              className="w-5 h-5 accent-indigo-600"
-                          />
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                          <div>
-                              <p className="font-bold text-slate-800 text-sm">AI Promo Banner</p>
-                              <p className="text-[10px] text-slate-500">"Ask Your Doubts" Link</p>
-                          </div>
-                          <input
-                              type="checkbox"
-                              checked={localSettings.showAiPromo !== false}
-                              onChange={() => toggleSetting('showAiPromo')}
-                              className="w-5 h-5 accent-indigo-600"
-                          />
-                      </div>
-                  </div>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
-                      <p className="text-sm text-blue-800 font-bold">
-                          Create custom banners for the Explore page. These can link to internal tabs (e.g., STORE, GAME) or external URLs.
-                      </p>
-                  </div>
-
-                  <button
-                      onClick={() => {
-                          const newBanner: any = {
-                              id: `banner-${Date.now()}`,
-                              title: 'New Banner',
-                              subtitle: 'Awesome Subtitle',
-                              backgroundStyle: 'bg-gradient-to-r from-blue-500 to-indigo-600',
-                              actionLabel: 'Click Me',
-                              actionUrl: 'STORE',
-                              targetAudience: 'ALL',
-                              enabled: true,
-                              priority: (localSettings.exploreBanners?.length || 0) + 1
-                          };
-                          const updated = [...(localSettings.exploreBanners || []), newBanner];
-                          setLocalSettings({ ...localSettings, exploreBanners: updated });
-                      }}
-                      className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
-                  >
-                      <Plus size={18} /> Add New Banner
-                  </button>
-
-                  <div className="grid gap-4">
-                      {(localSettings.exploreBanners || []).sort((a,b) => a.priority - b.priority).map((banner, idx) => (
-                          <div key={banner.id} className="border rounded-xl p-4 bg-slate-50 relative group">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Title</label>
-                                      <input
-                                          type="text"
-                                          value={banner.title}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].title = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          className="w-full p-2 border rounded-lg font-bold"
-                                      / main
-
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Subtitle</label>
-                                      <input
-                                          type="text"
-                                          value={banner.subtitle || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].subtitle = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          className="w-full p-2 border rounded-lg text-sm"
-                                      />
-
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Background Style (Tailwind CSS)</label>
-                                      <input
-                                          type="text"
-                                          value={banner.backgroundStyle || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].backgroundStyle = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          placeholder="e.g. bg-gradient-to-r from-red-500 to-orange-500"
-                                          className="w-full p-2 border rounded-lg text-xs font-mono text-blue-600"
-                                      />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Action Type/URL</label>
-                                      <input
-                                          type="text"
-                                          value={banner.actionUrl || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].actionUrl = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          placeholder="Tab ID (STORE) or https://..."
-                                          className="w-full p-2 border rounded-lg text-sm"
-                                      />
-
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Button Label</label>
-                                      <input
-                                          type="text"
-                                          value={banner.actionLabel || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].actionLabel = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          className="w-full p-2 border rounded-lg text-sm"
-                                      />
-
-                                      <div className="flex gap-2">
-                                          <div className="flex-1">
-                                              <label className="text-xs font-bold text-slate-500 uppercase">Target Audience</label>
-                                              <select
-                                                  value={banner.targetAudience || 'ALL'}
-                                                  onChange={(e) => {
-                                                      const updated = [...(localSettings.exploreBanners || [])];
-                                                      updated[idx].targetAudience = e.target.value as any;
-                                                      setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                                  }}
-                                                  className="w-full p-2 border rounded-lg text-sm"
-                                              >
-                                                  <option value="ALL">All Users</option>
-                                                  <option value="FREE">Free Only</option>
-                                                  <option value="PREMIUM">Premium Only</option>
-                                              </select>
-                                          </div>
-                                          <div className="flex-1">
-                                              <label className="text-xs font-bold text-slate-500 uppercase">Priority</label>
-                                              <input
-                                                  type="number"
-                                                  value={banner.priority}
-                                                  onChange={(e) => {
-                                                      const updated = [...(localSettings.exploreBanners || [])];
-                                                      updated[idx].priority = parseInt(e.target.value);
-                                                      setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                                  }}
-                                                  className="w-full p-2 border rounded-lg text-sm"
-                                              />
-                                          </div>
-                                      </div>
-                                  </div>
-                              </div>
-
-                              <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                      <input
-                                          type="checkbox"
-                                          checked={banner.enabled}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].enabled = e.target.checked;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                      />
-                                      Active
-                                  </label>
-                                  <button
-                                      onClick={() => {
-                                          if(confirm("Delete this banner?")) {
-                                              const updated = (localSettings.exploreBanners || []).filter((_, i) => i !== idx);
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }
-                                      }}
-                                      className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
-                                  >
-                                      <Trash2 size={16} /> Delete
-                                  </button>
-                              </div>
-
-                              {/* Preview */}
-                              <div className={`mt-4 h-32 rounded-xl p-4 flex flex-col justify-center text-white ${banner.backgroundStyle || 'bg-slate-500'}`}>
-                                  <h3 className="text-xl font-black">{banner.title}</h3>
-                                  <p className="text-sm opacity-90">{banner.subtitle}</p>
-                                  {banner.actionLabel && <span className="mt-2 inline-block bg-white/20 px-3 py-1 rounded text-xs font-bold w-fit backdrop-blur-sm">{banner.actionLabel}</span>}
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-              <div className="flex justify-end">
-                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                      <Save size={20} /> Save Changes
-                  </button>
-              </div>
-          </div>
-      )}
-
- feature-dashboard-redesign-cleanup-13635731507476622996
-      {/* --- AI STUDIO TAB --- */}
-      {activeTab === 'DEPLOY' && 
-      {/* --- FEATURE CONTROL & COSTS --- */}
-      {activeTab === 'FEATURE_CONTROL' &&  main
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
- feature-dashboard-redesign-cleanup-13635731507476622996
-                  <h3 className="text-xl font-black text-slate-800">Deployment & Blueprint</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* APP UPDATE CONFIGURATION */}
-                  <div className="bg-green-50 p-6 rounded-3xl border border-green-100 space-y-4">
-                      <div>
-                          <div className="w-12 h-12 bg-green-600 text-white rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-green-200">
-                              <RefreshCw size={24} />
-                          </div>
-                          <h4 className="text-xl font-black text-green-900 mb-2">Configure App Update</h4>
-                          <p className="text-xs text-green-700 mb-4">Manage Force Updates and version notifications.</p>
-                      </div>
-                  <h3 className="text-xl font-black text-slate-800">Feature Access & Costs</h3>
-              </div>
-
-              {/* LOGIN BONUS CONFIG */}
-              <div className="bg-green-50 p-6 rounded-2xl border border-green-200 mb-8">
-                  <h4 className="font-bold text-green-900 mb-4 flex items-center gap-2 text-lg">
-                      <Gift size={20} /> Login Bonus Configuration
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                          <label className="text-xs font-bold text-green-700 uppercase">Free User Bonus</label>
-                          <input
-                              type="number"
-                              value={localSettings.loginBonusConfig?.freeBonus ?? 2}
-                              onChange={(e) => setLocalSettings({
-                                  ...localSettings,
-                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), freeBonus: Number(e.target.value) }
-                              })}
-                              className="w-full p-2 border rounded-lg font-bold"
-                          />
-                      </div>
-                      <div>
-                          <label className="text-xs font-bold text-green-700 uppercase">Basic User Bonus</label>
-                          <input
-                              type="number"
-                              value={localSettings.loginBonusConfig?.basicBonus ?? 5}
-                              onChange={(e) => setLocalSettings({
-                                  ...localSettings,
-                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), basicBonus: Number(e.target.value) }
-                              })}
-                              className="w-full p-2 border rounded-lg font-bold"
-                          />
-                      </div>
-                      <div>
-                          <label className="text-xs font-bold text-green-700 uppercase">Ultra User Bonus</label>
-                          <input
-                              type="number"
-                              value={localSettings.loginBonusConfig?.ultraBonus ?? 10}
-                              onChange={(e) => setLocalSettings({
-                                  ...localSettings,
-                                  loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), ultraBonus: Number(e.target.value) }
-                              })}
-                              className="w-full p-2 border rounded-lg font-bold"
-                          />
-                      </div>
-                      <div className="flex flex-col justify-end">
-                          <label className="flex items-center gap-2 bg-white p-2 rounded-lg border cursor-pointer">
-                              <input
-                                  type="checkbox"
-                                  checked={localSettings.loginBonusConfig?.strictStreak !== false}
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings,
-                                      loginBonusConfig: { ...(localSettings.loginBonusConfig || { freeBonus: 2, basicBonus: 5, ultraBonus: 10, strictStreak: true }), strictStreak: e.target.checked }
-                                  })}
-                                  className="w-5 h-5 accent-green-600"
-                              />
-                              <span className="text-sm font-bold text-slate-700">Strict Streak Mode</span>
-                          </label>
-                          <p className="text-[10px] text-green-700 mt-1">If active, breaking streak forfeits next bonus.</p>
-                      </div>
-                  </div>
-              </div>
-
-              {/* FEATURE COSTS MATRIX */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg">
-                      <Banknote size={20} className="text-blue-600"/> Feature Costs & Access
-                  </h4>
-                  <p className="text-sm text-slate-500 mb-4">Set 0 for Free. Set -1 to Lock completely.</p>
-
-                  <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm border-collapse">
-                          <thead className="bg-slate-100 text-slate-500 uppercase text-xs font-bold">
-                              <tr>
-                                  <th className="p-3 border">Feature</th>
-                                  <th className="p-3 border text-center">Visibility & Badge</th>
-                                  <th className="p-3 border text-center">Free Cost</th>
-                                  <th className="p-3 border text-center">Basic Cost</th>
-                                  <th className="p-3 border text-center">Ultra Cost</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                              {STUDENT_APP_FEATURES.map((feat) => {
-                                  // Helper to get/set cost
-                                  const getCost = (tier: 'free' | 'basic' | 'ultra') => {
-                                      const entry = (localSettings.featureCosts || []).find(f => f.featureId === feat.id);
-                                      return entry ? entry[`${tier}Cost`] : 0;
-                                  };
-                                  const setCost = (tier: 'free' | 'basic' | 'ultra', val: number) => {
-                                      const current = localSettings.featureCosts || [];
-                                      const existingIdx = current.findIndex(f => f.featureId === feat.id);
-                                      const newEntry = existingIdx >= 0 ? { ...current[existingIdx] } : { featureId: feat.id, freeCost: 0, basicCost: 0, ultraCost: 0 };
-                                      newEntry[`${tier}Cost`] = val;
-
-                                      const updated = existingIdx >= 0
-                                          ? current.map((c, i) => i === existingIdx ? newEntry : c)
-                                          : [...current, newEntry];
-                                      setLocalSettings({ ...localSettings, featureCosts: updated });
-                                  };
-
-                                  const isHidden = (localSettings.hiddenFeatures || []).includes(feat.id);
-                                  const badge = (localSettings.featureBadges || {})[feat.id] || 'NORMAL';
-
-                                  return (
-                                      <tr key={feat.id} className="hover:bg-slate-50">
-                                          <td className="p-3 border font-bold text-slate-700">
-                                              {feat.title}
-                                              <p className="text-[9px] text-slate-400">{feat.id}</p>
-                                          </td>
-                                          <td className="p-3 border text-center align-top">
-                                              <div className="flex flex-col gap-2 items-center">
-                                                  <button
-                                                      onClick={() => {
-                                                          const newHidden = isHidden
-                                                              ? (localSettings.hiddenFeatures || []).filter(h => h !== feat.id)
-                                                              : [...(localSettings.hiddenFeatures || []), feat.id];
-                                                          setLocalSettings({...localSettings, hiddenFeatures: newHidden});
-                                                      }}
-                                                      className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider w-full ${
-                                                          isHidden ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700'
-                                                      }`}
-                                                  >
-                                                      {isHidden ? 'Hidden' : 'Visible'}
-                                                  </button>
-
-                                                  <select
-                                                      value={badge}
-                                                      onChange={(e) => {
-                                                          const badges = { ...(localSettings.featureBadges || {}) };
-                                                          badges[feat.id] = e.target.value as any;
-                                                          setLocalSettings({ ...localSettings, featureBadges: badges });
-                                                      }}
-                                                      className="text-[10px] font-bold p-1 border rounded w-full bg-white text-slate-600"
-                                                  >
-                                                      <option value="NORMAL">No Badge</option>
-                                                      <option value="NEW">✨ NEW</option>
-                                                      <option value="UPGRADE">🚀 UPGRADE</option>
-                                                  </select>
-                                              </div>
-                                          </td>
-                                          <td className="p-3 border text-center">
-                                              <input type="number" value={getCost('free')} onChange={e => setCost('free', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
-                                          </td>
-                                          <td className="p-3 border text-center">
-                                              <input type="number" value={getCost('basic')} onChange={e => setCost('basic', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
-                                          </td>
-                                          <td className="p-3 border text-center">
-                                              <input type="number" value={getCost('ultra')} onChange={e => setCost('ultra', parseInt(e.target.value))} className="w-16 p-1 border rounded text-center" />
-                                          </td>
-                                      </tr>
-                                  );
-                              })}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                      <Save size={20} /> Save Configuration
-                  </button>
-              </div>
-          </div>
-      )}
-
       {activeTab === 'CONFIG_CHALLENGE' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right space-y-6">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -7644,10 +7474,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
       )}
 
       {/* --- AI STUDIO TAB --- */}
-
-      {/* --- AI NOTES MANAGER TAB --- */}
-
-      {/* --- DEPLOYMENT TAB (New) --- */}
       {activeTab === 'DEPLOY' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6">
@@ -7664,7 +7490,7 @@ feature-dashboard-redesign-cleanup-13635731507476622996
                           </div>
                           <h4 className="text-xl font-black text-green-900 mb-2">Configure App Update</h4>
                           <p className="text-xs text-green-700 mb-4">Manage Force Updates and version notifications.</p>
-                      </divmain
+                      </div>
 
                       <div className="space-y-3">
                           <div>
@@ -9427,88 +9253,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
           </div>
       )}
 
- feature-dashboard-redesign-cleanup-13635731507476622996
-
-
-      {activeTab === 'CONFIG_AI' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">AI Tutor Configuration</h3>
-              </div>
-
-              <div className="space-y-6">
-                  {/* LIMITS */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                          <Bot size={20} className="text-indigo-600"/> Daily Usage Limits
-                      </h4>
-                      <div className="grid grid-cols-3 gap-4">
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Free Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.free ?? 5} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, free: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Basic Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.basic ?? 50} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, basic: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase">Ultra Users</label>
-                              <input 
-                                  type="number" 
-                                  value={localSettings.aiLimits?.ultra ?? 99999} 
-                                  onChange={(e) => setLocalSettings({
-                                      ...localSettings, 
-                                      aiLimits: { ...localSettings.aiLimits, ultra: Number(e.target.value) } as any
-                                  })}
-                                  className="w-full p-3 rounded-xl border border-slate-200 font-bold" 
-                              />
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* INSTRUCTIONS */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                          <BrainCircuit size={20} className="text-purple-600"/> AI Persona & Instructions
-                      </h4>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">System Prompt (Persona)</label>
-                      <textarea 
-                          value={localSettings.aiInstruction || ''}
-                          onChange={(e) => setLocalSettings({...localSettings, aiInstruction: e.target.value})}
-                          placeholder="You are a helpful tutor..."
-                          className="w-full h-32 p-4 rounded-xl border border-slate-200 text-sm font-mono leading-relaxed"
-                      />
-                      <p className="text-[10px] text-slate-400 mt-2">
-                          This instruction will guide the AI's behavior. If empty, it uses the default friendly tutor persona.
-                      </p>
-                  </div>
-
-                  <div className="flex justify-end">
-                      <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                          <Save size={20} /> Save Configuration
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-main
       {activeTab === 'BLOGGER_HUB' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
