@@ -1379,7 +1379,7 @@ main
                   settings={settings}
                   onTabChange={onTabChange}
                   onStartWeeklyTest={onStartWeeklyTest}
-                  onOpenAiChat={() => setShowChat(true)}
+                  onOpenAiChat={() => onTabChange('AI_CHAT')}
                   onOpenAiNotes={() => setShowAiModal(true)}
               />
           );
