@@ -1179,11 +1179,15 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                       
                       {/* Video Section */}
                       {settings?.contentVisibility?.VIDEO !== false && (
-                          <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
-                              <h3 className="font-bold text-red-800 flex items-center gap-2 mb-2"><Youtube /> Video Lectures</h3>
-                              <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-gradient-to-br from-red-50 to-rose-100 p-6 rounded-3xl border border-red-200 shadow-sm">
+                              <h3 className="font-black text-red-900 flex items-center gap-2 mb-4 text-lg">
+                                  <div className="p-2 bg-white rounded-full shadow-sm text-red-600"><Youtube size={20} /></div>
+                                  Video Lectures
+                              </h3>
+                              <div className="grid grid-cols-2 gap-3">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-red-100 text-left">
+                                      <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-red-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
+                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-red-500'}`}></div>
                                           {s.name}
                                       </button>
                                   ))}
@@ -1193,11 +1197,15 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
 
                       {/* Notes Section */}
                       {settings?.contentVisibility?.PDF !== false && (
-                          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                              <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-2"><FileText /> Notes Library</h3>
-                              <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-3xl border border-blue-200 shadow-sm">
+                              <h3 className="font-black text-blue-900 flex items-center gap-2 mb-4 text-lg">
+                                  <div className="p-2 bg-white rounded-full shadow-sm text-blue-600"><FileText size={20} /></div>
+                                  Notes Library
+                              </h3>
+                              <div className="grid grid-cols-2 gap-3">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('PDF'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-blue-100 text-left">
+                                      <button key={s.id} onClick={() => { onTabChange('PDF'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-blue-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
+                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-blue-500'}`}></div>
                                           {s.name}
                                       </button>
                                   ))}
@@ -1207,13 +1215,17 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
 
                       {/* MCQ Section */}
                       {settings?.contentVisibility?.MCQ !== false && (
-                          <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100">
-                              <div className="flex justify-between items-center mb-2">
-                                  <h3 className="font-bold text-purple-800 flex items-center gap-2"><CheckSquare /> MCQ Practice</h3>
+                          <div className="bg-gradient-to-br from-purple-50 to-fuchsia-100 p-6 rounded-3xl border border-purple-200 shadow-sm">
+                              <div className="flex justify-between items-center mb-4">
+                                  <h3 className="font-black text-purple-900 flex items-center gap-2 text-lg">
+                                      <div className="p-2 bg-white rounded-full shadow-sm text-purple-600"><CheckSquare size={20} /></div>
+                                      MCQ Practice
+                                  </h3>
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid grid-cols-2 gap-3">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('MCQ'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-purple-100 text-left">
+                                      <button key={s.id} onClick={() => { onTabChange('MCQ'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-purple-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
+                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-purple-500'}`}></div>
                                           {s.name}
                                       </button>
                                   ))}
