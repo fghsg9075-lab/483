@@ -24,7 +24,7 @@ import { HistoryPage } from './HistoryPage';
 import { Leaderboard } from './Leaderboard';
 import { SpinWheel } from './SpinWheel';
 import { fetchChapters, generateCustomNotes } from '../services/groq'; // Needed for Video Flow
-import { FileText, CheckSquare } from 'lucide-react'; // Icons
+import { FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline } from 'lucide-react'; // Icons
 import { LoadingOverlay } from './LoadingOverlay';
 import { CreditConfirmationModal } from './CreditConfirmationModal';
 import { UserGuide } from './UserGuide';
@@ -44,6 +44,10 @@ import { CustomBloggerPage } from './CustomBloggerPage';
 import { ReferralPopup } from './ReferralPopup';
 import { StudentAiAssistant } from './StudentAiAssistant';
 import { SpeakButton } from './SpeakButton';
+import { StudentSidebar } from './StudentSidebar';
+import { PerformanceGraph } from './PerformanceGraph';
+import { StudyGoalTimer } from './StudyGoalTimer';
+import { ExplorePage } from './ExplorePage';
 
 interface Props {
   user: User;
@@ -158,6 +162,20 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   // Monthly Report
   const [showMonthlyReport, setShowMonthlyReport] = useState(false);
   const [showReferralPopup, setShowReferralPopup] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // --- HEADER CONTROL ---
+  useEffect(() => {
+    // Force Full Screen for Home/Explore/Profile to use Custom Header
+    if (activeTab === 'HOME' || activeTab === 'EXPLORE' || activeTab === 'PROFILE') {
+        setFullScreen(true);
+    } else {
+        // For other tabs (content), let the content decide or default to normal
+        if (activeTab !== 'VIDEO' && activeTab !== 'PDF' && activeTab !== 'MCQ' && activeTab !== 'AUDIO') {
+             setFullScreen(false);
+        }
+    }
+  }, [activeTab]);
 
   // --- REFERRAL POPUP CHECK ---
   useEffect(() => {
@@ -722,10 +740,17 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   const claimDailyReward = () => {
       if (!canClaimReward) return;
       
-      // DYNAMIC REWARD LOGIC: 10 for Basic, 20 for Ultra, Default for Free
-      let finalReward = REWARD_AMOUNT; // Default (e.g. 3)
-      if (user.subscriptionLevel === 'BASIC' && user.isPremium) finalReward = 10;
-      if (user.subscriptionLevel === 'ULTRA' && user.isPremium) finalReward = 20;
+      // DYNAMIC REWARD LOGIC (ADMIN CONTROLLED)
+      let finalReward = settings?.loginBonusConfig?.freeBonus ?? 3;
+      if (user.subscriptionTier !== 'FREE') {
+          if (user.subscriptionLevel === 'BASIC') finalReward = settings?.loginBonusConfig?.basicBonus ?? 5;
+          if (user.subscriptionLevel === 'ULTRA') finalReward = settings?.loginBonusConfig?.ultraBonus ?? 10;
+      }
+
+      // STRICT STREAK LOGIC
+      // If Strict Mode is ON and User missed yesterday, they might get reduced reward or no reward next time
+      // Here we just grant the reward for hitting the goal TODAY.
+      // But we update streak logic elsewhere.
 
       const updatedUser = {
           ...user,
@@ -997,615 +1022,104 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   // --- RENDER BASED ON ACTIVE TAB ---
   const renderMainContent = () => {
       // 1. HOME TAB
-      if (activeTab === 'HOME') { 
-          const isPremium = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
-
+      if (activeTab === 'HOME') {
           return (
               <div className="space-y-6 pb-24">
-                {/* NEW: USER PROFILE DASHBOARD HEADER */}
-                <DashboardSectionWrapper id="section_profile_header" label="Profile Header">
-                <div 
-                    onClick={() => onTabChange('ANALYTICS')}
-                    className="mx-1 bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-3xl shadow-2xl border border-white/10 relative overflow-hidden cursor-pointer hover:scale-[1.01] transition-transform"
-                >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-                    
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="relative">
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white/30 flex items-center justify-center shadow-xl">
-                                    <UserIcon size={32} className="text-white" />
-                                </div>
-                                {user.isPremium && (
-                                    <div className="absolute -top-2 -right-2 bg-yellow-400 text-slate-900 p-1 rounded-lg shadow-lg border-2 border-slate-900 animate-bounce">
-                                        <Crown size={12} />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-xl font-black text-white leading-tight flex items-center gap-2">
-                                    {user.name}
-                                    {user.subscriptionLevel === 'ULTRA' && <Zap size={16} className="text-yellow-400 fill-yellow-400" />}
-                                </h2>
-                                <div className="flex items-center gap-2">
-                                    <p className="text-white/60 text-xs font-bold uppercase tracking-wider">
-                                        {user.role} • {user.board} {user.classLevel}
-                                    </p>
-                                    {user.streak >= 5 && (
-                                        <span className="bg-blue-500/20 text-blue-300 text-[9px] font-black px-2 py-0.5 rounded border border-blue-500/30 flex items-center gap-1">
-                                            <Crown size={10} /> CONSISTENCY KING
-                                        </span>
-                                    )}
-                                    {/* Check if any recent test > 90% */}
-                                    {(user.mcqHistory || []).slice(0, 5).some(h => h.totalQuestions > 0 && (h.score/h.totalQuestions) >= 0.9) && (
-                                        <span className="bg-yellow-500/20 text-yellow-300 text-[9px] font-black px-2 py-0.5 rounded border border-yellow-500/30 flex items-center gap-1">
-                                            <Star size={10} /> SCHOLARSHIP WINNER
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditMode(true);
-                                }}
-                                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl border border-white/20 transition-all active:scale-95"
-                            >
-                                <Settings size={20} className="text-white" />
-                            </button>
-                        </div>
-
-                        {/* TOPIC STRENGTH & TRENDS */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* PERFORMANCE TREND */}
-                            <div 
-                                className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 cursor-default"
-                            >
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                                        <TrendingUp size={14} /> Growth Chart
-                                    </h4>
-                                </div>
-                                {user.mcqHistory && user.mcqHistory.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {(user.mcqHistory || []).slice(0, 5).map((h, i, arr) => {
-                                            const score = h.totalQuestions > 0 ? Math.round((h.correctCount / h.totalQuestions) * 100) : 0;
-                                            
-                                            // Calculate Improvement vs Previous Test (which is i+1 in descending list)
-                                            let improvement = 0;
-                                            let showImp = false;
-                                            if (i < arr.length - 1) {
-                                                const prev = arr[i+1];
-                                                const prevScore = prev.totalQuestions > 0 ? Math.round((prev.correctCount / prev.totalQuestions) * 100) : 0;
-                                                improvement = score - prevScore;
-                                                showImp = true;
-                                            }
-
-                                            return (
-                                                <div key={i} className="space-y-1">
-                                                    <div className="flex justify-between items-end">
-                                                        <span className="text-[9px] font-bold text-white/80 truncate max-w-[50%] leading-none">
-                                                            {h.chapterTitle || 'Test'}
-                                                        </span>
-                                                        <div className="flex items-center gap-2">
-                                                            {showImp && (
-                                                                <span className={`text-[8px] font-bold px-1 rounded ${improvement > 0 ? 'text-green-400 bg-green-900/30' : improvement < 0 ? 'text-red-400 bg-red-900/30' : 'text-slate-400 bg-white/10'}`}>
-                                                                    {improvement > 0 ? '+' : ''}{improvement}%
-                                                                </span>
-                                                            )}
-                                                            <span className={`text-[9px] font-black leading-none ${score >= 80 ? 'text-green-400' : score >= 50 ? 'text-blue-400' : 'text-red-400'}`}>
-                                                                {score}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                                                        <div 
-                                                            className={`h-full rounded-full transition-all duration-1000 ${score >= 80 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : score >= 50 ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-gradient-to-r from-red-500 to-orange-400'}`} 
-                                                            style={{ width: `${score}%` }} 
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <p className="text-[10px] text-white/40 italic py-4 text-center">No test history yet</p>
-                                )}
-                            </div>
-
-                            {/* TOPIC STRENGTH */}
-                            <div 
-                                className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 cursor-default opacity-80"
-                            >
-                                {(() => {
-                                    const totalTopics = user.topicStrength ? Object.keys(user.topicStrength).length : 0;
-                                    const topicStats = Object.values(user.topicStrength || {}).reduce((acc: any, curr: any) => {
-                                        const pct = curr.total > 0 ? (curr.correct / curr.total) * 100 : 0;
-                                        if (pct >= 80) acc.strong++;
-                                        else if (pct < 60) acc.weak++;
-                                        else acc.avg++;
-                                        return acc;
-                                    }, { strong: 0, avg: 0, weak: 0 });
-
-                                    return (
-                                        <>
-                                            <div className="flex justify-between items-center mb-3">
-                                                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <BookOpen size={14} /> Topic Analysis
-                                                </h4>
-                                                {totalTopics > 0 && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setShowAllTopics(!showAllTopics); }}
-                                                        className="text-[9px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-white transition-colors border border-white/10"
-                                                    >
-                                                        {showAllTopics ? 'Hide' : 'Details'}
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            {totalTopics > 0 ? (
-                                                <div>
-                                                    {/* Summary Bar */}
-                                                    <div className="flex h-2 w-full rounded-full overflow-hidden mb-2 bg-slate-800">
-                                                        <div style={{ width: `${(topicStats.strong / totalTopics) * 100}%` }} className="bg-green-500 h-full" />
-                                                        <div style={{ width: `${(topicStats.avg / totalTopics) * 100}%` }} className="bg-yellow-500 h-full" />
-                                                        <div style={{ width: `${(topicStats.weak / totalTopics) * 100}%` }} className="bg-red-500 h-full" />
-                                                    </div>
-                                                    <div className="flex justify-between text-[8px] font-bold text-white/60 mb-3">
-                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>Strong ({topicStats.strong})</div>
-                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>Avg ({topicStats.avg})</div>
-                                                        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>Weak ({topicStats.weak})</div>
-                                                    </div>
-
-                                                    {/* Detailed List (Collapsible) */}
-                                                    {showAllTopics && (
-                                                        <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-1 scrollbar-hide">
-                                                            {Object.entries(user.topicStrength || {})
-                                                                .sort(([,a]: any, [,b]: any) => {
-                                                                    const pctA = a.total > 0 ? (a.correct/a.total) : 0;
-                                                                    const pctB = b.total > 0 ? (b.correct/b.total) : 0;
-                                                                    return pctA - pctB; // Weakest first
-                                                                })
-                                                                .map(([topic, stats]: any) => {
-                                                                    const pct = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
-                                                                    return (
-                                                                        <div key={topic} className="space-y-1">
-                                                                            <div className="flex justify-between text-[9px] font-bold">
-                                                                                <span className="text-white/60 truncate mr-2">{topic}</span>
-                                                                                <span className="text-white">{pct}%</span>
-                                                                            </div>
-                                                                            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                                                                <div
-                                                                                    className={`h-full transition-all duration-1000 ${pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                                    style={{ width: `${pct}%` }}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <p className="text-[10px] text-white/40 italic py-4 text-center">Analyze topics by taking tests</p>
-                                            )}
-                                        </>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                </DashboardSectionWrapper>
-
-                {/* HERO SECTION */}
-                  <div className="space-y-4 mb-6">
-                      
-                      {/* SPECIAL DISCOUNT BANNER (Kept separate as requested) */}
-                      {showDiscountBanner && discountTimer && (
-                          <div 
-                              onClick={() => onTabChange('STORE')}
-                              className="mx-1 mb-4 relative p-[2px] rounded-2xl overflow-hidden cursor-pointer group"
-                          >
-                              {/* Rotating Border Animation */}
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-spin-slow opacity-0 group-hover:opacity-100 transition-opacity" style={{ animationDuration: '3s' }}></div>
-                              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-600 animate-border-rotate"></div>
-                              
-                              <div className="relative bg-gradient-to-r from-blue-900 to-slate-900 p-4 rounded-2xl shadow-xl overflow-hidden">
-                                  {/* Glossy Overlay */}
-                                  <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none"></div>
-                                  
-                                  <div className="flex justify-between items-center relative z-10 text-white">
-                                      <div>
-                                          <h3 className="text-lg font-black italic flex items-center gap-2">
-                                              <Sparkles size={18} className="text-yellow-400 animate-pulse" />
-                                              {discountStatus === 'WAITING' ? '⚡ SALE STARTING SOON' : `🔥 ${settings?.specialDiscountEvent?.eventName || 'LIMITED TIME OFFER'} IS LIVE!`}
-                                          </h3>
-                                          <p className="text-xs font-bold text-blue-200">
-                                              {discountStatus === 'WAITING' ? 'Get ready for massive discounts!' : `Get ${settings?.specialDiscountEvent?.discountPercent || 50}% OFF on all premium plans!`}
-                                          </p>
-                                      </div>
-                                      <div className="text-right">
-                                          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-300">{discountStatus === 'WAITING' ? 'STARTS IN' : 'ENDS IN'}</p>
-                                          <p className="text-2xl font-black font-mono leading-none text-white drop-shadow-md">{discountTimer}</p>
-                                      </div>
-                                  </div>
-                                  
-                                  {/* Moving Shine Effect */}
-                                  <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shine"></div>
-                              </div>
-                          </div>
-                      )}
-
-                      {/* CONSOLIDATED BANNER CAROUSEL */}
-                      <BannerCarousel>
-                          {/* 1. HERO SLIDER */}
-                          <DashboardSectionWrapper id="hero_slider" label="Hero Slider">
-                              <div className="relative h-48 rounded-2xl overflow-hidden shadow-xl mx-1 border border-white/20" style={{ backgroundColor: 'var(--primary)' }}>
-                                  <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-transparent"></div>
-                                  {slides.map((slide, index) => (
-                                      <div 
-                                          key={slide.id}
-                                          className={`absolute inset-0 flex flex-col justify-center p-6 transition-all duration-1000 ${index === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
-                                      >
-                                          <div className="text-white relative z-10">
-                                              <div className="inline-block px-3 py-1 bg-black/20 rounded-full text-[10px] font-black tracking-widest mb-2 backdrop-blur-md border border-white/10 shadow-sm">
-                                                  ✨ FEATURED
-                                              </div>
-                                              <h2 className="text-3xl font-black mb-2 leading-none drop-shadow-md">{slide.title}</h2>
-                                              <p className="text-sm font-medium opacity-90 mb-4 max-w-[80%]">{slide.subtitle}</p>
-                                              
-                                              <button onClick={() => onTabChange('STORE')} className="bg-white text-slate-900 px-5 py-2.5 rounded-xl text-xs font-black shadow-lg hover:scale-105 transition-transform flex items-center gap-2 uppercase tracking-wider">
-                                                  <Zap size={14} className="text-yellow-500 fill-yellow-500" /> 
-                                                  {(slide as any).btnText || 'Get Access'}
-                                              </button>
-                                          </div>
-                                          {/* Animated Background Element */}
-                                          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </DashboardSectionWrapper>
-
-                          {/* 2. AI NOTES POSTER (If Enabled) */}
-                          {settings?.isAiEnabled && (
-                              <div 
-                                  onClick={() => setShowAiModal(true)}
-                                  className="mx-1 h-48 relative overflow-hidden rounded-2xl shadow-lg cursor-pointer group flex flex-col justify-center"
-                              >
-                                  <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600"></div>
-                                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
-                                  
-                                  <div className="relative p-5 flex items-center justify-between">
-                                      <div>
-                                          <div className="flex items-center gap-2 mb-1">
-                                              <BrainCircuit className="text-yellow-300" size={20} />
-                                              <span className="text-[10px] font-black bg-white/20 px-2 py-0.5 rounded text-white backdrop-blur-sm border border-white/20">NEW FEATURE</span>
-                                          </div>
-                                          <h3 className="text-xl font-black text-white italic tracking-wide">{settings?.aiName || 'AI ASSISTANT'}</h3>
-                                          <p className="text-xs text-indigo-100 font-medium mt-1 max-w-[200px]">Generate custom notes on any topic instantly using AI.</p>
-                                      </div>
-                                      <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 group-hover:scale-110 transition-transform">
-                                          <Sparkles className="text-white" size={24} />
-                                      </div>
-                                  </div>
-                              </div>
-                          )}
-
-                          {/* 3. MORNING INSIGHT BANNER */}
-                          {morningBanner && (
-                              <div className="mx-1 h-48 bg-gradient-to-r from-orange-100 to-amber-100 p-4 rounded-2xl shadow-sm border border-orange-200 overflow-y-auto">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <h3 className="font-black text-orange-900 flex items-center gap-2">
-                                          <Sparkles size={18} className="text-orange-600" /> {morningBanner.title || 'Morning Insight'}
-                                      </h3>
-                                      <div className="flex items-center gap-2">
-                                          <SpeakButton text={`${morningBanner.title}. ${morningBanner.wisdom}. Common Trap: ${morningBanner.commonTrap}. Pro Tip: ${morningBanner.proTip}`} className="text-orange-600 hover:bg-orange-200" iconSize={16} />
-                                          <span className="text-[10px] font-bold text-orange-600 bg-orange-200 px-2 py-0.5 rounded-full">{morningBanner.date}</span>
-                                      </div>
-                                  </div>
-                                  <p className="text-xs text-orange-800 italic mb-3">"{morningBanner.wisdom}"</p>
-                                  <div className="space-y-2">
-                                      <div className="bg-white/60 p-2 rounded-lg text-xs">
-                                          <span className="font-bold text-red-600 block">⚠️ Common Trap:</span>
-                                          <span className="text-slate-700">{morningBanner.commonTrap}</span>
-                                      </div>
-                                      <div className="bg-white/60 p-2 rounded-lg text-xs">
-                                          <span className="font-bold text-green-600 block">💡 Pro Tip:</span>
-                                          <span className="text-slate-700">{morningBanner.proTip}</span>
-                                      </div>
-                                  </div>
-                              </div>
-                          )}
-
-                          {/* 4. CUSTOM PAGE BANNER */}
-                          <div 
-                              onClick={() => onTabChange('CUSTOM_PAGE')}
-                              className="mx-1 h-48 bg-gradient-to-r from-orange-500 to-red-500 p-4 rounded-2xl shadow-lg text-white flex flex-col justify-center cursor-pointer border border-white/20 relative overflow-hidden group"
-                          >
-                              <div className="relative z-10 flex justify-between items-center">
-                                  <div>
-                                      <h3 className="text-lg font-black flex items-center gap-2">
-                                          <Sparkles size={18} className="text-yellow-300 animate-pulse" />
-                                          What's New?
-                                      </h3>
-                                      <p className="text-xs font-medium text-orange-100">Tap to see special updates!</p>
-                                  </div>
-                                  <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm group-hover:scale-110 transition-transform relative z-10">
-                                      <ArrowRight size={20} className="text-white" />
-                                  </div>
-                              </div>
-                              <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
-                          </div>
-
-                          {/* 5. LIVE CHALLENGES & AUTO CHALLENGES */}
-                          <DashboardSectionWrapper id="live_challenges" label="Live Challenges">
-                              <div className="mx-1 h-48 bg-slate-900 p-4 rounded-2xl shadow-lg text-white border border-slate-700 relative overflow-hidden flex flex-col">
-                                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl"></div>
-                                  
-                                  <h3 className="font-black text-white flex items-center gap-2 mb-3 relative z-10">
-                                      <Rocket size={18} className="text-indigo-400" /> Daily & Weekly Challenges
-                                  </h3>
-                                  
-                                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide relative z-10 flex-1 items-center">
-                                      {/* AUTO DAILY CARD */}
-                                      <button onClick={() => startAutoChallenge('DAILY')} className="min-w-[140px] bg-slate-800 p-3 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all text-left group">
-                                          <p className="text-[10px] font-bold text-yellow-400 uppercase mb-1">Daily Challenge</p>
-                                          <p className="font-bold text-sm text-white leading-tight mb-2">Mixed Practice</p>
-                                          <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                              <span>30 Qs</span>
-                                              <span className="text-yellow-400 font-mono">15 Mins</span>
-                                          </div>
-                                      </button>
-
-                                      {/* AUTO WEEKLY CARD (Only Show on Sundays) */}
-                                      {new Date().getDay() === 0 && (
-                                          <button onClick={() => startAutoChallenge('WEEKLY')} className="min-w-[140px] bg-slate-800 p-3 rounded-xl border border-slate-700 hover:border-purple-500 transition-all text-left group">
-                                              <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Weekly Mega Test</p>
-                                              <p className="font-bold text-sm text-white leading-tight mb-2">Full Revision</p>
-                                              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                                  <span>100 Qs</span>
-                                                  <span className="text-purple-400 font-mono">60 Mins</span>
-                                              </div>
-                                          </button>
-                                      )}
-
-                                      {challenges20.map(c => {
-                                          const expiry = new Date(c.expiryDate);
-                                          const now = Date.now();
-                                          const timeLeft = Math.max(0, Math.floor((expiry.getTime() - now) / (1000 * 60))); // Minutes
-                                          const hours = Math.floor(timeLeft / 60);
-                                          const mins = timeLeft % 60;
-
-                                          return (
-                                              <button 
-                                                  key={c.id} 
-                                                  onClick={() => startChallenge20(c)}
-                                                  className="min-w-[140px] bg-slate-800 p-3 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all text-left group"
-                                              >
-                                                  <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">
-                                                      {c.type === 'DAILY_CHALLENGE' ? 'Special Challenge' : 'Special Test'}
-                                                  </p>
-                                                  <p className="font-bold text-sm text-white leading-tight mb-2 truncate">{c.title}</p>
-                                                  <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                                      <span>{c.questions.length} Qs</span>
-                                                      <span className="text-red-400 font-mono">{hours}h {mins}m left</span>
-                                                  </div>
-                                              </button>
-                                          );
-                                      })}
-                                  </div>
-                              </div>
-                          </DashboardSectionWrapper>
-
-                          {/* 6. SUBSCRIPTION PROMO BANNER (Inline with Credits) */}
-                          <DashboardSectionWrapper id="promo_banner" label="Promo Banner">
-                              <div onClick={() => onTabChange('STORE')} className="mx-1 h-48 bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-center cursor-pointer border border-slate-700 relative overflow-hidden group">
-                                  <div className="relative z-10 mb-4">
-                                      <div className="flex items-center gap-2 mb-1">
-                                          <Crown size={16} className="text-yellow-400 animate-pulse" />
-                                          <span className="text-xs font-black text-white tracking-widest">PRO MEMBERSHIP</span>
-                                      </div>
-                                      <p className="text-[10px] text-slate-400">Unlock All Features + Get Credits</p>
-                                  </div>
-                                  <div className="relative z-10 flex flex-col items-end">
-                                      <span className="text-xl font-black text-white">BASIC / ULTRA</span>
-                                      <span className="text-[10px] font-bold bg-yellow-400 text-black px-2 py-0.5 rounded-full">+ 5000 Credits</span>
-                                  </div>
-                                  {/* Shine Effect */}
-                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                              </div>
-                          </DashboardSectionWrapper>
-                      </BannerCarousel>
-
-                      {/* FEATURED SHORTCUTS (Admin Configured) */}
-                      <DashboardSectionWrapper id="featured_shortcuts" label="Shortcuts">
-                          <div className="px-1 mb-2">
-                              <div className="grid grid-cols-2 gap-3">
-                                  {/* Featured Items Logic Removed due to missing property */}
-                              </div>
-                          </div>
-                      </DashboardSectionWrapper>
-
-                      {/* FEATURES SLIDER (360 Loop) - DYNAMIC & CONFIGURABLE */}
-                      <DashboardSectionWrapper id="features_ticker" label="Features Ticker">
-                      <div className="overflow-hidden py-4 bg-slate-50 border-y border-slate-200">
-                          <div className="flex gap-8 animate-marquee whitespace-nowrap">
-                              {/* Use ALL_APP_FEATURES to ensure 100+ items rotate */}
-                              {ALL_APP_FEATURES.map((feat, i) => (
-                                  <span key={feat.id} className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                      {feat.title}
-                                  </span>
-                              ))}
-                              {/* DUPLICATE FOR SMOOTH LOOP */}
-                              {ALL_APP_FEATURES.map((feat, i) => (
-                                  <span key={`dup-${feat.id}`} className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                      {feat.title}
-                                  </span>
-                              ))}
+                  {/* Custom Header */}
+                  <div className="flex justify-between items-center py-4 px-2">
+                      <div className="flex items-center gap-3">
+                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+                              <Menu size={24} className="text-slate-800" />
+                          </button>
+                          <div>
+                              <h1 className="font-black text-xl text-slate-900 leading-none">{settings?.appName || 'IIC'}</h1>
+                              <p className="text-xs font-bold text-slate-400 font-mono tracking-widest mt-0.5">ID: {user.displayId || user.id.slice(0, 6)}</p>
                           </div>
                       </div>
-                      </DashboardSectionWrapper>
-                  </div>
-
-          {/* STATS HEADER (Compact) */}
-          <DashboardSectionWrapper id="stats_header" label="Stats Header">
-                  <div className="bg-slate-900 rounded-xl p-3 text-white shadow-lg relative overflow-hidden">
-                      <div className="flex items-center justify-between relative z-10">
-                          <div className="flex items-center gap-3">
-                              <div className="bg-slate-800 p-2 rounded-lg">
-                                  <Timer size={16} className="text-green-400" />
-                              </div>
-                              <div>
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase">Study Time</p>
-                                  <p className="text-lg font-mono font-bold text-white leading-none">
-                                      {formatTime(dailyStudySeconds)}
-                                  </p>
-                              </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase">Credits</p>
-                                  <p className="text-lg font-black text-yellow-400 leading-none">{user.credits}</p>
-                              </div>
-                              <div className="bg-slate-800 p-2 rounded-lg">
-                                  <Crown size={16} className="text-yellow-400" />
-                              </div>
-                          </div>
+                      <div className="flex items-center gap-3">
+                         <div className="text-right hidden sm:block">
+                             <p className="text-[10px] font-bold text-slate-400 uppercase">Credits</p>
+                             <p className="text-lg font-black text-blue-600 leading-none">{user.credits}</p>
+                         </div>
+                         <div className="text-right border-l pl-3 border-slate-200 hidden sm:block">
+                             <p className="text-[10px] font-bold text-slate-400 uppercase">Streak</p>
+                             <p className="text-lg font-black text-orange-500 leading-none">{user.streak}🔥</p>
+                         </div>
+                         {/* Mobile Compact View */}
+                         <div className="sm:hidden flex items-center gap-2">
+                             <div className="bg-blue-50 px-2 py-1 rounded">
+                                 <span className="text-xs font-black text-blue-600">{user.credits} CR</span>
+                             </div>
+                             <div className="bg-orange-50 px-2 py-1 rounded">
+                                 <span className="text-xs font-black text-orange-500">{user.streak}🔥</span>
+                             </div>
+                         </div>
                       </div>
                   </div>
-                  </DashboardSectionWrapper>
 
-                  {/* CONTENT REQUEST (DEMAND) SECTION */}
-                  <DashboardSectionWrapper id="request_content" label="Request Content">
-                  <div className="bg-gradient-to-r from-pink-50 to-rose-50 p-4 rounded-2xl border border-pink-100 shadow-sm mt-4">
-                      <h3 className="font-bold text-pink-900 mb-2 flex items-center gap-2">
-                          <Megaphone size={18} className="text-pink-600" /> Request Content
-                      </h3>
-                      <p className="text-xs text-slate-600 mb-4">Don't see what you need? Request it here!</p>
-                      
-                      <button 
-                          onClick={() => {
-                              setRequestData({ subject: '', topic: '', type: 'PDF' });
-                              setShowRequestModal(true);
+                  {/* Performance Graph */}
+                  {!(settings?.hiddenFeatures?.includes('f50')) && (
+                      <PerformanceGraph
+                          user={user}
+                          onViewNotes={(topic) => {
+                              onTabChange('PDF');
                           }}
-                          className="w-full bg-white text-pink-600 font-bold py-3 rounded-xl shadow-sm border border-pink-200 hover:bg-pink-100 transition-colors flex items-center justify-center gap-2 text-sm"
+                          onViewAnalytics={() => onTabChange('ANALYTICS')}
+                      />
+                  )}
+
+                  {/* Study Timer */}
+                  <StudyGoalTimer
+                      dailyStudySeconds={dailyStudySeconds}
+                      targetSeconds={dailyTargetSeconds}
+                      onSetTarget={(sec) => {
+                          setDailyTargetSeconds(sec);
+                          localStorage.setItem(`nst_goal_${user.id}`, (sec / 3600).toString());
+                      }}
+                  />
+
+                  {/* Big Buttons */}
+                  <div className="grid grid-cols-2 gap-4 px-2">
+                      <button
+                          onClick={() => onTabChange('VIDEO')}
+                          className="bg-gradient-to-br from-red-500 to-rose-700 text-white p-6 rounded-3xl shadow-xl shadow-red-200 hover:shadow-2xl transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group border border-red-400/20"
                       >
-                          + Make a Request
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform blur-xl"></div>
+                          <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm relative z-10">
+                              <Play size={32} fill="currentColor" className="relative z-10" />
+                          </div>
+                          <span className="font-black text-lg relative z-10 uppercase tracking-wide drop-shadow-sm">Videos</span>
+                      </button>
+
+                      <button
+                          onClick={() => onTabChange('COURSES')}
+                          className="bg-gradient-to-br from-blue-500 to-indigo-700 text-white p-6 rounded-3xl shadow-xl shadow-blue-200 hover:shadow-2xl transition-all active:scale-95 flex flex-col items-center gap-3 relative overflow-hidden group border border-blue-400/20"
+                      >
+                          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 group-hover:scale-110 transition-transform blur-xl"></div>
+                          <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm relative z-10">
+                              <BookOpen size={32} className="relative z-10" />
+                          </div>
+                          <span className="font-black text-lg relative z-10 uppercase tracking-wide drop-shadow-sm">Courses</span>
                       </button>
                   </div>
-                  </DashboardSectionWrapper>
+              </div>
+          );
+      }
 
-                      {/* MORE SERVICES GRID (Redesigned - Audio Learning 2.0 Style) */}
-                      <DashboardSectionWrapper id="services_grid" label="Services Grid">
-                      <div>
-                          <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2 px-1">
-                              <Layout size={18} /> Quick Actions
-                          </h3>
-                          <div className="grid grid-cols-3 gap-3">
-                              {/* Row 1 */}
-                              <DashboardTileWrapper id="tile_inbox" label="Inbox">
-                              <button onClick={() => setShowInbox(true)} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform relative group">
-                                  <Mail size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Inbox</span>
-                                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-black text-[9px] font-bold flex items-center justify-center rounded-full shadow-sm animate-pulse">{unreadCount}</span>}
-                              </button>
-                              </DashboardTileWrapper>
-                              
-                              <DashboardTileWrapper id="tile_analytics" label="Analytics">
-                              <button onClick={() => onTabChange('ANALYTICS')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <BarChart3 size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Analytics</span>
-                              </button>
-                              </DashboardTileWrapper>
+      // 2. EXPLORE TAB
+      if (activeTab === 'EXPLORE') {
+          return (
+              <ExplorePage
+                  user={user}
+                  settings={settings}
+                  onTabChange={onTabChange}
+                  onStartWeeklyTest={onStartWeeklyTest}
+                  onOpenAiChat={() => setShowAiModal(true)}
+              />
+          );
+      }
 
-                              <DashboardTileWrapper id="tile_marksheet" label="Marksheet">
-                              <button onClick={() => setShowMonthlyReport(true)} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <FileText size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Marksheet</span>
-                              </button>
-                              </DashboardTileWrapper>
-
-                              {(user.role === 'ADMIN' || isImpersonating) && (
-                                <DashboardTileWrapper id="tile_admin" label="Admin App">
-                                <button onClick={handleSwitchToAdmin} className="h-16 w-full bg-slate-900 border border-slate-800 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                    <Layout size={18} className="text-yellow-400" />
-                                    <span className="text-[10px] font-black text-white uppercase tracking-wider">Admin App</span>
-                                </button>
-                                </DashboardTileWrapper>
-                              )}
-
-                              <DashboardTileWrapper id="tile_history" label="History">
-                              <button onClick={() => onTabChange('HISTORY')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <History size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">History</span>
-                              </button>
-                              </DashboardTileWrapper>
-
-                              <DashboardTileWrapper id="tile_ai_history" label="AI History">
-                              <button onClick={() => onTabChange('AI_HISTORY')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <BrainCircuit size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">AI History</span>
-                              </button>
-                              </DashboardTileWrapper>
-
-                              {/* Row 2 */}
-                              <DashboardTileWrapper id="tile_premium" label="Store">
-                              <button onClick={() => onTabChange('STORE')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <Crown size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Premium</span>
-                              </button>
-                              </DashboardTileWrapper>
-
-                              <DashboardTileWrapper id="tile_my_plan" label="My Plan">
-                              <button onClick={() => onTabChange('SUB_HISTORY' as any)} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <CreditCard size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">My Plan</span>
-                              </button>
-                              </DashboardTileWrapper>
-
-                              {isGameEnabled && (
-                                <DashboardTileWrapper id="tile_game" label="Game">
-                                <button onClick={() => onTabChange('GAME')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                    <Gamepad2 size={18} style={{ color: 'var(--primary)' }} />
-                                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Game</span>
-                                </button>
-                                </DashboardTileWrapper>
-                              )}
-
-                              {/* Row 3 */}
-                              <DashboardTileWrapper id="tile_redeem" label="Redeem">
-                              <button onClick={() => onTabChange('REDEEM')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <Gift size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Redeem</span>
-                              </button>
-                              </DashboardTileWrapper>
-                              
-                              <DashboardTileWrapper id="tile_prizes" label="Prizes">
-                              <button onClick={() => onTabChange('PRIZES')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <Award size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Prizes</span>
-                              </button>
-                              </DashboardTileWrapper>
-
-                              <DashboardTileWrapper id="tile_leaderboard" label="Ranks">
-                              <button onClick={() => onTabChange('LEADERBOARD')} className="h-16 w-full bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                                  <Trophy size={18} style={{ color: 'var(--primary)' }} />
-                                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Ranks</span>
-                              </button>
-                              </DashboardTileWrapper>
-                          </div>
-                      </div>
-                      </DashboardSectionWrapper>
-                  </div>
-              );
-          }
-
-
-      // 2. COURSES TAB (Handles Video, Notes, MCQ Selection)
+      // 3. COURSES TAB (Handles Video, Notes, MCQ Selection)
       if (activeTab === 'COURSES') {
           // If viewing a specific content type (from drilled down), show it
           // Note: Clicking a subject switches tab to VIDEO/PDF/MCQ, so COURSES just shows the Hub.
@@ -1622,7 +1136,7 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                       </div>
 
                       {/* RECOMMENDED NOTES (Universal) */}
-                      {universalNotes.length > 0 && (
+                      {universalNotes.length > 0 && !(settings?.hiddenFeatures?.includes('f56')) && (
                           <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 animate-in slide-in-from-top-4">
                               <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
                                   <FileText size={18} className="text-blue-600" /> Recommended Notes
@@ -1665,11 +1179,15 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                       
                       {/* Video Section */}
                       {settings?.contentVisibility?.VIDEO !== false && (
-                          <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
-                              <h3 className="font-bold text-red-800 flex items-center gap-2 mb-2"><Youtube /> Video Lectures</h3>
-                              <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-gradient-to-br from-red-50 to-rose-100 p-6 rounded-3xl border border-red-200 shadow-sm">
+                              <h3 className="font-black text-red-900 flex items-center gap-2 mb-4 text-lg">
+                                  <div className="p-2 bg-white rounded-full shadow-sm text-red-600"><Youtube size={20} /></div>
+                                  Video Lectures
+                              </h3>
+                              <div className="grid grid-cols-2 gap-3">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-red-100 text-left">
+                                      <button key={s.id} onClick={() => { onTabChange('VIDEO'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-red-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
+                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-red-500'}`}></div>
                                           {s.name}
                                       </button>
                                   ))}
@@ -1679,11 +1197,15 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
 
                       {/* Notes Section */}
                       {settings?.contentVisibility?.PDF !== false && (
-                          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                              <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-2"><FileText /> Notes Library</h3>
-                              <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-3xl border border-blue-200 shadow-sm">
+                              <h3 className="font-black text-blue-900 flex items-center gap-2 mb-4 text-lg">
+                                  <div className="p-2 bg-white rounded-full shadow-sm text-blue-600"><FileText size={20} /></div>
+                                  Notes Library
+                              </h3>
+                              <div className="grid grid-cols-2 gap-3">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('PDF'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-blue-100 text-left">
+                                      <button key={s.id} onClick={() => { onTabChange('PDF'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-blue-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
+                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-blue-500'}`}></div>
                                           {s.name}
                                       </button>
                                   ))}
@@ -1693,13 +1215,17 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
 
                       {/* MCQ Section */}
                       {settings?.contentVisibility?.MCQ !== false && (
-                          <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100">
-                              <div className="flex justify-between items-center mb-2">
-                                  <h3 className="font-bold text-purple-800 flex items-center gap-2"><CheckSquare /> MCQ Practice</h3>
+                          <div className="bg-gradient-to-br from-purple-50 to-fuchsia-100 p-6 rounded-3xl border border-purple-200 shadow-sm">
+                              <div className="flex justify-between items-center mb-4">
+                                  <h3 className="font-black text-purple-900 flex items-center gap-2 text-lg">
+                                      <div className="p-2 bg-white rounded-full shadow-sm text-purple-600"><CheckSquare size={20} /></div>
+                                      MCQ Practice
+                                  </h3>
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid grid-cols-2 gap-3">
                                   {visibleSubjects.map(s => (
-                                      <button key={s.id} onClick={() => { onTabChange('MCQ'); handleContentSubjectSelect(s); }} className="bg-white p-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm border border-purple-100 text-left">
+                                      <button key={s.id} onClick={() => { onTabChange('MCQ'); handleContentSubjectSelect(s); }} className="bg-white p-3 rounded-2xl text-xs font-bold text-slate-700 shadow-sm border border-purple-100 text-left hover:shadow-md hover:scale-[1.02] transition-all flex items-center gap-2">
+                                          <div className={`w-2 h-2 rounded-full ${s.color?.split(' ')[0] || 'bg-purple-500'}`}></div>
                                           {s.name}
                                       </button>
                                   ))}
@@ -2135,49 +1661,32 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                     <span className="text-[10px] font-bold mt-1">Home</span>
                 </button>
                 
-                <button onClick={() => {
-                        // Open Universal Video Playlist directly
-                        setSelectedSubject({ id: 'universal', name: 'Special' } as any);
-                        setSelectedChapter({ id: 'UNIVERSAL', title: 'Featured Lectures' } as any);
-                        setContentViewStep('PLAYER');
-                        setFullScreen(true);
-                        onTabChange('VIDEO');
-
-                        // Clear Notification
-                        localStorage.setItem('nst_last_read_update', Date.now().toString());
-                        setHasNewUpdate(false);
-                    }} 
-                    className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'VIDEO' && selectedChapter?.id === 'UNIVERSAL' ? 'text-blue-600' : 'text-slate-400'}`}
-                >
-                    <div className="relative">
-                         {/* Changed Icon to PlayCircle as requested */}
-                         <Play size={24} fill={activeTab === 'VIDEO' && selectedChapter?.id === 'UNIVERSAL' ? "currentColor" : "none"} />
-                         {hasNewUpdate && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-600 rounded-full border border-white animate-pulse"></span>}
-                    </div>
-                    <span className="text-[10px] font-bold mt-1">Videos</span>
-                </button>
-
-                <button onClick={() => { onTabChange('COURSES'); setContentViewStep('SUBJECTS'); }} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'COURSES' || (activeTab === 'VIDEO' && selectedChapter?.id !== 'UNIVERSAL') || activeTab === 'PDF' || activeTab === 'MCQ' || activeTab === 'AUDIO' ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <Book size={24} fill={activeTab === 'COURSES' || (activeTab === 'VIDEO' && selectedChapter?.id !== 'UNIVERSAL') || activeTab === 'PDF' || activeTab === 'MCQ' || activeTab === 'AUDIO' ? "currentColor" : "none"} />
-                    <span className="text-[10px] font-bold mt-1">Courses</span>
-                </button>
-                
-                <button onClick={() => { onTabChange('STORE'); setContentViewStep('SUBJECTS'); }} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'STORE' ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <ShoppingBag size={24} fill={activeTab === 'STORE' ? "currentColor" : "none"} />
-                    <span className="text-[10px] font-bold mt-1">Store</span>
-                </button>
-
-                <button onClick={() => onTabChange('SUB_HISTORY')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'SUB_HISTORY' ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <CreditCard size={24} fill={activeTab === 'SUB_HISTORY' ? "currentColor" : "none"} />
-                    <span className="text-[10px] font-bold mt-1">Sub</span>
+                <button onClick={() => onTabChange('EXPLORE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'EXPLORE' ? 'text-blue-600' : 'text-slate-400'}`}>
+                    <Compass size={24} fill={activeTab === 'EXPLORE' ? "currentColor" : "none"} />
+                    <span className="text-[10px] font-bold mt-1">Explore</span>
                 </button>
 
                 <button onClick={() => onTabChange('PROFILE')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'PROFILE' ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <UserIcon size={24} fill={activeTab === 'PROFILE' ? "currentColor" : "none"} />
+                    <UserIconOutline size={24} fill={activeTab === 'PROFILE' ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold mt-1">Profile</span>
                 </button>
             </div>
         </div>
+
+        <StudentSidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            onNavigate={(tab) => {
+                onTabChange(tab);
+                setIsSidebarOpen(false);
+            }}
+            user={user}
+            settings={settings}
+            onLogout={() => {
+                localStorage.removeItem('nst_current_user');
+                window.location.reload();
+            }}
+        />
 
         {/* SYLLABUS SELECTION POPUP */}
         {showSyllabusPopup && (

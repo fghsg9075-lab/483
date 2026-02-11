@@ -376,3 +376,8 @@ export const ALL_APP_FEATURES = [
     { id: 'f102', title: 'Voice Search', enabled: true },
     { id: 'f103', title: 'Gesture Control', enabled: true }
 ];
+
+// --- STUDENT FACING FEATURES (Filtered) ---
+export const STUDENT_APP_FEATURES = ALL_APP_FEATURES.filter(f =>
+    !['f17', 'f18', 'f19', 'f20', 'f34', 'f37', 'f43', 'f44', 'f45', 'f46', 'f47', 'f48', 'f89', 'f90', 'f91', 'f92', 'f88', 'f87'].includes(f.id)
+);
