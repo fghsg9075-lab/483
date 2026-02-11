@@ -11,7 +11,7 @@ import { generateMorningInsight } from '../services/morningInsight';
 import { RedeemSection } from './RedeemSection';
 import { PrizeList } from './PrizeList';
 import { Store } from './Store';
-import { Layout, Gift, Sparkles, Megaphone, Lock, BookOpen, AlertCircle, Edit, Settings, Play, Pause, RotateCcw, MessageCircle, Gamepad2, Timer, CreditCard, Send, CheckCircle, Mail, X, Ban, Smartphone, Trophy, ShoppingBag, ArrowRight, Video, Youtube, Home, User as UserIcon, Book, BookOpenText, List, BarChart3, Award, Bell, Headphones, LifeBuoy, WifiOff, Zap, Star, Crown, History, ListChecks, Rocket, Ticket, TrendingUp, BrainCircuit, FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline } from 'lucide-react';
+import { Layout, Gift, Sparkles, Megaphone, Lock, BookOpen, AlertCircle, Edit, Settings, Play, Pause, RotateCcw, MessageCircle, MessageSquare, Gamepad2, Timer, CreditCard, Send, CheckCircle, Mail, X, Ban, Smartphone, Trophy, ShoppingBag, ArrowRight, Video, Youtube, Home, User as UserIcon, Book, BookOpenText, List, BarChart3, Award, Bell, Headphones, LifeBuoy, WifiOff, Zap, Star, Crown, History, ListChecks, Rocket, Ticket, TrendingUp, BrainCircuit, FileText, CheckSquare, Menu, LayoutGrid, Compass, User as UserIconOutline } from 'lucide-react';
 import { SubjectSelection } from './SubjectSelection';
 import { BannerCarousel } from './BannerCarousel';
 import { ChapterSelection } from './ChapterSelection'; // Imported for Video Flow
@@ -1257,18 +1257,22 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
                               {/* Overlay controls disabled */}
                               <div className="absolute inset-0 z-20 bg-transparent"></div>
 
-                              <BannerCarousel
-                                  slides={[
-                                      { id: '1', image: 'https://img.freepik.com/free-vector/gradient-education-poster-template_23-2150338779.jpg', title: 'ULTRA VIDEO', subtitle: 'HD Lectures', link: '' },
-                                      { id: '2', image: 'https://img.freepik.com/free-vector/gradient-education-flyer-template_23-2150338784.jpg', title: 'ULTRA PDF', subtitle: 'Premium Notes', link: '' },
-                                      { id: '3', image: 'https://img.freepik.com/free-vector/online-tutorials-concept_52683-37480.jpg', title: 'ULTRA MCQ', subtitle: 'Test Series', link: '' },
-                                      { id: '4', image: 'https://img.freepik.com/free-vector/audiobook-concept-illustration_114360-6070.jpg', title: 'ULTRA AUDIO', subtitle: 'Listen & Learn', link: '' }
-                                  ]}
-                                  interval={2000} // Fast Auto Skip
-                                  autoPlay={true}
-                                  showDots={false}
-                                  showArrows={false}
-                              />
+                              <BannerCarousel interval={2000} autoPlay={true}>
+                                  {[
+                                      { id: '1', image: 'https://img.freepik.com/free-vector/gradient-education-poster-template_23-2150338779.jpg', title: 'ULTRA VIDEO', subtitle: 'HD Lectures' },
+                                      { id: '2', image: 'https://img.freepik.com/free-vector/gradient-education-flyer-template_23-2150338784.jpg', title: 'ULTRA PDF', subtitle: 'Premium Notes' },
+                                      { id: '3', image: 'https://img.freepik.com/free-vector/online-tutorials-concept_52683-37480.jpg', title: 'ULTRA MCQ', subtitle: 'Test Series' },
+                                      { id: '4', image: 'https://img.freepik.com/free-vector/audiobook-concept-illustration_114360-6070.jpg', title: 'ULTRA AUDIO', subtitle: 'Listen & Learn' }
+                                  ].map(slide => (
+                                      <div key={slide.id} className="relative w-full h-32">
+                                          <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" />
+                                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-4 pb-8">
+                                              <h3 className="text-white font-black text-sm">{slide.title}</h3>
+                                              <p className="text-white/80 text-[10px]">{slide.subtitle}</p>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </BannerCarousel>
                               <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 flex justify-between items-center z-10 backdrop-blur-sm">
                                   <span className="text-xs font-black text-white flex items-center gap-1"><Crown size={12} className="text-yellow-400"/> PREMIUM CONTENT</span>
                                   <span className="text-[9px] text-slate-300 uppercase tracking-widest">Auto-Preview</span>
