@@ -43,7 +43,6 @@ import { CustomBloggerPage } from './CustomBloggerPage';
 import { ReferralPopup } from './ReferralPopup';
 import { StudentAiAssistant } from './StudentAiAssistant';
 import { SpeakButton } from './SpeakButton';
- feature-dashboard-redesign-cleanup-13635731507476622996
 import { PerformanceGraph } from './PerformanceGraph';
 import { StudentSidebar } from './StudentSidebar';
 import { PerformanceGraph } from './PerformanceGraph';
@@ -163,7 +162,6 @@ export const StudentDashboard: React.FC<Props> = ({ user, dailyStudySeconds, onS
   // Monthly Report
   const [showMonthlyReport, setShowMonthlyReport] = useState(false);
   const [showReferralPopup, setShowReferralPopup] = useState(false);
-feature-dashboard-redesign-cleanup-13635731507476622996
   const [showSidebar, setShowSidebar] = useState(false);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -180,7 +178,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
         }
     }
   }, [activeTab]);
-main
 
   // --- REFERRAL POPUP CHECK ---
   useEffect(() => {
@@ -1029,7 +1026,6 @@ main
       // 1. HOME TAB
       if (activeTab === 'HOME') {
           return (
- feature-dashboard-redesign-cleanup-13635731507476622996
               <div className="space-y-4 pb-24">
                 {/* NEW HEADER DESIGN */}
                 <div className="bg-white p-4 rounded-b-3xl shadow-sm border-b border-slate-200 mb-2 flex items-center justify-between sticky top-0 z-40">

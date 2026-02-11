@@ -63,7 +63,6 @@ type AdminTab =
   | 'CONFIG_SECURITY' 
   | 'CONFIG_VISIBILITY' 
   | 'CONFIG_AI' 
-  | 'CONFIG_ADS' 
   | 'CONFIG_GAME'
   | 'CONFIG_PAYMENT'
   | 'CONFIG_EXTERNAL_APPS'
@@ -75,19 +74,14 @@ type AdminTab =
   | 'CONFIG_CHAT'
   | 'CONFIG_WATERMARK'
   | 'UNIVERSAL_PLAYLIST'
-  | 'UNIVERSAL_NOTES'
   | 'CONFIG_CHALLENGE'
   | 'CHALLENGE_CREATOR_20'
- feature-dashboard-redesign-cleanup-13635731507476622996
   | 'APP_MODES'
-  | 'EXPLORE_BANNERS'
 
 
- main
   | 'BLOGGER_HUB'
   | 'CONFIG_GATING'
   | 'WHATSAPP_CONNECT'
-  | 'EXPLORE_BANNERS'
   | 'FEATURE_CONTROL';
 
 interface ContentConfig {
@@ -286,12 +280,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           getChapterData('nst_universal_playlist').then(data => {
               if (data && data.videoPlaylist) setUniversalVideos(data.videoPlaylist);
               else setUniversalVideos([]);
-          });
-      }
-      if (activeTab === 'UNIVERSAL_NOTES') {
-          getChapterData('nst_universal_notes').then(data => {
-              if (data && data.notesPlaylist) setUniversalNotes(data.notesPlaylist);
-              else setUniversalNotes([]);
           });
       }
   }, [activeTab]);
@@ -2628,7 +2616,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   {(hasPermission('MANAGE_PLANS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Crown} label="Plans Manager" onClick={() => setActiveTab('SUBSCRIPTION_PLANS_EDITOR')} color="blue" />}
                   {(hasPermission('MANAGE_GIFT_CODES') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Gift} label="Gift Codes" onClick={() => setActiveTab('CODES')} color="pink" />}
                   {(hasPermission('MANAGE_SYLLABUS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Book} label="Subjects" onClick={() => setActiveTab('SUBJECTS_MGR')} color="emerald" />}
-                  <DashboardCard icon={FileText} label="Bulk / Rec. Notes" onClick={() => setActiveTab('UNIVERSAL_NOTES')} color="blue" />
                   {(hasPermission('VIEW_DEMANDS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Megaphone} label="Demands" onClick={() => setActiveTab('DEMAND')} color="orange" count={demands.length} />}
                   {(hasPermission('APPROVE_LOGIN_REQS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Key} label="Login Reqs" onClick={() => setActiveTab('ACCESS')} color="purple" count={recoveryRequests.filter(r => r.status === 'PENDING').length} />}
                   
@@ -2675,13 +2662,9 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                           <DashboardCard icon={Monitor} label="General" onClick={() => setActiveTab('CONFIG_GENERAL')} color="blue" />
                           <DashboardCard icon={ShieldCheck} label="Security" onClick={() => setActiveTab('CONFIG_SECURITY')} color="red" />
                           <DashboardCard icon={Eye} label="Visibility" onClick={() => setActiveTab('CONFIG_VISIBILITY')} color="cyan" />
-feature-dashboard-redesign-cleanup-13635731507476622996
                           <DashboardCard icon={Settings} label="App Modes" onClick={() => setActiveTab('APP_MODES')} color="green" />
                           {(hasPermission('MANAGE_SETTINGS') || currentUser?.role === 'ADMIN') && <DashboardCard icon={ListChecks} label="Feature Access" onClick={() => setActiveTab('FEATURE_TIERS')} color="violet" />}
-                      {(hasPermission('MANAGE_CONTENT') || currentUser?.role === 'ADMIN') && <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="pink" />}
-        main
                           {currentUser?.role === 'ADMIN' && <DashboardCard icon={PenTool} label="Blogger Hub" onClick={() => setActiveTab('BLOGGER_HUB')} color="orange" />}
-                          <DashboardCard icon={Sparkles} label="Ads Config" onClick={() => setActiveTab('CONFIG_ADS')} color="rose" />
                           <DashboardCard icon={Gamepad2} label="Game Config" onClick={() => setActiveTab('CONFIG_GAME')} color="orange" />
                           <DashboardCard icon={Banknote} label="Payment" onClick={() => setActiveTab('CONFIG_PAYMENT')} color="emerald" />
                           <DashboardCard icon={Globe} label="External Apps" onClick={() => setActiveTab('CONFIG_EXTERNAL_APPS')} color="indigo" />
@@ -2692,7 +2675,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
                           <DashboardCard icon={Rocket} label="Challenge 2.0" onClick={() => setActiveTab('CHALLENGE_CREATOR_20')} color="violet" />
                           <DashboardCard icon={Video} label="Universal Playlist" onClick={() => setActiveTab('UNIVERSAL_PLAYLIST')} color="rose" />
                           <DashboardCard icon={ShoppingBag} label="💰 Pricing" onClick={() => setActiveTab('PRICING_MGMT')} color="yellow" />
-                          <DashboardCard icon={Image} label="Explore Banners" onClick={() => setActiveTab('EXPLORE_BANNERS')} color="blue" />
                           <DashboardCard icon={Layout} label="Feature Control" onClick={() => setActiveTab('FEATURE_CONTROL')} color="purple" />
                       </>
                   )}
@@ -2706,197 +2688,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
               </div>
           </div>
       )}
-
-      {activeTab === 'UNIVERSAL_NOTES' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-blue-800">Universal Recommended Notes</h3>
-              </div>
-
-              <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">
-                  <div className="flex items-center gap-2 mb-4">
-                      <FileText size={24} className="text-blue-600" />
-                      <h4 className="font-bold text-blue-900">Manage Recommended Notes</h4>
-                  </div>
-                  <p className="text-xs text-blue-700 mb-6 bg-white p-3 rounded-lg border border-blue-100">
-                      Add structured recommendations linked to specific lessons. These appear in the "Smart Recommendations" modal based on topic matching.
-                  </p>
-
-                  <SubjectSelector />
-
-                  <div className="space-y-4 mb-6">
-                      {!editingChapterId ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto pr-2">
-                              {selChapters.length === 0 && <p className="col-span-full text-center text-slate-400 text-sm py-8">Select a subject to view lessons.</p>}
-                              {selChapters.map((ch) => {
-                                  const chapterNotes = universalNotes.filter(n => n.chapterId === ch.id);
-
-                                  return (
-                                      <div key={ch.id} className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex flex-col gap-2">
-                                          <div className="flex justify-between items-center">
-                                              <h5 className="font-bold text-slate-800 text-xs truncate w-3/4" title={ch.title}>{ch.title}</h5>
-                                              <span className="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 font-bold">{chapterNotes.length}</span>
-                                          </div>
-                                          <button
-                                              onClick={() => setEditingChapterId(ch.id)}
-                                              className="mt-2 w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-blue-700 flex items-center justify-center gap-2"
-                                          >
-                                              <Edit3 size={14} /> Manage Notes
-                                          </button>
-                                      </div>
-                                  );
-                              })}
-                          </div>
-                      ) : (
-                          <div className="bg-white p-4 rounded-xl border border-blue-200">
-                              <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                                  <div>
-                                      <h4 className="font-black text-slate-800 text-lg">{selChapters.find(c => c.id === editingChapterId)?.title}</h4>
-                                      <p className="text-xs text-slate-500">Managing Recommended Notes</p>
-                                  </div>
-                                  <button onClick={() => setEditingChapterId(null)} className="text-xs font-bold text-slate-400 hover:text-slate-600">Close Editor</button>
-                              </div>
-
-                              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
-                                  {universalNotes.filter(n => n.chapterId === editingChapterId).map((note, idx) => (
-                                      <div key={note.id || idx} className="flex flex-col gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                          <div className="flex gap-2 items-center">
-                                              <span className="w-6 text-center text-xs font-bold text-slate-400">{idx + 1}</span>
-
-                                              {/* TYPE BADGE */}
-                                              <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${note.type === 'HTML' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'}`}>
-                                                  {note.type || 'PDF'}
-                                              </span>
-
-                                              <input
-                                                  type="text"
-                                                  value={note.title}
-                                                  onChange={(e) => {
-                                                      const updated = universalNotes.map(n => n === note ? { ...n, title: e.target.value, topic: e.target.value } : n);
-                                                      setUniversalNotes(updated);
-                                                  }}
-                                                  placeholder="Topic Name (e.g. Ohm's Law)"
-                                                  className="flex-1 p-2 border border-slate-200 rounded text-xs font-bold"
-                                              />
-                                              {/* Access is implied by Type now, but we keep it for backward compat/flexibility */}
-                                              <span className={`px-2 py-1 text-[9px] font-bold border rounded ${note.access === 'FREE' ? 'border-green-200 text-green-600 bg-green-50' : 'border-purple-200 text-purple-600 bg-purple-50'}`}>
-                                                  {note.access}
-                                              </span>
-                                              <button
-                                                  onClick={() => {
-                                                      const updated = universalNotes.filter(n => n !== note);
-                                                      setUniversalNotes(updated);
-                                                  }}
-                                                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                              >
-                                                  <Trash2 size={16} />
-                                              </button>
-                                          </div>
-
-                                          {note.type === 'HTML' ? (
-                                               <textarea
-                                                  value={note.content || ''}
-                                                  onChange={(e) => {
-                                                      const updated = universalNotes.map(n => n === note ? { ...n, content: e.target.value } : n);
-                                                      setUniversalNotes(updated);
-                                                  }}
-                                                  placeholder="Enter HTML Notes Content..."
-                                                  className="w-full p-2 border border-slate-200 rounded text-xs font-mono text-slate-600 bg-white ml-8 h-20"
-                                              />
-                                          ) : (
-                                              <input
-                                                  type="text"
-                                                  value={note.url}
-                                                  onChange={(e) => {
-                                                      const updated = universalNotes.map(n => n === note ? { ...n, url: e.target.value } : n);
-                                                      setUniversalNotes(updated);
-                                                  }}
-                                                  placeholder="PDF URL"
-                                                  className="w-full p-2 border border-slate-200 rounded text-xs font-mono text-blue-600 bg-white ml-8"
-                                              />
-                                          )}
-                                      </div>
-                                  ))}
-                              </div>
-
-                              <div className="mt-4 grid grid-cols-2 gap-3">
-                                  <button
-                                      onClick={() => {
-                                          const ch = selChapters.find(c => c.id === editingChapterId);
-                                      if (ch) {
-                                          const newNote = {
-                                              id: `rec-${Date.now()}`,
-                                              title: '',
-                                              type: 'HTML',
-                                              content: '',
-                                              access: 'FREE',
-                                              price: 0,
-                                              chapterId: ch.id,
-                                              subjectName: selSubject?.name,
-                                              topic: '',
-                                              board: selBoard,
-                                              classLevel: selClass
-                                          };
-                                          setUniversalNotes([...universalNotes, newNote]);
-                                      }
-                                  }}
-                                  className="py-3 bg-orange-50 text-orange-600 rounded-xl text-xs font-bold border border-orange-100 hover:bg-orange-100 flex items-center justify-center gap-2 border-dashed"
-                              >
-                                  <FileText size={16} /> Add Free Note (HTML)
-                              </button>
-
-                              <button
-                                  onClick={() => {
-                                      const ch = selChapters.find(c => c.id === editingChapterId);
-                                      if (ch) {
-                                          const newNote = {
-                                              id: `rec-${Date.now()}`,
-                                              title: '',
-                                              type: 'PDF',
-                                              url: '',
-                                              access: 'ULTRA', // Premium Default
-                                              price: 0,
-                                              chapterId: ch.id,
-                                              subjectName: selSubject?.name,
-                                              topic: '',
-                                              board: selBoard,
-                                              classLevel: selClass
-                                          };
-                                          setUniversalNotes([...universalNotes, newNote]);
-                                      }
-                                  }}
-                                  className="py-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100 hover:bg-red-100 flex items-center justify-center gap-2 border-dashed"
-                              >
-                                  <FileText size={16} /> Add Premium Note (PDF)
-                              </button>
-                              </div>
-                          </div>
-                      )}
-                  </div>
-
-                  <div className="flex gap-2 border-t border-blue-200 pt-4">
-                      <button
-                          onClick={() => {
-                              // Manual Add (Legacy / Global)
-                              const title = prompt("Note Title");
-                              if(!title) return;
-                              const url = prompt("PDF URL");
-                              if(!url) return;
-                              setUniversalNotes([...universalNotes, { title, url, access: 'FREE' }]);
-                          }}
-                          className="flex-1 py-3 bg-white border border-blue-200 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition dashed"
-                      >
-                          + Add Unlinked Note
-                      </button>
-                      <button onClick={saveUniversalNotes} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl shadow hover:bg-blue-700 transition">
-                          💾 Save All Changes
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
 
       {/* --- FEATURED CONTENT SHORTCUTS --- */}
       {activeTab === 'FEATURED_CONTENT' && (
@@ -3472,48 +3263,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
                       </div>
                   </div>
 
-                  {/* APP VERSION CONTROL */}
-                  <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-                      <h4 className="font-bold text-red-900 text-lg mb-2 flex items-center gap-2">
-                          <Rocket size={20} /> App Version Control
-                      </h4>
-                      <p className="text-xs text-red-700 mb-4">
-                          Managing this incorrectly can lock users out of the app. Ensure users update within 7 days of a new version launch.
-                      </p>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                              <label className="text-xs font-bold text-red-800 uppercase block mb-1">Latest Version</label>
-                              <input 
-                                  type="text" 
-                                  value={localSettings.latestVersion || '1.0.0'} 
-                                  onChange={(e) => setLocalSettings({...localSettings, latestVersion: e.target.value})}
-                                  className="w-full p-3 border border-red-200 rounded-xl font-mono font-bold text-red-900"
-                                  placeholder="e.g. 1.0.5"
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-red-800 uppercase block mb-1">Launch Date</label>
-                              <input 
-                                  type="datetime-local" 
-                                  value={localSettings.launchDate || ''} 
-                                  onChange={(e) => setLocalSettings({...localSettings, launchDate: e.target.value})}
-                                  className="w-full p-3 border border-red-200 rounded-xl font-bold text-red-900"
-                              />
-                          </div>
-                      </div>
-                      
-                      <div className="mt-4">
-                          <label className="text-xs font-bold text-red-800 uppercase block mb-1">Update URL</label>
-                          <input 
-                              type="text" 
-                              value={localSettings.updateUrl || ''} 
-                              onChange={(e) => setLocalSettings({...localSettings, updateUrl: e.target.value})}
-                              className="w-full p-3 border border-red-200 rounded-xl text-red-900"
-                              placeholder="https://play.google.com/store/apps/details?id=..."
-                          />
-                      </div>
-                  </div>
               </div>
 
               {/* NEW BANNER CONFIG SECTION */}
@@ -5582,44 +5331,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           </div>
                       </div>
 
-                      {/* VERSION CONTROL */}
-                          <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
-                              <label className="text-xs font-bold uppercase text-orange-800 mb-2 block">App Version Control (Timer Launch)</label>
-                              <div className="space-y-3">
-                                  <div>
-                                      <label className="text-[10px] font-bold uppercase text-slate-500">Latest Version (e.g. 1.0.1)</label>
-                                      <input 
-                                          type="text" 
-                                          value={localSettings.latestVersion || ''} 
-                                          onChange={e => setLocalSettings({...localSettings, latestVersion: e.target.value})} 
-                                          className="w-full p-2 border rounded-lg text-sm font-bold font-mono"
-                                          placeholder="1.0.1" 
-                                      />
-                                  </div>
-                                  <div>
-                                      <label className="text-[10px] font-bold uppercase text-slate-500">Update Link (APK/PlayStore)</label>
-                                      <input 
-                                          type="text" 
-                                          value={localSettings.updateUrl || ''} 
-                                          onChange={e => setLocalSettings({...localSettings, updateUrl: e.target.value})} 
-                                          className="w-full p-2 border rounded-lg text-sm text-blue-600"
-                                          placeholder="https://..." 
-                                      />
-                                  </div>
-                                  <div>
-                                      <label className="text-[10px] font-bold uppercase text-slate-500">Launch Date & Time (Timer Target)</label>
-                                      <input 
-                                          type="datetime-local" 
-                                          value={localSettings.launchDate || ''} 
-                                          onChange={e => setLocalSettings({...localSettings, launchDate: e.target.value})} 
-                                          className="w-full p-2 border rounded-lg text-sm font-bold"
-                                      />
-                                      <p className="text-[9px] text-orange-600 mt-1">
-                                          When this time is reached, the update popup will appear. 7 days later, old app locks.
-                                      </p>
-                                  </div>
-                              </div>
-                          </div>
                           
                           {/* CHAT MODE SELECTOR */}
                           <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
@@ -6472,21 +6183,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                   )}
 
                   {activeTab === 'CONFIG_WATERMARK' && renderWatermarkConfig()}
-                  {activeTab === 'CONFIG_ADS' && (
-                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                           <div className="flex items-center justify-between mb-4">
-                               <span className="font-bold">Startup Popup Ad</span>
-                               <input type="checkbox" checked={localSettings.startupAd?.enabled} onChange={() => setLocalSettings({...localSettings, startupAd: {...localSettings.startupAd!, enabled: !localSettings.startupAd?.enabled}})} className="w-5 h-5 accent-blue-600" />
-                           </div>
-                           <input type="text" value={localSettings.startupAd?.title} onChange={e => setLocalSettings({...localSettings, startupAd: {...localSettings.startupAd!, title: e.target.value}})} className="w-full p-2 border rounded mb-2" placeholder="Ad Title" />
-                           <div className="grid grid-cols-2 gap-2">
-                               <input type="color" value={localSettings.startupAd?.bgColor} onChange={e => setLocalSettings({...localSettings, startupAd: {...localSettings.startupAd!, bgColor: e.target.value}})} className="w-full h-10 p-1 border rounded" />
-                               <input type="color" value={localSettings.startupAd?.textColor} onChange={e => setLocalSettings({...localSettings, startupAd: {...localSettings.startupAd!, textColor: e.target.value}})} className="w-full h-10 p-1 border rounded" />
-                           </div>
-                       </div>
-                  )}
-                  {activeTab === 'CONFIG_GAME' && (
-                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
                            <h4 className="font-bold text-slate-800 flex items-center gap-2"><Gamepad2 size={18} /> Spin Wheel Configuration</h4>
                            
                            <div>
@@ -7072,7 +6768,6 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
           <ChallengeCreator20 onBack={() => setActiveTab('DASHBOARD')} language={localSettings.aiModel?.includes('Hindi') ? 'Hindi' : 'English'} />
       )}
 
-feature-dashboard-redesign-cleanup-13635731507476622996
       {activeTab === 'CONFIG_CHALLENGE' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right space-y-6">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -7081,242 +6776,14 @@ feature-dashboard-redesign-cleanup-13635731507476622996
               </div>
 
       {/* --- EXPLORE BANNERS --- */}
-      {activeTab === 'EXPLORE_BANNERS' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Explore Page Banners</h3>
-              </div>
 
-              {/* BUILT-IN BANNERS TOGGLE */}
-              <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-200 mb-8">
-                  <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2 text-lg">
-                      <Settings size={20} /> Built-in Section Visibility
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                          <div>
-                              <p className="font-bold text-slate-800 text-sm">Morning Insight</p>
-                              <p className="text-[10px] text-slate-500">Daily Wisdom at Top</p>
-                          </div>
-                          <input
-                              type="checkbox"
-                              checked={localSettings.showMorningInsight !== false}
-                              onChange={() => toggleSetting('showMorningInsight')}
-                              className="w-5 h-5 accent-indigo-600"
-                          />
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                          <div>
-                              <p className="font-bold text-slate-800 text-sm">Active Challenges</p>
-                              <p className="text-[10px] text-slate-500">Live Quizzes Banner</p>
-                          </div>
-                          <input
-                              type="checkbox"
-                              checked={localSettings.showChallengesBanner !== false}
-                              onChange={() => toggleSetting('showChallengesBanner')}
-                              className="w-5 h-5 accent-indigo-600"
-                          />
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                          <div>
-                              <p className="font-bold text-slate-800 text-sm">AI Promo Banner</p>
-                              <p className="text-[10px] text-slate-500">"Ask Your Doubts" Link</p>
-                          </div>
-                          <input
-                              type="checkbox"
-                              checked={localSettings.showAiPromo !== false}
-                              onChange={() => toggleSetting('showAiPromo')}
-                              className="w-5 h-5 accent-indigo-600"
-                          />
-                      </div>
-                  </div>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
-                      <p className="text-sm text-blue-800 font-bold">
-                          Create custom banners for the Explore page. These can link to internal tabs (e.g., STORE, GAME) or external URLs.
-                      </p>
-                  </div>
-
-                  <button
-                      onClick={() => {
-                          const newBanner: any = {
-                              id: `banner-${Date.now()}`,
-                              title: 'New Banner',
-                              subtitle: 'Awesome Subtitle',
-                              backgroundStyle: 'bg-gradient-to-r from-blue-500 to-indigo-600',
-                              actionLabel: 'Click Me',
-                              actionUrl: 'STORE',
-                              targetAudience: 'ALL',
-                              enabled: true,
-                              priority: (localSettings.exploreBanners?.length || 0) + 1
-                          };
-                          const updated = [...(localSettings.exploreBanners || []), newBanner];
-                          setLocalSettings({ ...localSettings, exploreBanners: updated });
-                      }}
-                      className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
-                  >
-                      <Plus size={18} /> Add New Banner
-                  </button>
-
-                  <div className="grid gap-4">
-                      {(localSettings.exploreBanners || []).sort((a,b) => a.priority - b.priority).map((banner, idx) => (
-                          <div key={banner.id} className="border rounded-xl p-4 bg-slate-50 relative group">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Title</label>
-                                      <input
-                                          type="text"
-                                          value={banner.title}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].title = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          className="w-full p-2 border rounded-lg font-bold"
-                                      / main
-
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Subtitle</label>
-                                      <input
-                                          type="text"
-                                          value={banner.subtitle || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].subtitle = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          className="w-full p-2 border rounded-lg text-sm"
-                                      />
-
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Background Style (Tailwind CSS)</label>
-                                      <input
-                                          type="text"
-                                          value={banner.backgroundStyle || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].backgroundStyle = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          placeholder="e.g. bg-gradient-to-r from-red-500 to-orange-500"
-                                          className="w-full p-2 border rounded-lg text-xs font-mono text-blue-600"
-                                      />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Action Type/URL</label>
-                                      <input
-                                          type="text"
-                                          value={banner.actionUrl || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].actionUrl = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          placeholder="Tab ID (STORE) or https://..."
-                                          className="w-full p-2 border rounded-lg text-sm"
-                                      />
-
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Button Label</label>
-                                      <input
-                                          type="text"
-                                          value={banner.actionLabel || ''}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].actionLabel = e.target.value;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                          className="w-full p-2 border rounded-lg text-sm"
-                                      />
-
-                                      <div className="flex gap-2">
-                                          <div className="flex-1">
-                                              <label className="text-xs font-bold text-slate-500 uppercase">Target Audience</label>
-                                              <select
-                                                  value={banner.targetAudience || 'ALL'}
-                                                  onChange={(e) => {
-                                                      const updated = [...(localSettings.exploreBanners || [])];
-                                                      updated[idx].targetAudience = e.target.value as any;
-                                                      setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                                  }}
-                                                  className="w-full p-2 border rounded-lg text-sm"
-                                              >
-                                                  <option value="ALL">All Users</option>
-                                                  <option value="FREE">Free Only</option>
-                                                  <option value="PREMIUM">Premium Only</option>
-                                              </select>
-                                          </div>
-                                          <div className="flex-1">
-                                              <label className="text-xs font-bold text-slate-500 uppercase">Priority</label>
-                                              <input
-                                                  type="number"
-                                                  value={banner.priority}
-                                                  onChange={(e) => {
-                                                      const updated = [...(localSettings.exploreBanners || [])];
-                                                      updated[idx].priority = parseInt(e.target.value);
-                                                      setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                                  }}
-                                                  className="w-full p-2 border rounded-lg text-sm"
-                                              />
-                                          </div>
-                                      </div>
-                                  </div>
-                              </div>
-
-                              <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                      <input
-                                          type="checkbox"
-                                          checked={banner.enabled}
-                                          onChange={(e) => {
-                                              const updated = [...(localSettings.exploreBanners || [])];
-                                              updated[idx].enabled = e.target.checked;
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }}
-                                      />
-                                      Active
-                                  </label>
-                                  <button
-                                      onClick={() => {
-                                          if(confirm("Delete this banner?")) {
-                                              const updated = (localSettings.exploreBanners || []).filter((_, i) => i !== idx);
-                                              setLocalSettings({ ...localSettings, exploreBanners: updated });
-                                          }
-                                      }}
-                                      className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
-                                  >
-                                      <Trash2 size={16} /> Delete
-                                  </button>
-                              </div>
-
-                              {/* Preview */}
-                              <div className={`mt-4 h-32 rounded-xl p-4 flex flex-col justify-center text-white ${banner.backgroundStyle || 'bg-slate-500'}`}>
-                                  <h3 className="text-xl font-black">{banner.title}</h3>
-                                  <p className="text-sm opacity-90">{banner.subtitle}</p>
-                                  {banner.actionLabel && <span className="mt-2 inline-block bg-white/20 px-3 py-1 rounded text-xs font-bold w-fit backdrop-blur-sm">{banner.actionLabel}</span>}
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-              <div className="flex justify-end">
-                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                      <Save size={20} /> Save Changes
-                  </button>
-              </div>
-          </div>
-      )}
-
- feature-dashboard-redesign-cleanup-13635731507476622996
       {/* --- AI STUDIO TAB --- */}
       {activeTab === 'DEPLOY' && 
       {/* --- FEATURE CONTROL & COSTS --- */}
-      {activeTab === 'FEATURE_CONTROL' &&  main
+      {activeTab === 'FEATURE_CONTROL' &&
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6">
                   <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
- feature-dashboard-redesign-cleanup-13635731507476622996
                   <h3 className="text-xl font-black text-slate-800">Deployment & Blueprint</h3>
               </div>
 
@@ -7664,7 +7131,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
                           </div>
                           <h4 className="text-xl font-black text-green-900 mb-2">Configure App Update</h4>
                           <p className="text-xs text-green-700 mb-4">Manage Force Updates and version notifications.</p>
-                      </divmain
 
                       <div className="space-y-3">
                           <div>
@@ -8925,162 +8391,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
           </div>
       )}
 
-      {activeTab === 'UNIVERSAL_NOTES' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              {/* Header */}
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Universal Recommended Notes</h3>
-              </div>
-
-              {/* Add New Note Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                  {/* FREE NOTES (HTML) */}
-                  <div className="bg-orange-50 p-6 rounded-xl border border-orange-200">
-                      <h4 className="font-bold text-orange-900 mb-4 flex items-center gap-2">
-                          <FileText size={20} /> Add Free Note (HTML)
-                      </h4>
-                      <div className="space-y-3">
-                          <input
-                              type="text"
-                              id="free-note-title"
-                              placeholder="Note Title"
-                              className="w-full p-2 border border-slate-200 rounded text-sm font-bold"
-                          />
-                          <input
-                              type="text"
-                              id="free-note-topic"
-                              placeholder="Topic (e.g. Algebra)"
-                              className="w-full p-2 border border-slate-200 rounded text-sm"
-                          />
-                          <textarea
-                              id="free-note-content"
-                              placeholder="HTML Content (e.g. <h1>Summary</h1><p>...</p>)"
-                              className="w-full h-32 p-2 border border-slate-200 rounded text-sm font-mono"
-                          />
-                          <button
-                              onClick={() => {
-                                  const title = (document.getElementById('free-note-title') as HTMLInputElement).value;
-                                  const topic = (document.getElementById('free-note-topic') as HTMLInputElement).value;
-                                  const content = (document.getElementById('free-note-content') as HTMLTextAreaElement).value;
-                                  if(!title || !content) return alert("Title and Content required!");
-
-                                  const newNote = {
-                                      id: Date.now(),
-                                      title,
-                                      topic,
-                                      type: 'HTML',
-                                      content,
-                                      access: 'FREE'
-                                  };
-                                  setUniversalNotes([...universalNotes, newNote]);
-                                  // Clear inputs
-                                  (document.getElementById('free-note-title') as HTMLInputElement).value = '';
-                                  (document.getElementById('free-note-content') as HTMLTextAreaElement).value = '';
-                              }}
-                              className="w-full py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700"
-                          >
-                              Add Free Note
-                          </button>
-                      </div>
-                  </div>
-
-                  {/* PREMIUM NOTES (PDF) */}
-                  <div className="bg-red-50 p-6 rounded-xl border border-red-200">
-                      <h4 className="font-bold text-red-900 mb-4 flex items-center gap-2">
-                          <Link size={20} /> Add Premium Note (PDF)
-                      </h4>
-                      <div className="space-y-3">
-                          <input
-                              type="text"
-                              id="prem-note-title"
-                              placeholder="Note Title"
-                              className="w-full p-2 border border-slate-200 rounded text-sm font-bold"
-                          />
-                          <input
-                              type="text"
-                              id="prem-note-topic"
-                              placeholder="Topic (e.g. Geometry)"
-                              className="w-full p-2 border border-slate-200 rounded text-sm"
-                          />
-                          <input
-                              type="text"
-                              id="prem-note-url"
-                              placeholder="PDF URL (e.g. https://...)"
-                              className="w-full p-2 border border-slate-200 rounded text-sm text-blue-600"
-                          />
-                          <button
-                              onClick={() => {
-                                  const title = (document.getElementById('prem-note-title') as HTMLInputElement).value;
-                                  const topic = (document.getElementById('prem-note-topic') as HTMLInputElement).value;
-                                  const url = (document.getElementById('prem-note-url') as HTMLInputElement).value;
-                                  if(!title || !url) return alert("Title and URL required!");
-
-                                  const newNote = {
-                                      id: Date.now(),
-                                      title,
-                                      topic,
-                                      type: 'PDF',
-                                      url,
-                                      access: 'PREMIUM'
-                                  };
-                                  setUniversalNotes([...universalNotes, newNote]);
-                                  (document.getElementById('prem-note-title') as HTMLInputElement).value = '';
-                                  (document.getElementById('prem-note-url') as HTMLInputElement).value = '';
-                              }}
-                              className="w-full py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700"
-                          >
-                              Add Premium Note
-                          </button>
-                      </div>
-                  </div>
-              </div>
-
-              {/* List of Notes */}
-              <div className="space-y-4">
-                  <h4 className="font-bold text-slate-800 text-lg border-b pb-2">Manage Current Notes ({universalNotes.length})</h4>
-                  {universalNotes.length === 0 && <p className="text-slate-400 italic">No notes added yet.</p>}
-
-                  {universalNotes.map((note, idx) => (
-                      <div key={idx} className={`p-4 rounded-xl border flex justify-between items-center ${note.type === 'HTML' ? 'bg-orange-50 border-orange-100' : 'bg-red-50 border-red-100'}`}>
-                          <div>
-                              <p className="font-bold text-slate-800">{note.title}</p>
-                              <div className="flex gap-2 mt-1">
-                                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-white border">{note.topic || 'General'}</span>
-                                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded text-white ${note.type === 'HTML' ? 'bg-orange-500' : 'bg-red-500'}`}>
-                                      {note.type} • {note.access}
-                                  </span>
-                              </div>
-                              {note.type === 'PDF' && <a href={note.url} target="_blank" className="text-xs text-blue-600 hover:underline mt-1 block truncate max-w-md">{note.url}</a>}
-                              {note.type === 'HTML' && <p className="text-xs text-slate-500 mt-1 truncate max-w-md">{note.content.substring(0, 50)}...</p>}
-                          </div>
-                          <button
-                              onClick={() => {
-                                  const updated = universalNotes.filter((_, i) => i !== idx);
-                                  setUniversalNotes(updated);
-                              }}
-                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg"
-                          >
-                              <Trash2 size={18} />
-                          </button>
-                      </div>
-                  ))}
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                  <button
-                      onClick={saveUniversalNotes}
-                      className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 flex items-center gap-2"
-                  >
-                      <Save size={20} /> Save All Notes
-                  </button>
-              </div>
-          </div>
-      )}
-
-
-      {activeTab === 'PRICING_MGMT' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-bottom-4">
               <div className="flex items-center gap-4 mb-6"><button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button><h3 className="text-xl font-black text-slate-800">💰 Pricing Management</h3></div>
               
               {/* SUBSCRIPTION PLANS */}
@@ -9427,7 +8737,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
           </div>
       )}
 
- feature-dashboard-redesign-cleanup-13635731507476622996
 
 
       {activeTab === 'CONFIG_AI' && (
@@ -9508,7 +8817,6 @@ feature-dashboard-redesign-cleanup-13635731507476622996
               </div>
           </div>
       )}
-main
       {activeTab === 'BLOGGER_HUB' && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
@@ -9776,101 +9084,4 @@ main
       )}
 
       {/* --- EXPLORE BANNERS MANAGER --- */}
-      {activeTab === 'EXPLORE_BANNERS' && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-              <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black text-slate-800">Explore Page Banners</h3>
-              </div>
-
-              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-8">
-                  <h4 className="font-bold text-slate-800 mb-4">Add New Banner</h4>
-                  <div className="flex gap-4">
-                      <input
-                          type="text"
-                          id="new-banner-img"
-                          placeholder="Image URL"
-                          className="flex-1 p-3 rounded-xl border border-slate-200"
-                      />
-                      <input
-                          type="text"
-                          id="new-banner-link"
-                          placeholder="Action Link (Optional)"
-                          className="flex-1 p-3 rounded-xl border border-slate-200"
-                      />
-                      <button
-                          onClick={() => {
-                              const img = (document.getElementById('new-banner-img') as HTMLInputElement).value;
-                              const link = (document.getElementById('new-banner-link') as HTMLInputElement).value;
-                              if (!img) return alert("Image URL is required");
-
-                              const newBanner = {
-                                  id: Date.now().toString(),
-                                  imageUrl: img,
-                                  actionUrl: link,
-                                  isActive: true
-                              };
-
-                              setLocalSettings({
-                                  ...localSettings,
-                                  exploreBanners: [...(localSettings.exploreBanners || []), newBanner]
-                              });
-
-                              (document.getElementById('new-banner-img') as HTMLInputElement).value = '';
-                              (document.getElementById('new-banner-link') as HTMLInputElement).value = '';
-                          }}
-                          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700"
-                      >
-                          Add Banner
-                      </button>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(localSettings.exploreBanners || []).map((banner, idx) => (
-                      <div key={banner.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm relative group">
-                          <img src={banner.imageUrl} alt="Banner" className="w-full h-32 object-cover" />
-                          <div className="p-3 flex items-center justify-between bg-white">
-                              <span className={`text-xs font-bold px-2 py-1 rounded ${banner.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                  {banner.isActive ? 'ACTIVE' : 'HIDDEN'}
-                              </span>
-                              <div className="flex gap-2">
-                                  <button
-                                      onClick={() => {
-                                          const updated = [...(localSettings.exploreBanners || [])];
-                                          updated[idx].isActive = !updated[idx].isActive;
-                                          setLocalSettings({...localSettings, exploreBanners: updated});
-                                      }}
-                                      className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"
-                                      title={banner.isActive ? "Hide" : "Show"}
-                                  >
-                                      {banner.isActive ? <EyeOff size={16} /> : <Eye size={16} />}
-                                  </button>
-                                  <button
-                                      onClick={() => {
-                                          if(!confirm("Delete this banner?")) return;
-                                          const updated = localSettings.exploreBanners!.filter((_, i) => i !== idx);
-                                          setLocalSettings({...localSettings, exploreBanners: updated});
-                                      }}
-                                      className="p-2 bg-red-50 rounded-lg hover:bg-red-100 text-red-600"
-                                      title="Delete"
-                                  >
-                                      <Trash2 size={16} />
-                                  </button>
-                              </div>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                  <button onClick={handleSaveSettings} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 flex items-center gap-2">
-                      <Save size={20} /> Save All Changes
-                  </button>
-              </div>
-          </div>
-      )}
-
-    </div>
-  );
 };
