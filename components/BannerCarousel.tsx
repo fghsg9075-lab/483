@@ -19,6 +19,12 @@ export const BannerCarousel: React.FC<Props> = ({ children, autoPlay = false, in
         setCurrentIndex((prev) => (prev - 1 + children.length) % children.length);
     };
 
+    React.useEffect(() => {
+        if (!autoPlay) return;
+        const timer = setInterval(nextSlide, interval);
+        return () => clearInterval(timer);
+    }, [autoPlay, interval, children.length]);
+
     if (!children || children.length === 0) return null;
 
     return (
@@ -34,23 +40,6 @@ export const BannerCarousel: React.FC<Props> = ({ children, autoPlay = false, in
                 ))}
             </div>
 
-            {/* Navigation Buttons */}
-            {children.length > 1 && (
-                <>
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); prevSlide(); }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-all z-10"
-                    >
-                        <ChevronLeft size={20} />
-                    </button>
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); nextSlide(); }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-sm transition-all z-10"
-                    >
-                        <ChevronRight size={20} />
-                    </button>
-                </>
-            )}
 
             {/* Dots */}
             {children.length > 1 && (

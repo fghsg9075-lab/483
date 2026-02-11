@@ -153,7 +153,7 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                     <h2 className="text-xl font-black text-slate-800">Discover</h2>
                 </div>
 
-                <BannerCarousel className="shadow-xl mx-4 rounded-3xl overflow-hidden min-h-[192px]">
+                <BannerCarousel autoPlay={true} className="shadow-xl mx-4 rounded-3xl overflow-hidden min-h-[192px]">
 
                     {/* 1. MORNING INSIGHT */}
                     {morningBanner && settings?.showMorningInsight !== false && (
@@ -322,6 +322,14 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                             </button>
                         </div>
                     </div>
+
+                    <button
+                        onClick={onOpenAiChat}
+                        className="w-full mt-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                    >
+                        <Rocket size={18} className="text-yellow-300" />
+                        Take AI Tour
+                    </button>
                 </section>
             )}
         </div>
