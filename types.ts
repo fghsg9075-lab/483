@@ -266,6 +266,39 @@ export interface BannerSettings {
     textColor?: string;
 }
 
+export interface ExploreBanner {
+    id: string;
+    title: string;
+    subtitle?: string;
+    imageUrl?: string;
+    backgroundStyle?: string; // CSS background property (gradient or color)
+    actionUrl?: string; // Internal tab ID or External URL
+    actionLabel?: string;
+    targetAudience?: 'ALL' | 'FREE' | 'PREMIUM';
+    enabled: boolean;
+    priority: number;
+}
+
+export interface FeatureAccessConfig {
+    featureId: string;
+    label: string;
+    allowedTiers: ('FREE' | 'BASIC' | 'ULTRA')[];
+}
+
+export interface FeatureCostConfig {
+    featureId: string;
+    freeCost: number;
+    basicCost: number;
+    ultraCost: number;
+}
+
+export interface LoginBonusConfig {
+    freeBonus: number;
+    basicBonus: number;
+    ultraBonus: number;
+    strictStreak: boolean; // If true, breaking streak forfeits next day bonus or resets heavily
+}
+
 export interface SystemSettings {
   appName: string; // Long Name
   mcqTestLimitFree?: number;
@@ -360,6 +393,16 @@ export interface SystemSettings {
       MCQ?: boolean;
       AUDIO?: boolean;
   };
+  // EXPLORE PAGE CONFIG
+  showMorningInsight?: boolean; // NEW: Toggle Morning Banner
+  showAiPromo?: boolean; // NEW: Toggle AI Banner
+  showChallengesBanner?: boolean; // NEW: Toggle Live Challenges
+  exploreBanners?: ExploreBanner[]; // NEW: Dynamic Explore Banners
+  featureAccess?: FeatureAccessConfig[]; // NEW: Granular Feature Control
+  featureCosts?: FeatureCostConfig[]; // NEW: Granular Cost Control
+  featureBadges?: Record<string, 'NEW' | 'UPGRADE' | 'NORMAL'>; // NEW: Feature Badging
+  hiddenFeatures?: string[]; // NEW: Explicit Hidden Features List
+  loginBonusConfig?: LoginBonusConfig; // NEW: Login Bonus Settings
   storageCapacity?: string;
   isPaymentEnabled?: boolean;
   upiId?: string;
@@ -874,7 +917,7 @@ export interface StudentTestAttempt {
   answers: Record<number, number>; // question index -> selected answer index
 }
 
-export type StudentTab = 'HOME' | 'COURSES' | 'ROUTINE' | 'HISTORY' | 'REDEEM' | 'PREMIUM' | 'GAME' | 'WEEKLY_TEST' | 'PROFILE' | 'LEADERBOARD' | 'STORE' | 'VIDEO' | 'PDF' | 'MCQ' | 'ANALYTICS' | 'PRIZES' | 'REWARDS' | 'UPDATES' | 'SUB_HISTORY' | 'AUDIO' | 'AI_HISTORY' | 'DEEP_ANALYSIS' | 'CUSTOM_PAGE' | 'AI_CHAT';
+export type StudentTab = 'HOME' | 'EXPLORE' | 'COURSES' | 'ROUTINE' | 'HISTORY' | 'REDEEM' | 'PREMIUM' | 'GAME' | 'WEEKLY_TEST' | 'PROFILE' | 'LEADERBOARD' | 'STORE' | 'VIDEO' | 'PDF' | 'MCQ' | 'ANALYTICS' | 'PRIZES' | 'REWARDS' | 'UPDATES' | 'SUB_HISTORY' | 'AUDIO' | 'AI_HISTORY' | 'DEEP_ANALYSIS' | 'CUSTOM_PAGE' | 'AI_CHAT';
 
 export type Language = 'English' | 'Hindi';
 
